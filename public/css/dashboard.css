@@ -1,0 +1,11 @@
+.stat-card-custom {
+    background: #f9f9f9;
+    border-radius: 10px;
+    transition: 0.2s ease-in-out;
+}
+
+.stat-card-custom:hover {
+    background: #f1f1f1;
+    transform: translateY(-3px);
+    box-shadow: 0 4px 10px rgba(232, 5, 5, 0.274);
+}
