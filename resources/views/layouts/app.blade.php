@@ -59,7 +59,7 @@
         // Web guard users: admin, manager, receptionist
         if(auth()->check()) {
             $role = auth()->user()->roles->first()->name ?? null;
-        } 
+        }
         // Doctor guard
         elseif(auth('doctor')->check()) {
             $role = 'doctor';
@@ -98,24 +98,73 @@
     {{-- Common JS scripts --}}
     @include('layouts.common-scripts')
 
-    {{-- Initialize MetisMenu & SimpleBar --}}
+    {{-- Initialize MetisMenu & SimpleBar, then mark the active sidebar link --}}
     <script>
-        document.addEventListener("DOMContentLoaded", function() {
+        document.addEventListener("DOMContentLoaded", function () {
             var role = "{{ $role ?? 'guest' }}";
-            var sidebarId = role + "-sidenav";
-            var element = document.getElementById(sidebarId);
 
-            // Initialize MetisMenu
-            if (element) {
-                if (window.metisMenuInstance) {
-                    window.metisMenuInstance.dispose();
-                }
+            // Locate the sidebar <ul> — try role-namespaced ID, then plain "sidenav",
+            // then any .metismenu element as a final fallback.
+            var element = document.getElementById(role + '-sidenav')
+                       || document.getElementById('sidenav')
+                       || document.querySelector('ul.metismenu');
+
+            // ── 1. Initialize MetisMenu ──
+            if (element && typeof MetisMenu !== 'undefined') {
+                try {
+                    if (window.metisMenuInstance) { window.metisMenuInstance.dispose(); }
+                } catch (e) {}
                 window.metisMenuInstance = new MetisMenu(element, { toggle: true });
             }
 
-            // Optional: Initialize SimpleBar (agar library load ho)
+            // ── 2. Active-link detection ──
+            // Find the <a> whose href best matches the current URL, then walk up the
+            // DOM adding mm-active / mm-show so the right submenu is open on load.
+            (function markActiveLink() {
+                var currentPath = window.location.pathname;
+                var bestMatch   = null;
+                var bestLen     = 0;
+
+                document.querySelectorAll('.metismenu a[href]').forEach(function (a) {
+                    // Skip javascript: void links (parent toggles)
+                    if (!a.href || a.href.indexOf('javascript') === 0) return;
+                    try {
+                        var linkPath = new URL(a.href, window.location.origin).pathname;
+                        // Exact match preferred; longest prefix match as fallback
+                        var isExact  = currentPath === linkPath;
+                        var isPrefix = currentPath.startsWith(linkPath) && linkPath !== '/';
+                        if ((isExact || isPrefix) && linkPath.length > bestLen) {
+                            bestLen   = linkPath.length;
+                            bestMatch = a;
+                        }
+                    } catch (e) {}
+                });
+
+                if (!bestMatch) return;
+
+                // Highlight the matched link
+                bestMatch.classList.add('active');
+
+                // Walk every ancestor <li> up to the root <ul> and mark it active
+                var node = bestMatch.parentElement;
+                while (node && node !== element) {
+                    if (node.tagName === 'LI') {
+                        node.classList.add('mm-active');
+                    }
+                    // Expand any <ul> sub-list that is a direct child of an active <li>
+                    if (node.tagName === 'UL' && node !== element) {
+                        node.classList.add('mm-show');
+                        // Remove any inline height:0 that MetisMenu may have set before
+                        // active detection ran, so the list is fully visible.
+                        node.style.height = '';
+                    }
+                    node = node.parentElement;
+                }
+            })();
+
+            // ── 3. Initialize SimpleBar (if available) ──
             var sidebarWrapper = document.querySelector('.sidebar-wrapper[data-simplebar]');
-            if (sidebarWrapper && typeof SimpleBar !== "undefined") {
+            if (sidebarWrapper && typeof SimpleBar !== 'undefined') {
                 new SimpleBar(sidebarWrapper);
             }
         });

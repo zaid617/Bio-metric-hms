@@ -10,6 +10,7 @@ use App\Models\Employee;
 use App\Models\TreatmentSession;
 use App\Modules\Payroll\Models\PayrollAdjustment;
 use Carbon\Carbon;
+use Carbon\CarbonPeriod;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -52,9 +53,19 @@ class PayrollRepository
             ->whereBetween('attendance_date', [$periodStart->toDateString(), $periodEnd->toDateString()])
             ->get();
 
+        // Working days = Mon–Fri within the period (mirrors PayrollCalculatorService)
+        $workingDays = 0;
+        foreach (CarbonPeriod::create($periodStart, $periodEnd) as $date) {
+            if (!in_array($date->dayOfWeek, [0, 6], true)) {
+                $workingDays++;
+            }
+        }
+
         $presentDays = $records->whereIn('status', ['present', 'late', 'half_day'])->count();
-        $absentDays = $records->where('status', 'absent')->count();
-        $lateDays = $records->where('status', 'late')->count();
+        // Absent = every working day the employee was NOT present (includes explicit 'absent'
+        // records AND any working day with no attendance record at all)
+        $absentDays  = max(0, $workingDays - $presentDays);
+        $lateDays    = $records->where('status', 'late')->count();
         $workingMinutes = (int) $records->sum('total_working_minutes');
 
         // Calculate overtime using employee's working_hours
@@ -144,11 +155,50 @@ class PayrollRepository
         ];
     }
 
+    /**
+     * Fetch all adjustments for a payroll:
+     * - Adjustments directly linked to this payroll record
+     * - Standalone (pre-payroll) adjustments for same employee/month/year
+     */
     public function getAdjustmentsForPayroll(AttendancePayroll $payroll): Collection
     {
         return PayrollAdjustment::query()
-            ->where('payroll_id', $payroll->id)
+            ->where(function ($q) use ($payroll) {
+                $q->where('payroll_id', $payroll->id)
+                  ->orWhere(function ($q2) use ($payroll) {
+                      $q2->whereNull('payroll_id')
+                         ->where('employee_id', $payroll->employee_id)
+                         ->where('month', $payroll->month)
+                         ->where('year', $payroll->year);
+                  });
+            })
             ->get();
+    }
+
+    /**
+     * Fetch standalone (pre-payroll) adjustments for an employee in a given month/year.
+     */
+    public function getStandaloneAdjustmentsForEmployee(int $employeeId, int $month, int $year): Collection
+    {
+        return PayrollAdjustment::query()
+            ->whereNull('payroll_id')
+            ->where('employee_id', $employeeId)
+            ->where('month', $month)
+            ->where('year', $year)
+            ->get();
+    }
+
+    /**
+     * After a payroll is saved, link any standalone adjustments to it.
+     */
+    public function linkStandaloneAdjustmentsToPayroll(AttendancePayroll $payroll): void
+    {
+        PayrollAdjustment::query()
+            ->whereNull('payroll_id')
+            ->where('employee_id', $payroll->employee_id)
+            ->where('month', $payroll->month)
+            ->where('year', $payroll->year)
+            ->update(['payroll_id' => $payroll->id]);
     }
 
     public function addAdjustment(array $data): PayrollAdjustment

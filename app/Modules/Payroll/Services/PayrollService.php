@@ -87,7 +87,7 @@ class PayrollService
 
         $adjustments = $payroll->exists
             ? $this->repository->getAdjustmentsForPayroll($payroll)
-            : collect();
+            : $this->repository->getStandaloneAdjustmentsForEmployee($employee->id, $month, $year);
 
         $attendanceMetrics = $this->repository->buildAttendanceMetrics($employee, $periodStart, $periodEnd);
         $doctorMetrics = $this->repository->buildDoctorMetrics(
@@ -157,6 +157,9 @@ class PayrollService
 
         $payroll->save();
 
+        // Link any standalone adjustments for this employee/period to the saved payroll
+        $this->repository->linkStandaloneAdjustmentsToPayroll($payroll);
+
         return $payroll->refresh();
     }
 
@@ -217,5 +220,22 @@ class PayrollService
             ->where('year', $year)
             ->orderBy('employee_id')
             ->get();
+    }
+
+    public function getDashboardStats(int $month, int $year): array
+    {
+        $query = AttendancePayroll::query()
+            ->where('month', $month)
+            ->where('year', $year);
+
+        return [
+            'total'        => (clone $query)->count(),
+            'draft'        => (clone $query)->where('status', 'draft')->count(),
+            'approved'     => (clone $query)->where('status', 'approved')->count(),
+            'paid'         => (clone $query)->where('status', 'paid')->count(),
+            'total_net'    => (clone $query)->sum('final_salary'),
+            'total_paid'   => (clone $query)->where('status', 'paid')->sum('final_salary'),
+            'pending_amt'  => (clone $query)->whereIn('status', ['draft', 'approved'])->sum('final_salary'),
+        ];
     }
 }

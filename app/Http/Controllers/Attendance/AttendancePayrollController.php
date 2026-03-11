@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Attendance;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Payroll\GeneratePayrollRequest;
 use App\Models\Attendance\AttendancePayroll;
 use App\Models\Employee;
 use App\Models\Branch;
@@ -12,8 +13,8 @@ use App\Modules\Payroll\Types\PayrollAwardType;
 use App\Modules\Payroll\Types\PayrollDeductionType;
 use App\Modules\Payroll\Types\PayrollEarningType;
 use App\Services\Attendance\AttendancePayrollService;
-use Illuminate\Http\Request;
 use Carbon\Carbon;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Exception;
 
@@ -29,7 +30,7 @@ class AttendancePayrollController extends Controller
     }
 
     /**
-     * Display payrolls
+     * Display payrolls with summary stats
      */
     public function index(Request $request)
     {
@@ -37,10 +38,14 @@ class AttendancePayrollController extends Controller
         $perPage = in_array($perPage, [10, 15, 25, 50, 100]) ? $perPage : 10;
         $payrolls = $this->modularPayrollService->getPayrollsForIndex($request->all(), $perPage);
 
-        $branches = Branch::where('status', 'active')->get();
+        $branches  = Branch::where('status', 'active')->get();
         $employees = Employee::query()->select('id', 'name')->orderBy('name')->get();
 
-        return view('attendance.payroll.index', compact('payrolls', 'branches', 'employees'));
+        // Dashboard stats for the selected/current month
+        $statMonth = $request->input('period_month') ? Carbon::parse($request->input('period_month')) : now();
+        $stats = $this->modularPayrollService->getDashboardStats((int) $statMonth->month, (int) $statMonth->year);
+
+        return view('attendance.payroll.index', compact('payrolls', 'branches', 'employees', 'stats', 'statMonth'));
     }
 
     /**
@@ -57,14 +62,9 @@ class AttendancePayrollController extends Controller
     /**
      * Generate and store payroll
      */
-    public function store(Request $request)
+    public function store(GeneratePayrollRequest $request)
     {
-        $validated = $request->validate([
-            'period_start' => 'required|date',
-            'branch_id' => 'nullable|exists:branches,id',
-            'employee_id' => 'nullable|exists:employees,id',
-            'force_regenerate' => 'nullable|boolean',
-        ]);
+        $validated = $request->validated();
 
         try {
             $periodStart = Carbon::parse($validated['period_start']);

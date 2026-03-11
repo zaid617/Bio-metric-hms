@@ -2,6 +2,8 @@
 <script src="{{ URL::asset('build/js/jquery.min.js') }}"></script>
 <!--bootstrap js-->
 <script src="{{ URL::asset('build/js/bootstrap.bundle.min.js') }}"></script>
+<!--metismenu js (required for sidebar accordion on every page)-->
+<script src="{{ URL::asset('build/plugins/metismenu/metisMenu.min.js') }}"></script>
 
 <script src="{{ URL::asset('build/plugins/notifications/js/lobibox.min.js') }}"></script>
 

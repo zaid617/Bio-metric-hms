@@ -40,11 +40,18 @@ class PayrollCalculatorService
         $personalPatientCommission = (float) $doctorMetrics['personal_patient_revenue'] * (float) config('payroll.rates.personal_patient_commission', 0.20);
 
         $awards = [];
-        if ((int) $attendanceMetrics['late_days'] === 0 && (int) $attendanceMetrics['absent_days'] === 0) {
+        // Punctuality award: employee must be present on ALL working days and have zero late arrivals.
+        // absent_days is already computed as (working_days − present_days), so absent_days == 0
+        // guarantees full attendance; we also verify present_days explicitly as a safety net.
+        $fullyPresent = (int) $attendanceMetrics['present_days'] >= $totalWorkingDays
+            && $totalWorkingDays > 0;
+        if ((int) $attendanceMetrics['late_days'] === 0
+            && (int) $attendanceMetrics['absent_days'] === 0
+            && $fullyPresent) {
             $awards[] = [
-                'type' => PayrollAwardType::PUNCTUALITY_AWARD,
+                'type'   => PayrollAwardType::PUNCTUALITY_AWARD,
                 'amount' => (float) config('payroll.awards.punctuality_amount', 2000),
-                'notes' => 'No late arrivals and no absences',
+                'notes'  => 'All working days attended, zero late arrivals',
             ];
         }
 

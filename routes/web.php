@@ -31,6 +31,7 @@ use App\Http\Controllers\Manager\ManagerDashboardController;
 use App\Http\Controllers\ExpenseTypeController;
 use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\RolePermissionController;
+use App\Http\Controllers\Payroll\PayrollAdjustmentController;
 //use App\Http\Controllers\AppointmentController;
 //use App\Http\Controllers\EnrollmentController;
 //use App\Http\Controllers\PaymentController;
@@ -903,6 +904,35 @@ Route::middleware(['role:admin'])->group(function () {
             Route::post('/payroll/{payroll}/regenerate', [\App\Http\Controllers\Attendance\AttendancePayrollController::class, 'regenerate'])
                 ->middleware('check_user_permission:generate payroll')
                 ->name('payroll.regenerate');
+
+            // ── Standalone Payroll Adjustments (pre-payroll / admin adjustments) ──
+            Route::get('/payroll-adjustments', [PayrollAdjustmentController::class, 'index'])
+                ->middleware('check_user_permission:manage payroll')
+                ->name('payroll.adjustments.index');
+
+            Route::get('/payroll-adjustments/create', [PayrollAdjustmentController::class, 'create'])
+                ->middleware('check_user_permission:manage payroll')
+                ->name('payroll.adjustments.create');
+
+            Route::post('/payroll-adjustments', [PayrollAdjustmentController::class, 'store'])
+                ->middleware('check_user_permission:manage payroll')
+                ->name('payroll.adjustments.store');
+
+            Route::get('/payroll-adjustments/{adjustment}', [PayrollAdjustmentController::class, 'show'])
+                ->middleware('check_user_permission:view payroll')
+                ->name('payroll.adjustments.show');
+
+            Route::get('/payroll-adjustments/{adjustment}/edit', [PayrollAdjustmentController::class, 'edit'])
+                ->middleware('check_user_permission:manage payroll')
+                ->name('payroll.adjustments.edit');
+
+            Route::put('/payroll-adjustments/{adjustment}', [PayrollAdjustmentController::class, 'update'])
+                ->middleware('check_user_permission:manage payroll')
+                ->name('payroll.adjustments.update');
+
+            Route::delete('/payroll-adjustments/{adjustment}', [PayrollAdjustmentController::class, 'destroy'])
+                ->middleware('check_user_permission:manage payroll')
+                ->name('payroll.adjustments.destroy');
 
             // Reports
             Route::get('/reports/daily', [\App\Http\Controllers\Attendance\AttendanceReportController::class, 'daily'])
