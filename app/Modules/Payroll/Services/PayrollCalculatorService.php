@@ -141,11 +141,13 @@ class PayrollCalculatorService
 
     private function calculateWorkingDays(Carbon $periodStart, Carbon $periodEnd): int
     {
-        $workingDays = 0;
-        $period = CarbonPeriod::create($periodStart, $periodEnd);
+        // Determine which days of the week are off.
+        // dayOfWeek: 0 = Sunday, 6 = Saturday.
+        $offDays = config('payroll.work_on_saturday', true) ? [0] : [0, 6];
 
-        foreach ($period as $date) {
-            if (!in_array($date->dayOfWeek, [0, 6], true)) {
+        $workingDays = 0;
+        foreach (CarbonPeriod::create($periodStart, $periodEnd) as $date) {
+            if (!in_array($date->dayOfWeek, $offDays, true)) {
                 $workingDays++;
             }
         }

@@ -53,32 +53,69 @@ class PayrollRepository
             ->whereBetween('attendance_date', [$periodStart->toDateString(), $periodEnd->toDateString()])
             ->get();
 
-        // Working days = Mon–Fri within the period (mirrors PayrollCalculatorService)
+        // Determine off-days: Sunday always off; Saturday off only if work_on_saturday = false
+        $offDays = config('payroll.work_on_saturday', true) ? [0] : [0, 6];
+
+        // Count working days in the period (mirrors PayrollCalculatorService)
         $workingDays = 0;
         foreach (CarbonPeriod::create($periodStart, $periodEnd) as $date) {
-            if (!in_array($date->dayOfWeek, [0, 6], true)) {
+            if (!in_array($date->dayOfWeek, $offDays, true)) {
                 $workingDays++;
             }
         }
 
-        $presentDays = $records->whereIn('status', ['present', 'late', 'half_day'])->count();
-        // Absent = every working day the employee was NOT present (includes explicit 'absent'
-        // records AND any working day with no attendance record at all)
-        $absentDays  = max(0, $workingDays - $presentDays);
-        $lateDays    = $records->where('status', 'late')->count();
-        $workingMinutes = (int) $records->sum('total_working_minutes');
+        // Shift start and late-grace config
+        $shiftStart      = config('payroll.shift_start', '09:00');          // e.g. "09:00"
+        $graceMinutes    = (int) config('payroll.late_grace_minutes', 15);  // minutes of grace
 
-        // Calculate overtime using employee's working_hours
-        $standardMinutesPerDay = ($employee->working_hours ?? 8) * 60;
-        $expectedMinutes = $presentDays * $standardMinutesPerDay;
-        $overtimeMinutes = max(0, $workingMinutes - $expectedMinutes);
+        $presentDays  = 0;
+        $lateDays     = 0;
+        $workingMinutes = 0;
+
+        foreach ($records as $record) {
+            // Resolve attendance_date to a Carbon for dayOfWeek check
+            $attDate = $record->attendance_date instanceof Carbon
+                ? $record->attendance_date
+                : Carbon::parse($record->attendance_date);
+
+            // Only count records that fall on an actual working day
+            if (in_array($attDate->dayOfWeek, $offDays, true)) {
+                continue;
+            }
+
+            $status = $record->status ?? 'present';
+
+            if (in_array($status, ['present', 'late', 'half_day'], true)) {
+                $presentDays++;
+
+                // Detect late arrival: compare check_in to shift_start + grace
+                if (!empty($record->check_in)) {
+                    $dateStr  = $attDate->toDateString();
+                    $checkIn  = Carbon::parse($dateStr . ' ' . $record->check_in);
+                    $deadline = Carbon::parse($dateStr . ' ' . $shiftStart)->addMinutes($graceMinutes);
+                    if ($checkIn->gt($deadline)) {
+                        $lateDays++;
+                    }
+                }
+            }
+
+            $workingMinutes += (int) ($record->total_working_minutes ?? 0);
+        }
+
+        // Absent = working days the employee was not present
+        $absentDays = max(0, $workingDays - $presentDays);
+
+        // Overtime: total minutes worked minus expected (present_days × shift_hours)
+        $standardMinutesPerDay = (float) ($employee->working_hours ?? config('payroll.default_shift_hours', 8)) * 60;
+        $expectedMinutes  = $presentDays * $standardMinutesPerDay;
+        $overtimeMinutes  = max(0, $workingMinutes - $expectedMinutes);
 
         return [
-            'present_days' => $presentDays,
-            'absent_days' => $absentDays,
-            'late_days' => $lateDays,
-            'total_working_minutes' => $workingMinutes,
-            'overtime_minutes' => $overtimeMinutes,
+            'present_days'           => $presentDays,
+            'absent_days'            => $absentDays,
+            'late_days'              => $lateDays,
+            'total_working_minutes'  => $workingMinutes,
+            'overtime_minutes'       => $overtimeMinutes,
         ];
     }
 

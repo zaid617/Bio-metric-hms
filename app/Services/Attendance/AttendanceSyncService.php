@@ -339,6 +339,16 @@ class AttendanceSyncService
             }
         }
 
+        // Detect late arrival: check check_in against configured shift start + grace
+        $shiftStart   = config('payroll.shift_start', '09:00');
+        $graceMinutes = (int) config('payroll.late_grace_minutes', 15);
+        $deadline     = Carbon::parse($dateOnly . ' ' . $shiftStart)->addMinutes($graceMinutes);
+        if ($checkIn->gt($deadline)) {
+            $record->status = 'late';
+        } else {
+            $record->status = 'present';
+        }
+
         // Check for missing checkout
         if (!$record->check_out) {
             $record->is_checkout_missing = true;
