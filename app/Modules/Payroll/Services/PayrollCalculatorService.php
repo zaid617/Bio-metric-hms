@@ -27,7 +27,7 @@ class PayrollCalculatorService
             ->where('code', PayrollEarningType::ADDITIONAL_SALARY)
             ->sum('amount');
 
-        $shiftHours = (int) config('payroll.default_shift_hours', 8);
+        $shiftHours = (float) ($employee->working_hours ?? config('payroll.default_shift_hours', 8));
         $hourlyRate = $totalWorkingDays > 0 ? $baseSalary / max($totalWorkingDays * $shiftHours, 1) : 0.0;
         $overtimeHours = ((int) $attendanceMetrics['overtime_minutes']) / 60;
         $overtime = $overtimeHours * $hourlyRate * (float) config('payroll.overtime_multiplier', 1.5);

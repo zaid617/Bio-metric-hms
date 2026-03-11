@@ -45,10 +45,10 @@ class PayrollRepository
             ->first();
     }
 
-    public function buildAttendanceMetrics(int $employeeId, Carbon $periodStart, Carbon $periodEnd): array
+    public function buildAttendanceMetrics(Employee $employee, Carbon $periodStart, Carbon $periodEnd): array
     {
         $records = AttendanceRecord::query()
-            ->where('employee_id', $employeeId)
+            ->where('employee_id', $employee->id)
             ->whereBetween('attendance_date', [$periodStart->toDateString(), $periodEnd->toDateString()])
             ->get();
 
@@ -56,7 +56,11 @@ class PayrollRepository
         $absentDays = $records->where('status', 'absent')->count();
         $lateDays = $records->where('status', 'late')->count();
         $workingMinutes = (int) $records->sum('total_working_minutes');
-        $overtimeMinutes = (int) $records->sum('overtime_minutes');
+
+        // Calculate overtime using employee's working_hours
+        $standardMinutesPerDay = ($employee->working_hours ?? 8) * 60;
+        $expectedMinutes = $presentDays * $standardMinutesPerDay;
+        $overtimeMinutes = max(0, $workingMinutes - $expectedMinutes);
 
         return [
             'present_days' => $presentDays,

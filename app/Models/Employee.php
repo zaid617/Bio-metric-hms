@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Employee extends Model
 {
       protected $fillable = [
-        'name', 'designation', 'branch_id', 'basic_salary', 'shift', 'phone', 'joining_date',
+        'name', 'designation', 'branch_id', 'basic_salary', 'working_hours', 'shift', 'phone', 'joining_date',
         'device_id', 'user_id_on_device',
     ];
 

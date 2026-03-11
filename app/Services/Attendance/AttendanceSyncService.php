@@ -325,6 +325,18 @@ class AttendanceSyncService
             }
 
             $record->total_working_minutes = $checkIn->diffInMinutes($checkOut);
+
+            // Calculate overtime based on employee's standard working hours
+            $employee = $record->employee;
+            $standardMinutes = ($employee && $employee->working_hours)
+                ? (float) $employee->working_hours * 60
+                : 8 * 60;
+
+            if ($record->total_working_minutes > $standardMinutes) {
+                $record->overtime_minutes = (int) ($record->total_working_minutes - $standardMinutes);
+            } else {
+                $record->overtime_minutes = 0;
+            }
         }
 
         // Check for missing checkout

@@ -95,7 +95,7 @@
                                     <th>Check In</th>
                                     <th>Check Out</th>
                                     <th>Working Hours</th>
-                                    <th>Overtime</th>
+                                    <th>Overtime (mins)</th>
                                     <th>Status</th>
                                     <th>Actions</th>
                                 </tr>
@@ -114,7 +114,7 @@
                                             @endif
                                         </td>
                                         <td>{{ $record->working_hours ?? 0 }}h</td>
-                                        <td>{{ $record->overtime_hours ?? 0 }}h</td>
+                                        <td>{{ $record->calculated_overtime_minutes ?? 0 }}</td>
                                         <td>
                                             <span class="status-{{ $record->status }}">
                                                 {{ ucfirst(str_replace('_', ' ', $record->status)) }}

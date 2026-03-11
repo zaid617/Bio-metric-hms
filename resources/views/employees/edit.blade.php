@@ -106,6 +106,14 @@
                                value="{{ old('basic_salary', number_format($employee->basic_salary)) }}" required>
                     </div>
 
+                    {{-- Working Hours --}}
+                    <div class="col-md-6">
+                        <label for="working_hours" class="form-label fw-semibold">Working Hours / Day</label>
+                        <input type="number" class="form-control form-control-lg" id="working_hours" name="working_hours"
+                               placeholder="e.g. 8" min="1" max="24" step="0.5"
+                               value="{{ old('working_hours', $employee->working_hours) }}" required>
+                    </div>
+
                     {{-- Phone --}}
                     <div class="col-md-6">
                         <label for="phone" class="form-label fw-semibold">Phone</label>

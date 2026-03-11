@@ -33,7 +33,9 @@ class AttendancePayrollController extends Controller
      */
     public function index(Request $request)
     {
-        $payrolls = $this->modularPayrollService->getPayrollsForIndex($request->all(), 50);
+        $perPage = (int) $request->input('per_page', 10);
+        $perPage = in_array($perPage, [10, 15, 25, 50, 100]) ? $perPage : 10;
+        $payrolls = $this->modularPayrollService->getPayrollsForIndex($request->all(), $perPage);
 
         $branches = Branch::where('status', 'active')->get();
         $employees = Employee::query()->select('id', 'name')->orderBy('name')->get();

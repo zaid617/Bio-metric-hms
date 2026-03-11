@@ -89,7 +89,7 @@ class PayrollService
             ? $this->repository->getAdjustmentsForPayroll($payroll)
             : collect();
 
-        $attendanceMetrics = $this->repository->buildAttendanceMetrics($employee->id, $periodStart, $periodEnd);
+        $attendanceMetrics = $this->repository->buildAttendanceMetrics($employee, $periodStart, $periodEnd);
         $doctorMetrics = $this->repository->buildDoctorMetrics(
             $this->repository->findDoctorByEmployee($employee),
             $periodStart,
@@ -117,7 +117,7 @@ class PayrollService
             'base_salary' => $result['basic_salary'],
             'basic_salary' => $result['basic_salary'],
             'hourly_rate' => $result['total_working_days'] > 0
-                ? round($result['basic_salary'] / max($result['total_working_days'] * (int) config('payroll.default_shift_hours', 8), 1), 2)
+                ? round($result['basic_salary'] / max($result['total_working_days'] * (float) ($employee->working_hours ?? config('payroll.default_shift_hours', 8)), 1), 2)
                 : 0,
             'overtime_rate_multiplier' => (float) config('payroll.overtime_multiplier', 1.5),
             'calculated_salary' => round(collect($result['earnings'])->sum('amount'), 2),

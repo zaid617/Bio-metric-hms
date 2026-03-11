@@ -130,6 +130,24 @@ class AttendanceRecord extends Model
     }
 
     /**
+     * Calculate overtime minutes based on employee's standard working hours
+     */
+    public function getCalculatedOvertimeMinutesAttribute()
+    {
+        if (!$this->total_working_minutes) {
+            return 0;
+        }
+
+        $standardMinutes = ($this->employee && $this->employee->working_hours)
+            ? (float) $this->employee->working_hours * 60
+            : 8 * 60;
+
+        $overtime = $this->total_working_minutes - $standardMinutes;
+
+        return $overtime > 0 ? (int) $overtime : 0;
+    }
+
+    /**
      * Apply auto checkout
      */
     public function applyAutoCheckout($autoCheckoutTime)

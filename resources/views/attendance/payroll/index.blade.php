@@ -72,6 +72,17 @@
                             </div>
 
                             <div class="col-md-3 mb-2">
+                                <label class="form-label">Per Page</label>
+                                <select name="per_page" class="form-select">
+                                    <option value="10" {{ request('per_page', 15) == 10 ? 'selected' : '' }}>10</option>
+                                    <option value="15" {{ request('per_page', 15) == 15 ? 'selected' : '' }}>15</option>
+                                    <option value="25" {{ request('per_page', 15) == 25 ? 'selected' : '' }}>25</option>
+                                    <option value="50" {{ request('per_page', 15) == 50 ? 'selected' : '' }}>50</option>
+                                    <option value="100" {{ request('per_page', 15) == 100 ? 'selected' : '' }}>100</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-3 mb-2">
                                 <label class="form-label">&nbsp;</label>
                                 <button type="submit" class="btn btn-primary w-100">
                                     Filter
@@ -160,8 +171,14 @@
                         </table>
                     </div>
 
-                    <div class="mt-3">
-                        {{ $payrolls->appends(request()->query())->links() }}
+                    <div class="d-flex justify-content-between align-items-center mt-3">
+                        <small class="text-muted">
+                            Showing {{ $payrolls->firstItem() ?? 0 }} to {{ $payrolls->lastItem() ?? 0 }}
+                            of {{ $payrolls->total() }} records
+                        </small>
+                        <div>
+                            {{ $payrolls->appends(request()->query())->links('pagination::bootstrap-5') }}
+                        </div>
                     </div>
                 </div>
             </div>

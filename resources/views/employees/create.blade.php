@@ -90,6 +90,13 @@
                         <input type="text" class="form-control form-control-lg" id="basic_salary" name="basic_salary" placeholder="Basic Salary" required>
                     </div>
 
+                    {{-- Working Hours --}}
+                    <div class="col-md-6">
+                        <label for="working_hours" class="form-label fw-semibold">Working Hours / Day</label>
+                        <input type="number" class="form-control form-control-lg" id="working_hours" name="working_hours"
+                               placeholder="e.g. 8" min="1" max="24" step="0.5" value="{{ old('working_hours', 8) }}" required>
+                    </div>
+
                     {{-- Phone --}}
                     <div class="col-md-6">
                         <label for="phone" class="form-label fw-semibold">Phone</label>
