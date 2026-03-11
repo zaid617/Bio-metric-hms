@@ -144,13 +144,22 @@ class AttendanceSyncService
         try {
             Log::info("Starting attendance sync for device: {$device->device_name}");
 
-            // Fetch logs since last sync
-            $from = $device->last_synced_at ?? Carbon::now()->subDays(30);
+            // On first sync (last_synced_at is null) fetch ALL historical logs from the device.
+            // On subsequent syncs, only fetch logs since the last successful sync.
+            $isFirstSync = is_null($device->last_synced_at);
+            $from = $isFirstSync ? null : Carbon::parse($device->last_synced_at);
+
+            if ($isFirstSync) {
+                Log::info("First sync for device {$device->device_name} — fetching all historical logs");
+            }
+
             $logs = $this->zkService->getAttendanceLogs($device, $from);
             $recordsFetched = $logs->count();
 
             if ($recordsFetched === 0) {
                 Log::info("No new attendance logs for device {$device->device_name}");
+                // Mark the device as synced even when empty so future syncs are incremental.
+                $device->update(['last_synced_at' => now()]);
             } else {
                 foreach ($logs as $logData) {
                     try {
