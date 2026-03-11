@@ -33,7 +33,7 @@ use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\RolePermissionController;
 //use App\Http\Controllers\AppointmentController;
 //use App\Http\Controllers\EnrollmentController;
-//use App\Http\Controllers\PaymentController; 
+//use App\Http\Controllers\PaymentController;
 
 Auth::routes();
 
@@ -108,7 +108,7 @@ Route::prefix('doctor')
         Route::get('enrollments/{status}', [TreatmentSessionController::class, 'showEnrollments'])
             ->middleware('check_user_permission:view enrollment')
             ->name('enrollments.index');
-            
+
         // 🔹 Doctor Consultations
         Route::get('consultations/{status}', [TreatmentSessionController::class, 'index'])
             ->middleware('check_user_permission:view consultation')
@@ -118,7 +118,7 @@ Route::prefix('doctor')
         Route::get('consultations/{id}/status-view', [TreatmentSessionController::class, 'viewssStatus'])
             ->middleware('check_user_permission:manage_appointments')
             ->name('consultations.status-view');
-        
+
         Route::post('consultations/update-status', [TreatmentSessionController::class, 'updateStatus'])
             ->middleware('check_user_permission:manage_appointments')
             ->name('consultations.update-status');
@@ -195,8 +195,8 @@ Route::prefix('receptionist')
             ->name('appointments.store');
 
 
-    
-    
+
+
         // 🔹 Feedback (view-only)
         Route::get('feedback', [FeedbackController::class, 'index'])
             ->middleware('check_user_permission:view feedback')
@@ -213,27 +213,27 @@ Route::middleware(['auth:web', 'role:admin|manager|receptionist'])
             Route::get('/', [PatientController::class, 'index'])
                 ->middleware('check_user_permission:view patients')
                 ->name('patients.index');
-            
+
             Route::get('/create', [PatientController::class, 'create'])
                 ->middleware('check_user_permission:create patients')
                 ->name('patients.create');
-            
+
             Route::post('/', [PatientController::class, 'store'])
                 ->middleware('check_user_permission:create patients')
                 ->name('patients.store');
-            
+
             Route::get('/{id}/edit', [PatientController::class, 'edit'])
                 ->middleware('check_user_permission:edit patients')
                 ->name('patients.edit');
-            
+
             Route::put('/{id}', [PatientController::class, 'update'])
                 ->middleware('check_user_permission:edit patients')
                 ->name('patients.update');
-            
+
             Route::get('/{id}', [PatientController::class, 'show'])
                 ->middleware('check_user_permission:view patients')
                 ->name('patients.card');
-            
+
             Route::delete('/{id}', [PatientController::class, 'destroy'])
                 ->middleware('check_user_permission:delete patients')
                 ->name('patients.destroy');
@@ -244,27 +244,27 @@ Route::middleware(['auth:web', 'role:admin|manager|receptionist'])
             Route::get('/', [DoctorController::class, 'index'])
                 ->middleware('check_user_permission:manage_appointments')
                 ->name('doctors.index');
-            
+
             Route::get('/create', [DoctorController::class, 'create'])
                 ->middleware('check_user_permission:manage_appointments')
                 ->name('doctors.create');
-            
+
             Route::post('/store', [DoctorController::class, 'store'])
                 ->middleware('check_user_permission:manage_appointments')
                 ->name('doctors.store');
-            
+
             Route::get('/{id}/edit', [DoctorController::class, 'edit'])
                 ->middleware('check_user_permission:manage_appointments')
                 ->name('doctors.edit');
-            
+
             Route::put('/{id}', [DoctorController::class, 'update'])
                 ->middleware('check_user_permission:manage_appointments')
                 ->name('doctors.update');
-            
+
             Route::get('/{id}', [DoctorController::class, 'show'])
                 ->middleware('check_user_permission:manage_appointments')
                 ->name('doctors.show');
-            
+
             Route::delete('/{id}', [DoctorController::class, 'destroy'])
                 ->middleware('check_user_permission:manage_appointments')
                 ->name('doctors.destroy');
@@ -285,103 +285,103 @@ Route::middleware(['auth:web', 'role:admin|manager|receptionist'])
     Route::delete('/{doctor}/availability/delete-month', [DoctorAvailabilityController::class, 'deleteMonth'])
         ->middleware('check_user_permission:manage_appointments')
         ->name('doctors.availability.deleteMonth');
-});
+        });
 
         // ================= CHECKUPS/CONSULTATIONS =================
         Route::prefix('consultations')->group(function () {
             Route::get('/', [CheckupController::class, 'index'])
                 ->middleware('check_user_permission:view consultation')
                 ->name('consultations.index');
-            
+
             Route::get('/create', [CheckupController::class, 'create'])
                 ->middleware('check_user_permission:view consultation')
                 ->name('consultations.create');
-            
+
             Route::post('/', [CheckupController::class, 'store'])
                 ->middleware('check_user_permission:view consultation')
                 ->name('consultations.store');
-            
+
             Route::get('/{id}/edit', [CheckupController::class, 'edit'])
                 ->middleware('check_user_permission:view consultation')
                 ->name('consultations.edit');
-            
+
             Route::put('/{id}', [CheckupController::class, 'update'])
                 ->middleware('check_user_permission:view consultation')
                 ->name('consultations.update');
-            
+
             Route::delete('/{id}', [CheckupController::class, 'destroy'])
                 ->middleware('check_user_permission:view consultation')
                 ->name('consultations.destroy');
-            
+
             Route::get('/{id}', [CheckupController::class, 'show'])
                 ->middleware('check_user_permission:view consultation')
                 ->name('consultations.show');
-            
+
             Route::get('/{id}/print', [CheckupController::class, 'printSlip'])
                 ->middleware('check_user_permission:view consultation')
                 ->name('consultations.print');
-            
+
             Route::get('/print-custom/{id}', [CheckupController::class, 'printSlipCustom'])
                 ->middleware('check_user_permission:view consultation')
                 ->name('consultations.print.custom');
-            
+
             Route::get('/history/{patient_id}', [CheckupController::class, 'history'])
                 ->middleware('check_user_permission:view consultation')
                 ->name('consultations.history');
         });
 
-       
+
 
         // ================= TREATMENT SESSIONS =================
         Route::prefix('treatment-sessions')->group(function () {
             Route::get('/', [TreatmentSessionController::class, 'index'])
                 ->middleware('check_user_permission:manage_sessions')
                 ->name('treatment-sessions.index');
-            
+
             Route::get('/create', [TreatmentSessionController::class, 'create'])
                 ->middleware('check_user_permission:create enrollment')
                 ->name('treatment-sessions.create');
-            
+
             Route::get('/create/{checkup}', [TreatmentSessionController::class, 'createWithCheckup'])
                 ->middleware('check_user_permission:create enrollment')
                 ->name('treatment-sessions.createWithCheckup');
-            
+
             Route::post('/', [TreatmentSessionController::class, 'store'])
                 ->middleware('check_user_permission:create enrollment')
                 ->name('treatment-sessions.store');
-            
+
             Route::get('/{id}/edit', [TreatmentSessionController::class, 'edit'])
                 ->middleware('check_user_permission:edit enrollment')
                 ->name('treatment-sessions.edit');
-            
+
             Route::put('/{id}', [TreatmentSessionController::class, 'update'])
                 ->middleware('check_user_permission:edit enrollment')
                 ->name('treatment-sessions.update');
-            
+
             Route::delete('/{id}', [TreatmentSessionController::class, 'destroy'])
                 ->middleware('check_user_permission:delete enrollment')
                 ->name('treatment-sessions.destroy');
-            
+
             Route::get('/{id}', [TreatmentSessionController::class, 'show'])
                 ->middleware('check_user_permission:view enrollment')
                 ->name('treatment-sessions.show');
-            
+
             Route::get('/summary', [TreatmentSessionController::class, 'sessionSummary'])
                 ->middleware('check_user_permission:view enrollment')
                 ->name('treatment-sessions.summary');
-            
+
             Route::get('/sessions/{session_id}', [TreatmentSessionController::class, 'showOngoingSessions'])
                 ->middleware('check_user_permission:manage_sessions')
                 ->name('treatment-sessions.sessions');
-            
+
             Route::put('/{id}/enrollment-update', [TreatmentSessionController::class, 'enrollmentUpdate'])
                 ->middleware('check_user_permission:edit enrollment')
                 ->name('treatment-sessions.enrollmentUpdate');
-            
+
             Route::get('/{session_id}/add-entry', [TreatmentSessionController::class, 'addEntryForm'])
                 ->middleware('check_user_permission:manage_sessions')
                 ->name('treatment-sessions.add-entry');
-            
+
             Route::post('/{session_id}/store-entry', [TreatmentSessionController::class, 'storeEntry'])
                 ->middleware('check_user_permission:manage_sessions')
                 ->name('treatment-sessions.store-entry');
@@ -392,15 +392,15 @@ Route::middleware(['auth:web', 'role:admin|manager|receptionist'])
             Route::get('/', [SessionController::class, 'index'])
                 ->middleware('check_user_permission:manage_sessions')
                 ->name('sessions.index');
-            
+
             Route::post('/{id}/complete', [SessionTimeController::class, 'markCompleted'])
                 ->middleware('check_user_permission:manage_sessions')
                 ->name('sessions.complete');
-            
+
             Route::delete('/{id}', [SessionTimeController::class, 'destroy'])
                 ->middleware('check_user_permission:delete enrollment')
                 ->name('sessions.destroy');
-            
+
             Route::post('/mark-completed', [SessionTimeController::class, 'updateSectionCompleted'])
                 ->middleware('check_user_permission:manage_sessions')
                 ->name('sessions.mark-completed');
@@ -418,27 +418,27 @@ Route::middleware(['auth:web', 'role:admin|manager|receptionist'])
             Route::get('/outstanding-invoices', [PaymentOutstandingController::class, 'index'])
                 ->middleware('check_user_permission:view payments')
                 ->name('accounts.payments');
-            
+
             Route::get('/completed-invoices', [PaymentOutstandingController::class, 'completedInvoices'])
                 ->middleware('check_user_permission:view payments')
                 ->name('accounts.completed-invoices');
-            
+
             Route::get('/outstandings', [PaymentOutstandingController::class, 'index'])
                 ->middleware('check_user_permission:view payments')
                 ->name('payments.outstandings');
-            
+
             Route::get('/return-payments', [PaymentOutstandingController::class, 'returnPayments'])
                 ->middleware('check_user_permission:view returns')
                 ->name('payments.return-payments');
-            
+
             Route::post('/return', [PaymentOutstandingController::class, 'returnPayment'])
                 ->middleware('check_user_permission:create returns')
                 ->name('payments.returnPayment');
-            
+
             Route::get('/search-patient', [PaymentOutstandingController::class, 'searchPatient'])
                 ->middleware('check_user_permission:view payments')
                 ->name('payments.search-patient');
-            
+
             Route::get('/fetch-patient-payments', [PaymentOutstandingController::class, 'fetchPatientPayments'])
                 ->middleware('check_user_permission:view payments')
                 ->name('payments.fetch-patient-payments');
@@ -449,11 +449,11 @@ Route::middleware(['auth:web', 'role:admin|manager|receptionist'])
             Route::get('/ledger/{session_id}', [PaymentOutstandingController::class, 'invoiceLedger'])
                 ->middleware('check_user_permission:view payments')
                 ->name('invoice.ledger');
-            
+
             Route::get('/patient-invoice-ledger/{session_id}', [PaymentOutstandingController::class, 'invoiceLedgerr'])
                 ->middleware('check_user_permission:view payments')
                 ->name('invoice.ledgerr');
-            
+
             Route::post('/add-payment', [PaymentOutstandingController::class, 'addPayment'])
                 ->middleware('check_user_permission:create payments')
                 ->name('invoice.add-payment');
@@ -464,7 +464,7 @@ Route::middleware(['auth:web', 'role:admin|manager|receptionist'])
             Route::get('/invoice/{checkup_id}', [PaymentOutstandingController::class, 'invoiceLedgerCheckup'])
                 ->middleware('check_user_permission:view payments')
                 ->name('checkups.invoice');
-            
+
             Route::post('/refund', [PaymentOutstandingController::class, 'returnCheckupPayment'])
                 ->middleware('check_user_permission:create returns')
                 ->name('checkups.refund');
@@ -475,15 +475,15 @@ Route::middleware(['auth:web', 'role:admin|manager|receptionist'])
             Route::get('/', [PaymentTransactionController::class, 'index'])
                 ->middleware('check_user_permission:manage_payments')
                 ->name('transfer.index');
-            
+
             Route::post('/', [PaymentTransactionController::class, 'store'])
                 ->middleware('check_user_permission:manage_payments')
                 ->name('transfer.store');
-            
+
             Route::get('/get-bank-balance/{id}', [PaymentTransactionController::class, 'getBankBalance'])
                 ->middleware('check_user_permission:view payments')
                 ->name('transfer.getBankBalance');
-            
+
             Route::get('/get-branch-balance/{id}', [PaymentTransactionController::class, 'getBranchBalance'])
                 ->middleware('check_user_permission:view payments')
                 ->name('transfer.getBranchBalance');
@@ -494,7 +494,7 @@ Route::middleware(['auth:web', 'role:admin|manager|receptionist'])
             Route::get('/', [LedgerController::class, 'index'])
                 ->middleware('check_user_permission:view_reports')
                 ->name('ledger.index');
-            
+
             Route::get('/filter', [LedgerController::class, 'filter'])
                 ->middleware('check_user_permission:view_reports')
                 ->name('ledger.filter');
@@ -505,7 +505,7 @@ Route::middleware(['auth:web', 'role:admin|manager|receptionist'])
             Route::get('/', [BankLedgerController::class, 'index'])
                 ->middleware('check_user_permission:view_reports')
                 ->name('bankledger.index');
-            
+
             Route::get('/filter', [BankLedgerController::class, 'filter'])
                 ->middleware('check_user_permission:view_reports')
                 ->name('bankledger.filter');
@@ -523,23 +523,23 @@ Route::middleware(['auth:web', 'role:admin|manager|receptionist'])
             Route::get('/doctor-list', [FeedbackController::class, 'doctorFeedbackList'])
                 ->middleware('check_user_permission:view feedback')
                 ->name('feedback.doctor-list');
-            
+
             Route::get('/patient-list', [FeedbackController::class, 'patientFeedbackList'])
                 ->middleware('check_user_permission:view feedback')
                 ->name('feedback.patient-list');
-            
+
             Route::get('/doctor/{sessionId}', [FeedbackController::class, 'doctorFeedbackForm'])
                 ->middleware('check_user_permission:view feedback')
                 ->name('feedback.doctor');
-            
+
             Route::post('/doctor-submit', [FeedbackController::class, 'doctorFeedbackSubmit'])
                 ->middleware('check_user_permission:view feedback')
                 ->name('feedback.doctor-submit');
-            
+
             Route::get('/patient/{session_id}', [FeedbackController::class, 'patientFeedbackForm'])
                 ->middleware('check_user_permission:view feedback')
                 ->name('feedback.patient');
-            
+
             Route::post('/patient-submit', [FeedbackController::class, 'patientFeedbackSubmit'])
                 ->middleware('check_user_permission:view feedback')
                 ->name('feedback.patient-submit');
@@ -550,11 +550,11 @@ Route::middleware(['auth:web', 'role:admin|manager|receptionist'])
             Route::get('/{status}', [TreatmentSessionController::class, 'index'])
                 ->middleware('check_user_permission:view consultation')
                 ->name('doctor-consultations.index');
-            
+
             Route::get('/{id}/status-view', [TreatmentSessionController::class, 'viewssStatus'])
                 ->middleware('check_user_permission:manage_appointments')
                 ->name('doctor-consultations.status-view');
-            
+
             Route::post('/update-status', [TreatmentSessionController::class, 'updateStatus'])
                 ->middleware('check_user_permission:manage_appointments')
                 ->name('doctor-consultations.update-status');
@@ -565,7 +565,7 @@ Route::middleware(['auth:web', 'role:admin|manager|receptionist'])
             Route::get('/{status}', [TreatmentSessionController::class, 'OngoingSessionsOnly'])
                 ->middleware('check_user_permission:manage_sessions')
                 ->name('ongoing-sessions');
-            
+
             Route::get('/session-details/{id}', [TreatmentSessionController::class, 'sessionDetails'])
                 ->middleware('check_user_permission:manage_sessions')
                 ->name('session-details');
@@ -576,23 +576,23 @@ Route::middleware(['auth:web', 'role:admin|manager|receptionist'])
             Route::get('/', [EmployeeController::class, 'index'])
                 ->middleware('check_user_permission:view_reports')
                 ->name('employees.index');
-            
+
             Route::get('/create', [EmployeeController::class, 'create'])
                 ->middleware('check_user_permission:view_reports')
                 ->name('employees.create');
-            
+
             Route::post('/', [EmployeeController::class, 'store'])
                 ->middleware('check_user_permission:view_reports')
                 ->name('employees.store');
-            
+
             Route::get('/{id}/edit', [EmployeeController::class, 'edit'])
                 ->middleware('check_user_permission:view_reports')
                 ->name('employees.edit');
-            
+
             Route::put('/{id}', [EmployeeController::class, 'update'])
                 ->middleware('check_user_permission:view_reports')
                 ->name('employees.update');
-            
+
             Route::delete('/{id}', [EmployeeController::class, 'destroy'])
                 ->middleware('check_user_permission:view_reports')
                 ->name('employees.destroy');
@@ -603,19 +603,19 @@ Route::middleware(['auth:web', 'role:admin|manager|receptionist'])
             Route::get('/', [EmployeeSalaryController::class, 'index'])
                 ->middleware('check_user_permission:view_reports')
                 ->name('salaries.index');
-            
+
             Route::get('/create', [EmployeeSalaryController::class, 'create'])
                 ->middleware('check_user_permission:manage_payments')
                 ->name('salaries.create');
-            
+
             Route::post('/', [EmployeeSalaryController::class, 'store'])
                 ->middleware('check_user_permission:manage_payments')
                 ->name('salaries.store');
-            
+
             Route::post('/{id}/pay', [EmployeeSalaryController::class, 'markAsPaid'])
                 ->middleware('check_user_permission:manage_payments')
                 ->name('salaries.pay');
-            
+
             Route::post('/mark-paid', [EmployeeSalaryController::class, 'markPaidWithAdjustment'])
                 ->middleware('check_user_permission:manage_payments')
                 ->name('salaries.markPaid');
@@ -626,7 +626,7 @@ Route::middleware(['auth:web', 'role:admin|manager|receptionist'])
             Route::get('/create/{session_id}', [SessionInstallmentController::class, 'create'])
                 ->middleware('check_user_permission:create payments')
                 ->name('installments.create');
-            
+
             Route::post('/store', [SessionInstallmentController::class, 'store'])
                 ->middleware('check_user_permission:create payments')
                 ->name('installments.store');
@@ -637,7 +637,7 @@ Route::middleware(['auth:web', 'role:admin|manager|receptionist'])
             Route::get('/general', [GeneralSettingController::class, 'index'])
                 ->middleware('check_user_permission:manage_appointments')
                 ->name('settings.index');
-            
+
             Route::post('/general', [GeneralSettingController::class, 'update'])
                 ->middleware('check_user_permission:manage_appointments')
                 ->name('settings.update');
@@ -647,11 +647,11 @@ Route::middleware(['auth:web', 'role:admin|manager|receptionist'])
             Route::get('/', [GeneralSettingController::class, 'index'])
                 ->middleware('check_user_permission:manage_appointments')
                 ->name('general-settings.index');
-            
+
             Route::get('/{id}/edit', [GeneralSettingController::class, 'edit'])
                 ->middleware('check_user_permission:manage_appointments')
                 ->name('general-settings.edit');
-            
+
             Route::put('/{id}/update', [GeneralSettingController::class, 'update'])
                 ->middleware('check_user_permission:manage_appointments')
                 ->name('general-settings.update');
@@ -662,23 +662,23 @@ Route::middleware(['auth:web', 'role:admin|manager|receptionist'])
             Route::get('/', [BranchController::class, 'index'])
                 ->middleware('check_user_permission:manage_appointments')
                 ->name('branches.index');
-            
+
             Route::get('/create', [BranchController::class, 'create'])
                 ->middleware('check_user_permission:manage_appointments')
                 ->name('branches.create');
-            
+
             Route::post('/store', [BranchController::class, 'store'])
                 ->middleware('check_user_permission:manage_appointments')
                 ->name('branches.store');
-            
+
             Route::get('/edit/{id}', [BranchController::class, 'edit'])
                 ->middleware('check_user_permission:manage_appointments')
                 ->name('branches.edit');
-            
+
             Route::put('/update/{id}', [BranchController::class, 'update'])
                 ->middleware('check_user_permission:manage_appointments')
                 ->name('branches.update');
-            
+
             Route::delete('/delete/{id}', [BranchController::class, 'destroy'])
                 ->middleware('check_user_permission:manage_appointments')
                 ->name('branches.destroy');
@@ -689,27 +689,27 @@ Route::middleware(['auth:web', 'role:admin|manager|receptionist'])
             Route::get('/', [BankController::class, 'index'])
                 ->middleware('check_user_permission:manage_payments')
                 ->name('banks.index');
-            
+
             Route::get('/create', [BankController::class, 'create'])
                 ->middleware('check_user_permission:manage_payments')
                 ->name('banks.create');
-            
+
             Route::post('/', [BankController::class, 'store'])
                 ->middleware('check_user_permission:manage_payments')
                 ->name('banks.store');
-            
+
             Route::get('/{id}', [BankController::class, 'show'])
                 ->middleware('check_user_permission:manage_payments')
                 ->name('banks.show');
-            
+
             Route::get('/{id}/edit', [BankController::class, 'edit'])
                 ->middleware('check_user_permission:manage_payments')
                 ->name('banks.edit');
-            
+
             Route::put('/{id}', [BankController::class, 'update'])
                 ->middleware('check_user_permission:manage_payments')
                 ->name('banks.update');
-            
+
             Route::delete('/{id}', [BankController::class, 'destroy'])
                 ->middleware('check_user_permission:manage_payments')
                 ->name('banks.destroy');
@@ -720,23 +720,23 @@ Route::middleware(['auth:web', 'role:admin|manager|receptionist'])
             Route::get('/', [UserController::class, 'index'])
                 ->middleware('check_user_permission:manage_appointments')
                 ->name('users.index');
-            
+
             Route::get('/create', [UserController::class, 'create'])
                 ->middleware('check_user_permission:manage_appointments')
                 ->name('users.create');
-            
+
             Route::post('/store', [UserController::class, 'store'])
                 ->middleware('check_user_permission:manage_appointments')
                 ->name('users.store');
-            
+
             Route::get('/edit/{id}', [UserController::class, 'edit'])
                 ->middleware('check_user_permission:manage_appointments')
                 ->name('users.edit');
-            
+
             Route::put('/update/{id}', [UserController::class, 'update'])
                 ->middleware('check_user_permission:manage_appointments')
                 ->name('users.update');
-            
+
             Route::delete('/delete/{id}', [UserController::class, 'destroy'])
                 ->middleware('check_user_permission:manage_appointments')
                 ->name('users.destroy');
@@ -754,7 +754,7 @@ Route::middleware(['auth:web', 'role:admin|manager|receptionist'])
             Route::get('/', [ExpenseTypeController::class, 'index'])
                 ->middleware('check_user_permission:manage_payments')
                 ->name('expense.types');
-            
+
             Route::post('/store', [ExpenseTypeController::class, 'store'])
                 ->middleware('check_user_permission:manage_payments')
                 ->name('expense.types.store');
@@ -765,11 +765,11 @@ Route::middleware(['auth:web', 'role:admin|manager|receptionist'])
             Route::get('/', [ExpenseController::class, 'index'])
                 ->middleware('check_user_permission:view_reports')
                 ->name('expenses.index');
-            
+
             Route::get('/create', [ExpenseController::class, 'create'])
                 ->middleware('check_user_permission:manage_payments')
                 ->name('expenses.create');
-            
+
             Route::post('/store', [ExpenseController::class, 'store'])
                 ->middleware('check_user_permission:manage_payments')
                 ->name('expenses.store');
@@ -792,8 +792,143 @@ Route::middleware(['role:admin'])->group(function () {
 
 
     Route::post('/users-permissions/update', [RolePermissionController::class, 'updateUserPermission'])
-        ->name('user.permissions.update');
+        ->name('users.permissions.update');
 });
+
+        // ================= ATTENDANCE MANAGEMENT =================
+        Route::prefix('attendance')->name('attendance.')->group(function () {
+            // Devices
+            Route::get('/devices', [\App\Http\Controllers\Attendance\AttendanceDeviceController::class, 'index'])
+                ->middleware('check_user_permission:view attendance devices')
+                ->name('devices.index');
+
+            Route::get('/devices/create', [\App\Http\Controllers\Attendance\AttendanceDeviceController::class, 'create'])
+                ->middleware('check_user_permission:manage attendance devices')
+                ->name('devices.create');
+
+            Route::post('/devices', [\App\Http\Controllers\Attendance\AttendanceDeviceController::class, 'store'])
+                ->middleware('check_user_permission:manage attendance devices')
+                ->name('devices.store');
+
+            Route::get('/devices/{device}/edit', [\App\Http\Controllers\Attendance\AttendanceDeviceController::class, 'edit'])
+                ->middleware('check_user_permission:manage attendance devices')
+                ->name('devices.edit');
+
+            Route::put('/devices/{device}', [\App\Http\Controllers\Attendance\AttendanceDeviceController::class, 'update'])
+                ->middleware('check_user_permission:manage attendance devices')
+                ->name('devices.update');
+
+            Route::delete('/devices/{device}', [\App\Http\Controllers\Attendance\AttendanceDeviceController::class, 'destroy'])
+                ->middleware('check_user_permission:manage attendance devices')
+                ->name('devices.destroy');
+
+            Route::post('/devices/{device}/test-connection', [\App\Http\Controllers\Attendance\AttendanceDeviceController::class, 'testConnection'])
+                ->middleware('check_user_permission:manage attendance devices')
+                ->name('devices.test-connection');
+
+            Route::post('/devices/{device}/sync-now', [\App\Http\Controllers\Attendance\AttendanceDeviceController::class, 'syncNow'])
+                ->middleware('check_user_permission:sync attendance')
+                ->name('devices.sync-now');
+
+            Route::get('/devices/{device}/sync-logs', [\App\Http\Controllers\Attendance\AttendanceDeviceController::class, 'syncLogs'])
+                ->middleware('check_user_permission:view attendance devices')
+                ->name('devices.sync-logs');
+
+            Route::post('/devices/{device}/toggle-active', [\App\Http\Controllers\Attendance\AttendanceDeviceController::class, 'toggleActive'])
+                ->middleware('check_user_permission:manage attendance devices')
+                ->name('devices.toggle-active');
+
+            // Attendance Records
+            Route::get('/records', [\App\Http\Controllers\Attendance\AttendanceRecordController::class, 'index'])
+                ->middleware('check_user_permission:view attendance records')
+                ->name('records.index');
+
+            Route::get('/records/{employee}/{date}', [\App\Http\Controllers\Attendance\AttendanceRecordController::class, 'show'])
+                ->middleware('check_user_permission:view attendance records')
+                ->name('records.show');
+
+            Route::get('/records/{record}/edit', [\App\Http\Controllers\Attendance\AttendanceRecordController::class, 'edit'])
+                ->middleware('check_user_permission:manage attendance records')
+                ->name('records.edit');
+
+            Route::put('/records/{record}', [\App\Http\Controllers\Attendance\AttendanceRecordController::class, 'update'])
+                ->middleware('check_user_permission:manage attendance records')
+                ->name('records.update');
+
+            Route::post('/records/{record}/mark-missing-checkout', [\App\Http\Controllers\Attendance\AttendanceRecordController::class, 'markMissingCheckout'])
+                ->middleware('check_user_permission:manage attendance records')
+                ->name('records.mark-missing-checkout');
+
+            Route::post('/records/{record}/apply-manual-checkout', [\App\Http\Controllers\Attendance\AttendanceRecordController::class, 'applyManualCheckout'])
+                ->middleware('check_user_permission:manage attendance records')
+                ->name('records.apply-manual-checkout');
+
+            // Payroll
+            Route::get('/payroll', [\App\Http\Controllers\Attendance\AttendancePayrollController::class, 'index'])
+                ->middleware('check_user_permission:view payroll')
+                ->name('payroll.index');
+
+            Route::get('/payroll/generate', [\App\Http\Controllers\Attendance\AttendancePayrollController::class, 'create'])
+                ->middleware('check_user_permission:generate payroll')
+                ->name('payroll.generate');
+
+            Route::post('/payroll', [\App\Http\Controllers\Attendance\AttendancePayrollController::class, 'store'])
+                ->middleware('check_user_permission:generate payroll')
+                ->name('payroll.store');
+
+            Route::get('/payroll/{payroll}', [\App\Http\Controllers\Attendance\AttendancePayrollController::class, 'show'])
+                ->middleware('check_user_permission:view payroll')
+                ->name('payroll.show');
+
+            Route::get('/payroll-employee-view', [\App\Http\Controllers\Attendance\AttendancePayrollController::class, 'employeeView'])
+                ->middleware('check_user_permission:view payroll')
+                ->name('payroll.employee-view');
+
+            Route::get('/payroll/{payroll}/edit', [\App\Http\Controllers\Attendance\AttendancePayrollController::class, 'edit'])
+                ->middleware('check_user_permission:manage payroll')
+                ->name('payroll.edit');
+
+            Route::put('/payroll/{payroll}', [\App\Http\Controllers\Attendance\AttendancePayrollController::class, 'update'])
+                ->middleware('check_user_permission:manage payroll')
+                ->name('payroll.update');
+
+            Route::post('/payroll/{payroll}/approve', [\App\Http\Controllers\Attendance\AttendancePayrollController::class, 'approve'])
+                ->middleware('check_user_permission:approve payroll')
+                ->name('payroll.approve');
+
+            Route::post('/payroll/{payroll}/mark-paid', [\App\Http\Controllers\Attendance\AttendancePayrollController::class, 'markPaid'])
+                ->middleware('check_user_permission:approve payroll')
+                ->name('payroll.mark-paid');
+
+            Route::post('/payroll/{payroll}/regenerate', [\App\Http\Controllers\Attendance\AttendancePayrollController::class, 'regenerate'])
+                ->middleware('check_user_permission:generate payroll')
+                ->name('payroll.regenerate');
+
+            // Reports
+            Route::get('/reports/daily', [\App\Http\Controllers\Attendance\AttendanceReportController::class, 'daily'])
+                ->middleware('check_user_permission:view_reports')
+                ->name('reports.daily');
+
+            Route::get('/reports/monthly', [\App\Http\Controllers\Attendance\AttendanceReportController::class, 'monthly'])
+                ->middleware('check_user_permission:view_reports')
+                ->name('reports.monthly');
+
+            Route::get('/reports/employee/{employee}', [\App\Http\Controllers\Attendance\AttendanceReportController::class, 'employeeReport'])
+                ->middleware('check_user_permission:view_reports')
+                ->name('reports.employee');
+
+            Route::get('/reports/branch', [\App\Http\Controllers\Attendance\AttendanceReportController::class, 'branchReport'])
+                ->middleware('check_user_permission:view_reports')
+                ->name('reports.branch');
+
+            Route::get('/reports/late', [\App\Http\Controllers\Attendance\AttendanceReportController::class, 'lateReport'])
+                ->middleware('check_user_permission:view_reports')
+                ->name('reports.late');
+
+            Route::get('/reports/overtime', [\App\Http\Controllers\Attendance\AttendanceReportController::class, 'overtimeReport'])
+                ->middleware('check_user_permission:view_reports')
+                ->name('reports.overtime');
+        });
 
         // ================= CHECKUP FEE AJAX =================
         Route::get('/patients/{id}/checkup-fee', [CheckupController::class, 'getCheckupFee'])

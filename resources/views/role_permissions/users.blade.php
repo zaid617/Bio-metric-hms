@@ -58,7 +58,7 @@
     <script>
         document.querySelectorAll('input[type=checkbox]').forEach(cb => {
             cb.addEventListener('change', function() {
-                axios.post("{{ route('user.permissions.update') }}", {
+                axios.post("{{ route('users.permissions.update') }}", {
                     user_id: this.dataset.user,
                     permission_id: this.dataset.permissionId,
                     has_permission: this.checked ? 1 : 0

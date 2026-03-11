@@ -16,7 +16,7 @@ class UserSeeder extends Seeder
          // Creating a user with branch_id = 1
         User::create([
             'name' => 'Nomi',
-            'email' => 'nomi@gmail.com',
+            'email' => 'admin@gmail.com',
             'password' => bcrypt('password'),
             'branch_id' => 1,
         ]);

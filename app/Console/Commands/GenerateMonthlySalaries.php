@@ -2,58 +2,37 @@
 
 namespace App\Console\Commands;
 
-use Illuminate\Console\Command;
-use Illuminate\Support\Facades\DB;
+use App\Modules\Payroll\Services\PayrollService;
 use Carbon\Carbon;
+use Illuminate\Console\Command;
 
 class GenerateMonthlySalaries extends Command
 {
-  protected $signature = 'generate:monthly-salaries';
+        protected $signature = 'generate:monthly-salaries {--month=} {--year=} {--force}';
 
 
     protected $description = 'Automatically generate monthly salary records for all employees';
 
+    public function __construct(private readonly PayrollService $payrollService)
+    {
+        parent::__construct();
+    }
+
     public function handle()
     {
-        // Get the first day of the current month (e.g., 2025-07-01)
-        $month = Carbon::now()->startOfMonth()->format('Y-m-d');
+        $month = (int) ($this->option('month') ?: Carbon::now()->month);
+        $year = (int) ($this->option('year') ?: Carbon::now()->year);
 
-        // Get all employees from the database
-        $employees = DB::table('employees')->get();
+        $result = $this->payrollService->generateMonthlyPayroll(
+            $month,
+            $year,
+            null,
+            null,
+            (bool) $this->option('force')
+        );
 
-        foreach ($employees as $employee) {
-            // Check if a salary record for this employee already exists for this month
-            $exists = DB::table('employee_salaries')
-                ->where('employee_id', $employee->id)
-                ->where('month', $month)
-                ->exists();
+        $this->info("Payroll generation complete for {$month}/{$year}. Created: {$result['created']->count()}, Skipped: {$result['skipped']->count()}.");
 
-            if (!$exists) {
-                // Default values
-                $basic = $employee->basic_salary ?? 0;
-                $allowances = $employee->allowances ?? 0;
-                $bonuses = 0;
-                $deductions = 0;
-
-                // Calculate net salary
-                $net = $basic + $allowances + $bonuses - $deductions;
-
-                // Insert salary record
-                DB::table('employee_salaries')->insert([
-                    'employee_id'    => $employee->id,
-                    'month'          => $month,
-                    'basic_salary'   => $basic,
-                    'allowances'     => $allowances,
-                    'bonuses'        => $bonuses,
-                    'deductions'     => $deductions,
-                    'net_salary'     => $net,
-                    'payment_status' => 'Pending',
-                    'created_at'     => now(),
-                    'updated_at'     => now(),
-                ]);
-            }
-        }
-
-        $this->info("✅ Salary records successfully generated for month: $month");
+        return self::SUCCESS;
     }
 }

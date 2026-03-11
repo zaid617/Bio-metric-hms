@@ -154,7 +154,7 @@
             </li>
 
             {{-- Feedback --}}
-          
+
             <li class="{{ request()->is('feedback*') ? 'mm-active' : '' }}">
                 <a class="has-arrow" href="javascript:;">
                     <div class="parent-icon"><i class="material-icons-outlined">feedback</i></div>
@@ -173,7 +173,7 @@
     </li>
 </ul>
     </li>
-   
+
 
 
 
@@ -239,6 +239,38 @@
                 </ul>
             </li>
 
+            <!-- Attendance Management -->
+            <li>
+                <a class="has-arrow" href="javascript:;">
+                    <div class="parent-icon">
+                    <i class="material-icons-outlined">fingerprint</i>
+                    </div>
+                    <div class="menu-title">Attendance</div>
+                </a>
+                <ul>
+                    <li>
+                    <a href="{{ route('attendance.devices.index') }}">
+                        <i class="material-icons-outlined">devices</i> Devices
+                    </a>
+                    </li>
+                    <li>
+                    <a href="{{ route('attendance.records.index') }}">
+                        <i class="material-icons-outlined">fact_check</i> Attendance Records
+                    </a>
+                    </li>
+                    <li>
+                    <a href="{{ route('attendance.payroll.index') }}">
+                        <i class="material-icons-outlined">payments</i> Payroll
+                    </a>
+                    </li>
+                    <li>
+                    <a href="{{ route('attendance.reports.daily') }}">
+                        <i class="material-icons-outlined">assessment</i> Reports
+                    </a>
+                    </li>
+                </ul>
+            </li>
+
             <!-- Expenses Management -->
             <li>
                 <a class="has-arrow" href="javascript:;">
@@ -286,7 +318,7 @@
                     </a>
                     </li>
                     <li>
-                   
+
                     </li>
                 </ul>
             </li>
@@ -301,7 +333,7 @@
         <div class="menu-title">Users</div>
     </a>
     <ul class="mm-collapse">
-      
+
         <li>
             <a href="{{ url('roles-permissions') }}">
                 <i class="material-icons-outlined">account_balance_wallet</i> Roles Permissions
@@ -342,7 +374,7 @@
     </ul>
 </li>
 
-            
+
 
             {{--session Table--}}
             <li>
@@ -402,8 +434,8 @@
     </ul>
 </li>
 
-          
-           
+
+
           @endrole
 {{-- ==================Docter Menu==================== --}}
           @auth('doctor')
