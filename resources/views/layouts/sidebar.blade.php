@@ -318,7 +318,14 @@
                     </a>
                     </li>
                     <li>
-
+                    <a href="{{ url('/settings/general') }}">
+                        <i class="material-icons-outlined">tune</i> Branch Fee Settings
+                    </a>
+                    </li>
+                    <li>
+                    <a href="{{ route('payroll.settings.index') }}">
+                        <i class="material-icons-outlined">payments</i> Payroll Settings
+                    </a>
                     </li>
                 </ul>
             </li>

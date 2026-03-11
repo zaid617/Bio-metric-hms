@@ -5,7 +5,6 @@ return [
     'overtime_multiplier' => 1.5,
 
     // Shift schedule
-    // Set work_on_saturday = true for Mon–Sat, false for Mon–Fri
     'work_on_saturday'   => true,
     'shift_start'        => '09:00',  // HH:MM — official shift start time
     'late_grace_minutes' => 15,       // minutes of grace before marking late

@@ -32,6 +32,7 @@ use App\Http\Controllers\ExpenseTypeController;
 use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\RolePermissionController;
 use App\Http\Controllers\Payroll\PayrollAdjustmentController;
+use App\Http\Controllers\Payroll\PayrollSettingController;
 //use App\Http\Controllers\AppointmentController;
 //use App\Http\Controllers\EnrollmentController;
 //use App\Http\Controllers\PaymentController;
@@ -642,6 +643,15 @@ Route::middleware(['auth:web', 'role:admin|manager|receptionist'])
             Route::post('/general', [GeneralSettingController::class, 'update'])
                 ->middleware('check_user_permission:manage_appointments')
                 ->name('settings.update');
+
+            // Payroll Settings
+            Route::get('/payroll', [PayrollSettingController::class, 'index'])
+                ->middleware('check_user_permission:manage_appointments')
+                ->name('payroll.settings.index');
+
+            Route::put('/payroll', [PayrollSettingController::class, 'update'])
+                ->middleware('check_user_permission:manage_appointments')
+                ->name('payroll.settings.update');
         });
 
         Route::prefix('general-settings')->group(function () {
