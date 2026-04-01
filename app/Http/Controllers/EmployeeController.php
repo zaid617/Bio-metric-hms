@@ -46,7 +46,9 @@ class EmployeeController extends Controller
                 'branch_id'    => 'required|integer|exists:branches,id',
                 'department'   => 'required|string|in:Male Physiotherapy Department,Female Physiotherapy Department,Paeds Physiotherapy Department,Speech Therapy Department,Behavior Therapy Department,Occupational Therapy Department,Remedial Therapy Department,Clinical Psychology Department',
                 'shift'        => 'required|string|in:Morning,Afternoon,Evening',
+                'shift_start_time' => 'required|date_format:H:i',
                 'basic_salary' => 'required',
+                'working_hours' => 'required|numeric|min:1|max:24',
                 'phone'        => 'required|string|max:20',
                 'joining_date' => 'required|date',
             ]);
@@ -60,7 +62,9 @@ class EmployeeController extends Controller
                 'branch_id'    => $request->branch_id,
                 'department'   => $request->department,
                 'shift'        => $request->shift,
+                'shift_start_time' => $request->shift_start_time,
                 'basic_salary' => $salary,
+                'working_hours' => $request->working_hours,
                 'phone'        => $request->phone,
                 'joining_date' => $request->joining_date,
                 'created_at'   => now(),
@@ -105,7 +109,9 @@ class EmployeeController extends Controller
                 'branch_id'    => 'required|integer|exists:branches,id',
                 'department'   => 'required|string|in:Male Physiotherapy Department,Female Physiotherapy Department,Paeds Physiotherapy Department,Speech Therapy Department,Behavior Therapy Department,Occupational Therapy Department,Remedial Therapy Department,Clinical Psychology Department',
                 'shift'        => 'required|string|in:Morning,Afternoon,Evening',
+                'shift_start_time' => 'required|date_format:H:i',
                 'basic_salary' => 'required',
+                'working_hours' => 'required|numeric|min:1|max:24',
                 'phone'        => 'required|string|max:20',
                 'joining_date' => 'required|date',
             ]);
@@ -113,13 +119,15 @@ class EmployeeController extends Controller
             $salary = str_replace(',', '', $request->basic_salary);
 
             DB::table('employees')->where('id', $id)->update([
-                 'prefix'       => $request->prefix, 
+                 'prefix'       => $request->prefix,
                 'name'         => $request->name,
                 'designation'  => $request->designation,
                 'branch_id'    => $request->branch_id,
                 'department'   => $request->department,
                 'shift'        => $request->shift,
+                'shift_start_time' => $request->shift_start_time,
                 'basic_salary' => $salary,
+                'working_hours' => $request->working_hours,
                 'phone'        => $request->phone,
                 'joining_date' => $request->joining_date,
                 'updated_at'   => now(),

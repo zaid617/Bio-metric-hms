@@ -117,6 +117,18 @@ class AttendancePayrollController extends Controller
             'bonus' => 'nullable|numeric|min:0',
             'admin_adjustment_amount' => 'nullable|numeric',
             'admin_adjustment_note' => 'required_with:admin_adjustment_amount|nullable|string|max:500',
+            'earnings' => 'nullable|array',
+            'earnings.*.code' => 'nullable|string|max:80',
+            'earnings.*.amount' => 'nullable|numeric|min:0.01',
+            'earnings.*.notes' => 'nullable|string|max:500',
+            'deductions_items' => 'nullable|array',
+            'deductions_items.*.code' => 'nullable|string|max:80',
+            'deductions_items.*.amount' => 'nullable|numeric|min:0.01',
+            'deductions_items.*.notes' => 'nullable|string|max:500',
+            'awards' => 'nullable|array',
+            'awards.*.code' => 'nullable|string|max:80',
+            'awards.*.amount' => 'nullable|numeric|min:0.01',
+            'awards.*.notes' => 'nullable|string|max:500',
             'earning_code' => 'nullable|string|max:80',
             'earning_amount' => 'nullable|numeric|min:0',
             'earning_notes' => 'nullable|string|max:500',
@@ -137,44 +149,115 @@ class AttendancePayrollController extends Controller
                 $this->payrollService->updateBonus($payroll, $validated['bonus']);
             }
 
-            if (isset($validated['admin_adjustment_amount'])) {
-                $this->payrollService->adminAdjustSettlement(
-                    $payroll,
-                    $validated['admin_adjustment_amount'],
-                    $validated['admin_adjustment_note'],
-                    Auth::user()
-                );
-            }
+            $batchAdjustments = [];
+            $containsManualOvertime = false;
 
+            $appendRows = static function (
+                array $rows,
+                string $type,
+                string $defaultCode,
+                array &$batchAdjustments,
+                bool &$containsManualOvertime
+            ): void {
+                foreach ($rows as $row) {
+                    if (!is_array($row)) {
+                        continue;
+                    }
+
+                    $amount = (float) ($row['amount'] ?? 0);
+                    if ($amount <= 0) {
+                        continue;
+                    }
+
+                    $code = strtoupper(trim((string) ($row['code'] ?? '')));
+                    if ($type === PayrollAdjustmentType::EARNING && $code === PayrollEarningType::OVERTIME) {
+                        $containsManualOvertime = true;
+                        continue;
+                    }
+
+                    $notes = isset($row['notes']) && $row['notes'] !== '' ? (string) $row['notes'] : null;
+
+                    $batchAdjustments[] = [
+                        'adjustment_type' => $type,
+                        'code' => $code !== '' ? $code : $defaultCode,
+                        'amount' => $amount,
+                        'notes' => $notes,
+                    ];
+                }
+            };
+
+            $appendRows(
+                $validated['earnings'] ?? [],
+                PayrollAdjustmentType::EARNING,
+                PayrollEarningType::CUSTOM,
+                $batchAdjustments,
+                $containsManualOvertime
+            );
+
+            $appendRows(
+                $validated['awards'] ?? [],
+                PayrollAdjustmentType::AWARD,
+                PayrollAwardType::CUSTOM,
+                $batchAdjustments,
+                $containsManualOvertime
+            );
+
+            $appendRows(
+                $validated['deductions_items'] ?? [],
+                PayrollAdjustmentType::DEDUCTION,
+                PayrollDeductionType::CUSTOM,
+                $batchAdjustments,
+                $containsManualOvertime
+            );
+
+            // Backward compatibility for older single-row payloads.
             if (!empty($validated['earning_amount'])) {
-                $this->modularPayrollService->addAdjustment(
-                    $payroll,
-                    PayrollAdjustmentType::EARNING,
-                    $validated['earning_code'] ?? PayrollEarningType::CUSTOM,
-                    (float) $validated['earning_amount'],
-                    $validated['earning_notes'] ?? null,
-                    Auth::user()
-                );
-            }
-
-            if (!empty($validated['deduction_amount'])) {
-                $this->modularPayrollService->addAdjustment(
-                    $payroll,
-                    PayrollAdjustmentType::DEDUCTION,
-                    $validated['deduction_code'] ?? PayrollDeductionType::CUSTOM,
-                    (float) $validated['deduction_amount'],
-                    $validated['deduction_notes'] ?? null,
-                    Auth::user()
-                );
+                $legacyCode = strtoupper((string) ($validated['earning_code'] ?? ''));
+                if ($legacyCode === PayrollEarningType::OVERTIME) {
+                    $containsManualOvertime = true;
+                } else {
+                    $batchAdjustments[] = [
+                        'adjustment_type' => PayrollAdjustmentType::EARNING,
+                        'code' => $legacyCode !== '' ? $legacyCode : PayrollEarningType::CUSTOM,
+                        'amount' => (float) $validated['earning_amount'],
+                        'notes' => $validated['earning_notes'] ?? null,
+                    ];
+                }
             }
 
             if (!empty($validated['award_amount'])) {
-                $this->modularPayrollService->addAdjustment(
+                $batchAdjustments[] = [
+                    'adjustment_type' => PayrollAdjustmentType::AWARD,
+                    'code' => !empty($validated['award_code']) ? $validated['award_code'] : PayrollAwardType::CUSTOM,
+                    'amount' => (float) $validated['award_amount'],
+                    'notes' => $validated['award_notes'] ?? null,
+                ];
+            }
+
+            if (!empty($validated['deduction_amount'])) {
+                $batchAdjustments[] = [
+                    'adjustment_type' => PayrollAdjustmentType::DEDUCTION,
+                    'code' => !empty($validated['deduction_code']) ? $validated['deduction_code'] : PayrollDeductionType::CUSTOM,
+                    'amount' => (float) $validated['deduction_amount'],
+                    'notes' => $validated['deduction_notes'] ?? null,
+                ];
+            }
+
+            if ($containsManualOvertime) {
+                return redirect()->back()
+                    ->with('error', 'Overtime amount is calculated automatically from attendance. Please remove manual overtime adjustment entries.')
+                    ->withInput();
+            }
+
+            if (!empty($batchAdjustments)) {
+                $payroll = $this->modularPayrollService->addAdjustments($payroll, $batchAdjustments, Auth::user());
+            }
+
+            if (isset($validated['admin_adjustment_amount'])) {
+                $this->payrollService->adminAdjustSettlement(
                     $payroll,
-                    PayrollAdjustmentType::AWARD,
-                    $validated['award_code'] ?? PayrollAwardType::CUSTOM,
-                    (float) $validated['award_amount'],
-                    $validated['award_notes'] ?? null,
+                    (float) $validated['admin_adjustment_amount'],
+                    $validated['admin_adjustment_note'] ?? null,
                     Auth::user()
                 );
             }

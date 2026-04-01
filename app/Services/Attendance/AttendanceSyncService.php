@@ -88,7 +88,9 @@ class AttendanceSyncService
                                 'designation'       => 'Employee',
                                 'branch_id'         => $device->branch_id,
                                 'basic_salary'      => 0,
+                                'working_hours'     => (float) config('payroll.default_shift_hours', 8),
                                 'shift'             => '',
+                                'shift_start_time'  => config('payroll.shift_start', '09:00'),
                                 'device_id'         => $device->id,
                                 'user_id_on_device' => $userData['user_id_on_device'],
                             ]);
@@ -324,6 +326,7 @@ class AttendanceSyncService
             : date('Y-m-d', strtotime($record->attendance_date));
 
         $checkIn = Carbon::parse($dateOnly . ' ' . $record->check_in);
+        $employee = $record->employee;
 
         if ($record->check_out) {
             $checkOut = Carbon::parse($dateOnly . ' ' . $record->check_out);
@@ -336,7 +339,6 @@ class AttendanceSyncService
             $record->total_working_minutes = $checkIn->diffInMinutes($checkOut);
 
             // Calculate overtime based on employee's standard working hours
-            $employee = $record->employee;
             $standardMinutes = ($employee && $employee->working_hours)
                 ? (float) $employee->working_hours * 60
                 : 8 * 60;
@@ -348,8 +350,13 @@ class AttendanceSyncService
             }
         }
 
-        // Detect late arrival: check check_in against configured shift start + grace
-        $shiftStart   = config('payroll.shift_start', '09:00');
+        // Detect late arrival using employee shift start time (fallback: payroll setting).
+        $employeeShiftStart = ($employee && !empty($employee->shift_start_time))
+            ? substr((string) $employee->shift_start_time, 0, 5)
+            : config('payroll.shift_start', '09:00');
+        $shiftStart   = preg_match('/^\d{2}:\d{2}$/', $employeeShiftStart)
+            ? $employeeShiftStart
+            : config('payroll.shift_start', '09:00');
         $graceMinutes = (int) config('payroll.late_grace_minutes', 15);
         $deadline     = Carbon::parse($dateOnly . ' ' . $shiftStart)->addMinutes($graceMinutes);
         if ($checkIn->gt($deadline)) {

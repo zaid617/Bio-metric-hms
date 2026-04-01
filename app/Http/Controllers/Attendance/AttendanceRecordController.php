@@ -103,7 +103,20 @@ class AttendanceRecordController extends Controller
                     $checkOut->addDay();
                 }
 
-                $validated['total_working_minutes'] = $checkIn->diffInMinutes($checkOut);
+                $workingMinutes = $checkIn->diffInMinutes($checkOut);
+                $validated['total_working_minutes'] = $workingMinutes;
+
+                $standardMinutes = (float) ($record->employee?->working_hours ?? config('payroll.default_shift_hours', 8)) * 60;
+                $validated['overtime_minutes'] = max(0, (int) ($workingMinutes - $standardMinutes));
+
+                if (in_array($validated['status'], ['present', 'late'], true)) {
+                    $shiftStart = $record->employee?->shift_start_time
+                        ? substr((string) $record->employee->shift_start_time, 0, 5)
+                        : config('payroll.shift_start', '09:00');
+                    $graceMinutes = (int) config('payroll.late_grace_minutes', 15);
+                    $deadline = Carbon::parse($record->attendance_date . ' ' . $shiftStart)->addMinutes($graceMinutes);
+                    $validated['status'] = $checkIn->gt($deadline) ? 'late' : 'present';
+                }
             }
 
             $record->update($validated);
@@ -157,8 +170,22 @@ class AttendanceRecordController extends Controller
                     $checkOut->addDay();
                 }
 
+                $workingMinutes = $checkIn->diffInMinutes($checkOut);
+                $standardMinutes = (float) ($record->employee?->working_hours ?? config('payroll.default_shift_hours', 8)) * 60;
+
+                $shiftStart = $record->employee?->shift_start_time
+                    ? substr((string) $record->employee->shift_start_time, 0, 5)
+                    : config('payroll.shift_start', '09:00');
+                $graceMinutes = (int) config('payroll.late_grace_minutes', 15);
+                $deadline = Carbon::parse($record->attendance_date . ' ' . $shiftStart)->addMinutes($graceMinutes);
+                $status = in_array($record->status, ['present', 'late'], true)
+                    ? ($checkIn->gt($deadline) ? 'late' : 'present')
+                    : $record->status;
+
                 $record->update([
-                    'total_working_minutes' => $checkIn->diffInMinutes($checkOut),
+                    'total_working_minutes' => $workingMinutes,
+                    'overtime_minutes' => max(0, (int) ($workingMinutes - $standardMinutes)),
+                    'status' => $status,
                 ]);
             }
 

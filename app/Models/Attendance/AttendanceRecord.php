@@ -140,7 +140,7 @@ class AttendanceRecord extends Model
 
         $standardMinutes = ($this->employee && $this->employee->working_hours)
             ? (float) $this->employee->working_hours * 60
-            : 8 * 60;
+            : (float) config('payroll.default_shift_hours', 8) * 60;
 
         $overtime = $this->total_working_minutes - $standardMinutes;
 

@@ -64,13 +64,20 @@ class PayrollRepository
             }
         }
 
-        // Shift start and late-grace config
-        $shiftStart      = config('payroll.shift_start', '09:00');          // e.g. "09:00"
+        // Shift start from employee profile (fallback: payroll setting) and late-grace config
+        $employeeShiftStart = !empty($employee->shift_start_time)
+            ? substr((string) $employee->shift_start_time, 0, 5)
+            : config('payroll.shift_start', '09:00');
+        $shiftStart      = preg_match('/^\d{2}:\d{2}$/', $employeeShiftStart)
+            ? $employeeShiftStart
+            : config('payroll.shift_start', '09:00');
         $graceMinutes    = (int) config('payroll.late_grace_minutes', 15);  // minutes of grace
+        $standardMinutesPerDay = (float) ($employee->working_hours ?? config('payroll.default_shift_hours', 8)) * 60;
 
         $presentDays  = 0;
         $lateDays     = 0;
         $workingMinutes = 0;
+        $overtimeMinutes = 0;
 
         foreach ($records as $record) {
             // Resolve attendance_date to a Carbon for dayOfWeek check
@@ -97,6 +104,13 @@ class PayrollRepository
                         $lateDays++;
                     }
                 }
+
+                $recordOvertime = (int) ($record->overtime_minutes ?? 0);
+                if ($recordOvertime > 0) {
+                    $overtimeMinutes += $recordOvertime;
+                } else {
+                    $overtimeMinutes += (int) max(0, ((int) ($record->total_working_minutes ?? 0)) - $standardMinutesPerDay);
+                }
             }
 
             $workingMinutes += (int) ($record->total_working_minutes ?? 0);
@@ -104,11 +118,6 @@ class PayrollRepository
 
         // Absent = working days the employee was not present
         $absentDays = max(0, $workingDays - $presentDays);
-
-        // Overtime: total minutes worked minus expected (present_days × shift_hours)
-        $standardMinutesPerDay = (float) ($employee->working_hours ?? config('payroll.default_shift_hours', 8)) * 60;
-        $expectedMinutes  = $presentDays * $standardMinutesPerDay;
-        $overtimeMinutes  = max(0, $workingMinutes - $expectedMinutes);
 
         return [
             'present_days'           => $presentDays,

@@ -6,8 +6,10 @@
 
 @push('css')
 <style>
-    .adj-type-card { cursor:pointer;border:2px solid transparent;transition:.15s; }
-    .adj-type-card:hover,.adj-type-card.selected { border-color: currentColor; }
+    .table td,
+    .table th {
+        vertical-align: middle;
+    }
 </style>
 @endpush
 
@@ -27,18 +29,26 @@
                 </a>
             </div>
             <div class="card-body">
+                @php
+                    $incentivesTotal = max(
+                        0,
+                        (float) ($payroll->calculated_salary ?? 0) - (float) ($payroll->basic_salary ?? $payroll->base_salary ?? 0)
+                    );
+                    $awardsTotal = (float) ($payroll->awards_total ?? $payroll->bonus ?? 0);
+                    $deductionsTotal = (float) ($payroll->deductions_total ?? $payroll->deductions ?? 0);
+                @endphp
                 <div class="row text-center">
                     <div class="col-md-3 col-6 mb-3">
                         <div class="text-muted small">Basic Salary</div>
                         <div class="fw-bold fs-5">PKR {{ number_format($payroll->basic_salary ?? $payroll->base_salary ?? 0,0) }}</div>
                     </div>
                     <div class="col-md-3 col-6 mb-3">
-                        <div class="text-muted small">Awards / Incentives</div>
-                        <div class="fw-bold fs-5 text-success">PKR {{ number_format($payroll->awards_total ?? $payroll->bonus ?? 0,0) }}</div>
+                        <div class="text-muted small">Incentives + Awards</div>
+                        <div class="fw-bold fs-5 text-success">PKR {{ number_format($incentivesTotal + $awardsTotal,0) }}</div>
                     </div>
                     <div class="col-md-3 col-6 mb-3">
                         <div class="text-muted small">Deductions</div>
-                        <div class="fw-bold fs-5 text-danger">PKR {{ number_format($payroll->deductions_total ?? $payroll->deductions ?? 0,0) }}</div>
+                        <div class="fw-bold fs-5 text-danger">PKR {{ number_format($deductionsTotal,0) }}</div>
                     </div>
                     <div class="col-md-3 col-6 mb-3">
                         <div class="text-muted small">Current Net Salary</div>
@@ -72,66 +82,89 @@
                         <div class="alert alert-danger"><ul class="mb-0">@foreach($errors->all() as $e)<li>{{ $e }}</li>@endforeach</ul></div>
                     @endif
 
-                    {{-- Type selector --}}
-                    <div class="mb-4">
-                        <label class="form-label fw-semibold">Adjustment Type <span class="text-danger">*</span></label>
-                        <div class="row g-2">
-                            <div class="col-md-4">
-                                <div class="adj-type-card card text-center text-success p-3" onclick="selectType('earning')">
-                                    <span class="material-icons-outlined mb-1" style="font-size:28px">add_circle</span>
-                                    <div class="fw-semibold">Earning / Incentive</div>
-                                    <small class="text-muted">Additional salary, bonuses</small>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="adj-type-card card text-center text-warning p-3" onclick="selectType('award')">
-                                    <span class="material-icons-outlined mb-1" style="font-size:28px">emoji_events</span>
-                                    <div class="fw-semibold">Award</div>
-                                    <small class="text-muted">Punctuality, performance</small>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="adj-type-card card text-center text-danger p-3" onclick="selectType('deduction')">
-                                    <span class="material-icons-outlined mb-1" style="font-size:28px">remove_circle</span>
-                                    <div class="fw-semibold">Deduction / Fine</div>
-                                    <small class="text-muted">Fines, advances, absences</small>
-                                </div>
+                    <div class="alert alert-info py-2">
+                        Add one or more rows in each section below. All incentives, awards, and deductions will be saved together and payroll will recalculate once.
+                    </div>
+
+                    <div class="card mb-3 border-success border-opacity-25">
+                        <div class="card-header bg-success bg-opacity-10 d-flex justify-content-between align-items-center">
+                            <h6 class="mb-0 text-success">Incentives / Earnings</h6>
+                            <button type="button" class="btn btn-sm btn-outline-success" onclick="addRow('earning')">
+                                <span class="material-icons-outlined" style="font-size:16px;vertical-align:middle">add</span>
+                                Add Row
+                            </button>
+                        </div>
+                        <div class="px-3 pt-2 small text-muted">Overtime is calculated automatically from attendance and cannot be added manually here.</div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-sm mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th style="width:32%">Code</th>
+                                            <th style="width:20%">Amount (PKR)</th>
+                                            <th>Notes</th>
+                                            <th style="width:70px"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody data-rows="earning"></tbody>
+                                </table>
                             </div>
                         </div>
                     </div>
 
-                    {{-- Hidden type & code --}}
-                    <input type="hidden" name="earning_notes" value="">
-                    <input type="hidden" name="deduction_notes" value="">
-                    <input type="hidden" name="award_notes" value="">
+                    <div class="card mb-3 border-warning border-opacity-25">
+                        <div class="card-header bg-warning bg-opacity-10 d-flex justify-content-between align-items-center">
+                            <h6 class="mb-0 text-warning">Awards</h6>
+                            <button type="button" class="btn btn-sm btn-outline-warning" onclick="addRow('award')">
+                                <span class="material-icons-outlined" style="font-size:16px;vertical-align:middle">add</span>
+                                Add Row
+                            </button>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-sm mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th style="width:32%">Code</th>
+                                            <th style="width:20%">Amount (PKR)</th>
+                                            <th>Notes</th>
+                                            <th style="width:70px"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody data-rows="award"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
 
-                    <div class="row g-3" id="adjustment_fields" style="display:none!important">
-                        <div class="col-md-6">
-                            <label class="form-label fw-semibold">Code / Category <span class="text-danger">*</span></label>
-                            <select id="code_select" class="form-select" onchange="updateCodeInput()">
-                                <option value="">— Select type first —</option>
-                            </select>
-                            <input type="hidden" id="earning_code"   name="earning_code">
-                            <input type="hidden" id="deduction_code" name="deduction_code">
-                            <input type="hidden" id="award_code"     name="award_code">
+                    <div class="card mb-3 border-danger border-opacity-25">
+                        <div class="card-header bg-danger bg-opacity-10 d-flex justify-content-between align-items-center">
+                            <h6 class="mb-0 text-danger">Deductions</h6>
+                            <button type="button" class="btn btn-sm btn-outline-danger" onclick="addRow('deduction')">
+                                <span class="material-icons-outlined" style="font-size:16px;vertical-align:middle">add</span>
+                                Add Row
+                            </button>
                         </div>
-                        <div class="col-md-6">
-                            <label class="form-label fw-semibold">Amount (PKR) <span class="text-danger">*</span></label>
-                            <input type="number" step="0.01" min="0.01" id="amount_input" class="form-control" placeholder="0.00">
-                            <input type="hidden" id="earning_amount"   name="earning_amount">
-                            <input type="hidden" id="deduction_amount" name="deduction_amount">
-                            <input type="hidden" id="award_amount"     name="award_amount">
-                        </div>
-                        <div class="col-12">
-                            <label class="form-label fw-semibold">Notes / Reason</label>
-                            <textarea id="notes_input" class="form-control" rows="2"
-                                      placeholder="Describe the reason for this adjustment..."></textarea>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-sm mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th style="width:32%">Code</th>
+                                            <th style="width:20%">Amount (PKR)</th>
+                                            <th>Notes</th>
+                                            <th style="width:70px"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody data-rows="deduction"></tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
 
                     <div class="d-flex gap-2 justify-content-end mt-4">
                         <a href="{{ route('attendance.payroll.show',$payroll->id) }}" class="btn btn-outline-secondary">Cancel</a>
-                        <button type="submit" class="btn btn-warning px-4" id="submit_btn" disabled>
+                        <button type="submit" class="btn btn-warning px-4">
                             <span class="material-icons-outlined me-1" style="vertical-align:middle;font-size:18px">save</span>
                             Save & Recalculate
                         </button>
@@ -174,11 +207,9 @@
 
 @push('scripts')
 <script>
-var currentType = null;
 var codes = {
     earning: [
         {v:'ADDITIONAL_SALARY', l:'Additional Salary'},
-        {v:'OVERTIME', l:'Overtime'},
         {v:'TREATMENT_EXTENSION_COMMISSION', l:'Treatment Extension Commission (10%)'},
         {v:'SATISFACTION_BONUS', l:'Patient Satisfaction Bonus'},
         {v:'ASSESSMENT_BONUS', l:'Staff Assessment Incentive (5%)'},
@@ -205,50 +236,101 @@ var codes = {
     ]
 };
 
-function selectType(type) {
-    currentType = type;
-    document.querySelectorAll('.adj-type-card').forEach(c => c.classList.remove('selected'));
-    event.currentTarget.classList.add('selected');
+var sectionKey = {
+    earning: 'earnings',
+    award: 'awards',
+    deduction: 'deductions_items'
+};
 
-    var sel = document.getElementById('code_select');
-    sel.innerHTML = '<option value="">— Select code —</option>';
-    (codes[type] || []).forEach(function(item){
-        sel.innerHTML += '<option value="'+item.v+'">'+item.l+'</option>';
+var rowIndex = {
+    earning: 0,
+    award: 0,
+    deduction: 0
+};
+
+function escapeAttr(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+}
+
+function getCodeOptions(type, selectedCode) {
+    var options = '<option value="">Select code</option>';
+    (codes[type] || []).forEach(function(item) {
+        var selected = selectedCode === item.v ? ' selected' : '';
+        options += '<option value="' + item.v + '"' + selected + '>' + item.l + '</option>';
     });
 
-    document.getElementById('adjustment_fields').style.cssText = '';
-    document.getElementById('amount_input').value = '';
-    document.getElementById('notes_input').value = '';
-    updateSubmitBtn();
+    return options;
 }
 
-function updateCodeInput() {
-    updateSubmitBtn();
+function buildRow(type, index, rowData) {
+    var payloadKey = sectionKey[type];
+    var code = String(rowData.code || '');
+    var amount = rowData.amount === 0 ? '0' : String(rowData.amount || '');
+    var notes = escapeAttr(rowData.notes || '');
+
+    return '' +
+        '<tr>' +
+            '<td><select class="form-select form-select-sm" name="' + payloadKey + '[' + index + '][code]">' + getCodeOptions(type, code) + '</select></td>' +
+            '<td><input type="number" step="0.01" min="0" class="form-control form-control-sm" name="' + payloadKey + '[' + index + '][amount]" value="' + escapeAttr(amount) + '" placeholder="0.00"></td>' +
+            '<td><input type="text" class="form-control form-control-sm" name="' + payloadKey + '[' + index + '][notes]" value="' + notes + '" placeholder="Optional notes"></td>' +
+            '<td class="text-end"><button type="button" class="btn btn-sm btn-outline-secondary" onclick="removeRow(this)"><span class="material-icons-outlined" style="font-size:16px;vertical-align:middle">delete</span></button></td>' +
+        '</tr>';
 }
 
-function updateSubmitBtn() {
-    var ready = currentType && document.getElementById('code_select').value && parseFloat(document.getElementById('amount_input').value || 0) > 0;
-    document.getElementById('submit_btn').disabled = !ready;
+function addRow(type, rowData) {
+    var tbody = document.querySelector('[data-rows="' + type + '"]');
+    if (!tbody) {
+        return;
+    }
+
+    var index = rowIndex[type]++;
+    tbody.insertAdjacentHTML('beforeend', buildRow(type, index, rowData || {}));
 }
 
-document.getElementById('amount_input').addEventListener('input', updateSubmitBtn);
+function removeRow(button) {
+    var row = button.closest('tr');
+    if (row) {
+        row.remove();
+    }
+}
 
-document.querySelector('form').addEventListener('submit', function(e) {
-    var v = document.getElementById('code_select').value;
-    var a = document.getElementById('amount_input').value;
-    var n = document.getElementById('notes_input').value;
-    if (currentType === 'earning') {
-        document.getElementById('earning_code').value   = v;
-        document.getElementById('earning_amount').value = a;
-        document.getElementById('earning_notes').value  = n;
-    } else if (currentType === 'award') {
-        document.getElementById('award_code').value   = v;
-        document.getElementById('award_amount').value = a;
-        document.getElementById('award_notes').value  = n;
-    } else if (currentType === 'deduction') {
-        document.getElementById('deduction_code').value   = v;
-        document.getElementById('deduction_amount').value = a;
-        document.getElementById('deduction_notes').value  = n;
+function normalizeRows(value) {
+    if (Array.isArray(value)) {
+        return value;
+    }
+
+    if (value && typeof value === 'object') {
+        return Object.values(value);
+    }
+
+    return [];
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    var oldEarnings = normalizeRows(@json(old('earnings', [])));
+    var oldAwards = normalizeRows(@json(old('awards', [])));
+    var oldDeductions = normalizeRows(@json(old('deductions_items', [])));
+
+    if (oldEarnings.length > 0) {
+        oldEarnings.forEach(function(row) { addRow('earning', row || {}); });
+    } else {
+        addRow('earning');
+    }
+
+    if (oldAwards.length > 0) {
+        oldAwards.forEach(function(row) { addRow('award', row || {}); });
+    } else {
+        addRow('award');
+    }
+
+    if (oldDeductions.length > 0) {
+        oldDeductions.forEach(function(row) { addRow('deduction', row || {}); });
+    } else {
+        addRow('deduction');
     }
 });
 </script>

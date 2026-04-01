@@ -43,7 +43,10 @@
                     {{-- Designation --}}
                     <div class="col-md-6">
                         <label for="designation" class="form-label fw-semibold">Designation</label>
-                        <input type="text" class="form-control form-control-lg" id="designation" name="designation" placeholder="Designation" required>
+                        <select class="form-select form-select-lg" id="designation" name="designation" required>
+                            <option value="Employee" {{ old('designation', 'Employee') === 'Employee' ? 'selected' : '' }}>Employee</option>
+                            <option value="Doctor" {{ old('designation') === 'Doctor' ? 'selected' : '' }}>Doctor</option>
+                        </select>
                     </div>
 
                     {{-- Branch --}}
@@ -82,6 +85,13 @@
                             <option value="Afternoon">Afternoon</option>
                             <option value="Evening">Evening</option>
                         </select>
+                    </div>
+
+                    {{-- Shift Start Time --}}
+                    <div class="col-md-6">
+                        <label for="shift_start_time" class="form-label fw-semibold">Shift Start Time</label>
+                        <input type="time" class="form-control form-control-lg" id="shift_start_time" name="shift_start_time"
+                               value="{{ old('shift_start_time', config('payroll.shift_start', '09:00')) }}" required>
                     </div>
 
                     {{-- Basic Salary --}}

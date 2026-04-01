@@ -104,7 +104,9 @@
                                 ['label'=>'Reference Bonus','val'=> $payroll->reference_bonus ?? 0],
                                 ['label'=>'Personal Patient Commission','val'=> $payroll->personal_patient_commission ?? 0],
                             ];
-                            $earningsTotal = collect($earningsItems)->sum('val');
+                            $earningsTotal = !empty($payroll->earnings_breakdown)
+                                ? collect($payroll->earnings_breakdown)->sum(fn ($item) => (float) ($item['amount'] ?? 0))
+                                : collect($earningsItems)->sum('val');
                         @endphp
                         @foreach($earningsItems as $item)
                             @if((float)$item['val'] > 0)

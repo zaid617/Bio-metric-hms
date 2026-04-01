@@ -6,6 +6,7 @@ use App\Models\Attendance\AttendancePayroll;
 use App\Models\Employee;
 use App\Models\User;
 use App\Modules\Payroll\Repositories\PayrollRepository;
+use App\Modules\Payroll\Types\PayrollAdjustmentType;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -172,20 +173,62 @@ class PayrollService
         ?User $createdBy = null,
         array $meta = []
     ): AttendancePayroll {
-        $this->repository->addAdjustment([
-            'payroll_id' => $payroll->id,
-            'employee_id' => $payroll->employee_id,
-            'month' => $payroll->month,
-            'year' => $payroll->year,
-            'adjustment_type' => $adjustmentType,
-            'code' => $code,
-            'amount' => $amount,
-            'notes' => $notes,
-            'meta' => $meta ?: null,
-            'created_by' => $createdBy?->id,
-        ]);
+        return $this->addAdjustments(
+            $payroll,
+            [[
+                'adjustment_type' => $adjustmentType,
+                'code' => $code,
+                'amount' => $amount,
+                'notes' => $notes,
+                'meta' => $meta,
+            ]],
+            $createdBy
+        );
+    }
 
-        return $this->regeneratePayroll($payroll, $createdBy);
+    /**
+     * Add multiple adjustments in one request and regenerate payroll once.
+     */
+    public function addAdjustments(AttendancePayroll $payroll, array $adjustments, ?User $createdBy = null): AttendancePayroll
+    {
+        $normalized = collect($adjustments)
+            ->filter(fn ($adjustment) => is_array($adjustment))
+            ->map(function (array $adjustment): array {
+                return [
+                    'adjustment_type' => (string) ($adjustment['adjustment_type'] ?? ''),
+                    'code' => (string) ($adjustment['code'] ?? ''),
+                    'amount' => (float) ($adjustment['amount'] ?? 0),
+                    'notes' => $adjustment['notes'] ?? null,
+                    'meta' => is_array($adjustment['meta'] ?? null) ? $adjustment['meta'] : null,
+                ];
+            })
+            ->filter(fn (array $adjustment) => in_array($adjustment['adjustment_type'], PayrollAdjustmentType::ALL, true)
+                && $adjustment['code'] !== ''
+                && $adjustment['amount'] > 0)
+            ->values();
+
+        if ($normalized->isEmpty()) {
+            return $payroll->refresh();
+        }
+
+        return DB::transaction(function () use ($payroll, $normalized, $createdBy) {
+            foreach ($normalized as $adjustment) {
+                $this->repository->addAdjustment([
+                    'payroll_id' => $payroll->id,
+                    'employee_id' => $payroll->employee_id,
+                    'month' => $payroll->month,
+                    'year' => $payroll->year,
+                    'adjustment_type' => $adjustment['adjustment_type'],
+                    'code' => $adjustment['code'],
+                    'amount' => $adjustment['amount'],
+                    'notes' => $adjustment['notes'],
+                    'meta' => $adjustment['meta'],
+                    'created_by' => $createdBy?->id,
+                ]);
+            }
+
+            return $this->regeneratePayroll($payroll, $createdBy);
+        });
     }
 
     public function getPayrollsForIndex(array $filters = [], int $perPage = 50)

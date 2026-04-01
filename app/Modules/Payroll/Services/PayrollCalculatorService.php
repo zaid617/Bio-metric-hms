@@ -96,7 +96,11 @@ class PayrollCalculatorService
             ['type' => PayrollEarningType::PERSONAL_PATIENT_COMMISSION, 'amount' => $personalPatientCommission, 'notes' => '20% personal patient commission'],
         ];
 
-        foreach ($adjustments->where('adjustment_type', 'earning')->where('code', '!=', PayrollEarningType::ADDITIONAL_SALARY) as $adjustment) {
+        foreach ($adjustments->where('adjustment_type', 'earning') as $adjustment) {
+            if (in_array($adjustment->code, [PayrollEarningType::ADDITIONAL_SALARY, PayrollEarningType::OVERTIME], true)) {
+                continue;
+            }
+
             $earnings[] = [
                 'type' => $adjustment->code ?: PayrollEarningType::CUSTOM,
                 'amount' => (float) $adjustment->amount,

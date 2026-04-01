@@ -153,7 +153,6 @@
 var allCodes = {
     earning: [
         {v:'ADDITIONAL_SALARY',         l:'Additional Salary'},
-        {v:'OVERTIME',                   l:'Overtime Payment'},
         {v:'TREATMENT_EXTENSION_COMMISSION', l:'Treatment Extension Commission (10%)'},
         {v:'SATISFACTION_BONUS',         l:'Patient Satisfaction Bonus'},
         {v:'ASSESSMENT_BONUS',           l:'Staff Assessment Incentive (5%)'},

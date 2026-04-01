@@ -12,9 +12,13 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Employee extends Model
 {
       protected $fillable = [
-        'name', 'designation', 'branch_id', 'basic_salary', 'working_hours', 'shift', 'phone', 'joining_date',
+        'name', 'designation', 'branch_id', 'basic_salary', 'working_hours', 'shift', 'shift_start_time', 'phone', 'joining_date',
         'device_id', 'user_id_on_device',
     ];
+
+      protected $casts = [
+        'working_hours' => 'float',
+      ];
 
       public function branch(): BelongsTo
       {

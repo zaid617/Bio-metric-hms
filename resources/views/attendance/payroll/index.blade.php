@@ -145,15 +145,7 @@
                                 </td>
                                 <td>PKR {{ number_format($payroll->basic_salary ?? $payroll->base_salary, 0) }}</td>
                                 <td class="text-success">
-                                    PKR {{ number_format(
-                                        ($payroll->satisfactory_sessions ?? 0)
-                                        + ($payroll->treatment_extension_commission ?? 0)
-                                        + ($payroll->satisfaction_bonus ?? 0)
-                                        + ($payroll->assessment_bonus ?? 0)
-                                        + ($payroll->reference_bonus ?? 0)
-                                        + ($payroll->personal_patient_commission ?? 0)
-                                        + ($payroll->additional_salary ?? 0)
-                                        + ($payroll->overtime ?? 0), 0) }}
+                                    PKR {{ number_format(max(0, ($payroll->calculated_salary ?? 0) - ($payroll->basic_salary ?? $payroll->base_salary ?? 0)), 0) }}
                                 </td>
                                 <td class="text-success">PKR {{ number_format($payroll->awards_total ?? $payroll->bonus ?? 0, 0) }}</td>
                                 <td class="text-danger">PKR {{ number_format($payroll->deductions_total ?? $payroll->deductions ?? 0, 0) }}</td>

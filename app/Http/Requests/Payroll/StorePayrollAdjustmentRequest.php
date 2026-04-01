@@ -46,6 +46,18 @@ class StorePayrollAdjustmentRequest extends FormRequest
         ];
     }
 
+    public function withValidator($validator): void
+    {
+        $validator->after(function ($validator) {
+            $type = (string) $this->input('adjustment_type');
+            $code = strtoupper((string) $this->input('code'));
+
+            if ($type === PayrollAdjustmentType::EARNING && $code === PayrollEarningType::OVERTIME) {
+                $validator->errors()->add('code', 'Overtime is calculated automatically from attendance and cannot be added manually.');
+            }
+        });
+    }
+
     /**
      * Return typed codes grouped by adjustment_type for frontend use.
      */
@@ -54,7 +66,6 @@ class StorePayrollAdjustmentRequest extends FormRequest
         return [
             PayrollAdjustmentType::EARNING => [
                 PayrollEarningType::ADDITIONAL_SALARY       => 'Additional Salary',
-                PayrollEarningType::OVERTIME                => 'Overtime',
                 PayrollEarningType::TREATMENT_EXTENSION_COMMISSION => 'Treatment Extension Commission',
                 PayrollEarningType::SATISFACTION_BONUS      => 'Patient Satisfaction Bonus',
                 PayrollEarningType::ASSESSMENT_BONUS        => 'Staff Assessment Incentive',
