@@ -137,20 +137,49 @@ class AttendanceDeviceController extends Controller
     /**
      * Manual sync trigger
      */
-    public function syncNow(AttendanceDevice $device)
+    public function syncNow(Request $request, AttendanceDevice $device)
     {
         try {
+            $forceFullSync = $request->boolean('force_full_sync', true);
+
             // Sync users
             $userResult = $this->syncService->syncDeviceUsers($device);
 
             // Sync attendance
-            $attendanceResult = $this->syncService->syncAttendanceLogs($device);
+            $attendanceResult = $this->syncService->syncAttendanceLogs($device, $forceFullSync);
 
-            $message = "Sync completed! Users: {$userResult['records_new']} new. Attendance: {$attendanceResult['records_new']} new logs.";
+            $message = sprintf(
+                'Sync completed! Users: %d fetched, %d new, %d updated. Attendance: %d fetched, %d new, %d duplicates.',
+                $userResult['records_fetched'] ?? 0,
+                $userResult['records_new'] ?? 0,
+                $userResult['records_updated'] ?? 0,
+                $attendanceResult['records_fetched'] ?? 0,
+                $attendanceResult['records_new'] ?? 0,
+                $attendanceResult['records_duplicate'] ?? 0
+            );
+
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => $message,
+                    'user_sync' => $userResult,
+                    'attendance_sync' => $attendanceResult,
+                    'device_id' => $device->id,
+                    'last_synced_at' => optional($device->fresh()->last_synced_at)?->format('Y-m-d H:i:s'),
+                ]);
+            }
 
             return redirect()->back()->with('success', $message);
         } catch (Exception $e) {
             Log::error("Manual sync error: " . $e->getMessage());
+
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Sync failed: ' . $e->getMessage(),
+                ], 500);
+            }
+
             return redirect()->back()->with('error', 'Sync failed: ' . $e->getMessage());
         }
     }

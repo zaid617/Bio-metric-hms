@@ -10,6 +10,7 @@ return [
     'default_port' => env('ZKTECO_DEFAULT_PORT', 4370),
     'connection_timeout' => env('ZKTECO_CONNECTION_TIMEOUT', 30),
     'sync_interval_minutes' => env('ZKTECO_SYNC_INTERVAL', 5),
+    'lib_log_path' => env('ZKTECO_LIB_LOG_PATH', storage_path('logs/zkteco/error.log')),
 
     /*
     |--------------------------------------------------------------------------

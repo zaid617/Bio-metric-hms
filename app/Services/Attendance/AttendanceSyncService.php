@@ -30,6 +30,7 @@ class AttendanceSyncService
         $recordsFetched = 0;
         $recordsNew = 0;
         $recordsUpdated = 0;
+        $recordsSkipped = 0;
         $errorMessage = null;
         $status = 'success';
 
@@ -37,7 +38,11 @@ class AttendanceSyncService
             Log::info("Starting user sync for device: {$device->device_name}");
 
             // Fetch users from device
-            $users = $this->zkService->getUsers($device);
+            $users = $this->zkService->getUsers($device)
+                ->filter(function ($userData) {
+                    return !empty($this->normalizeDeviceUserId($userData['user_id_on_device'] ?? null));
+                });
+
             $recordsFetched = $users->count();
 
             if ($recordsFetched === 0) {
@@ -45,9 +50,16 @@ class AttendanceSyncService
                 $errorMessage = 'No users fetched from device';
             } else {
                 foreach ($users as $userData) {
+                    $deviceUserId = $this->normalizeDeviceUserId($userData['user_id_on_device'] ?? null);
+
+                    if ($deviceUserId === '') {
+                        $recordsSkipped++;
+                        continue;
+                    }
+
                     // Check if an employee is already linked to this device user
                     $employee = Employee::where('device_id', $device->id)
-                        ->where('user_id_on_device', $userData['user_id_on_device'])
+                        ->where('user_id_on_device', $deviceUserId)
                         ->first();
 
                     if ($employee) {
@@ -57,34 +69,35 @@ class AttendanceSyncService
                         }
                         $recordsUpdated++;
                     } else {
-                        // Strategy 1: match by numeric employee ID
-                        $matched = null;
-                        if (is_numeric($userData['user_id_on_device'])) {
-                            $matched = Employee::find((int) $userData['user_id_on_device']);
-                        }
-
-                        // Strategy 2: match by exact name, prefer same branch
-                        if (!$matched && !empty($userData['name'])) {
-                            $matched = Employee::where('name', $userData['name'])
-                                ->where('branch_id', $device->branch_id)
-                                ->first();
-                            if (!$matched) {
-                                $matched = Employee::where('name', $userData['name'])->first();
-                            }
-                        }
+                        $matched = $this->findSafeEmployeeMatchForDeviceUser(
+                            $device,
+                            $deviceUserId,
+                            $userData['name'] ?? null
+                        );
 
                         if ($matched) {
+                            if (!$this->canLinkEmployeeToDeviceUser($matched, $device, $deviceUserId)) {
+                                $recordsSkipped++;
+                                Log::warning("Skipped conflicting mapping for employee {$matched->id} and device user {$deviceUserId} on device {$device->device_name}");
+                                continue;
+                            }
+
                             // Link existing employee to this device
                             $matched->update([
                                 'device_id' => $device->id,
-                                'user_id_on_device' => $userData['user_id_on_device'],
+                                'user_id_on_device' => $deviceUserId,
                             ]);
+
+                            if (!empty($userData['name']) && $matched->name !== $userData['name']) {
+                                $matched->update(['name' => $userData['name']]);
+                            }
+
                             $recordsUpdated++;
-                            Log::info("Linked existing employee {$matched->name} to device user {$userData['user_id_on_device']} on device {$device->device_name}");
+                            Log::info("Linked existing employee {$matched->name} to device user {$deviceUserId} on device {$device->device_name}");
                         } else {
                             // Create a new employee from this device user
                             Employee::create([
-                                'name'              => !empty($userData['name']) ? $userData['name'] : "Device User {$userData['user_id_on_device']}",
+                                'name'              => !empty($userData['name']) ? $userData['name'] : "Device User {$deviceUserId}",
                                 'designation'       => 'Employee',
                                 'branch_id'         => $device->branch_id,
                                 'basic_salary'      => 0,
@@ -92,7 +105,7 @@ class AttendanceSyncService
                                 'shift'             => '',
                                 'shift_start_time'  => config('payroll.shift_start', '09:00'),
                                 'device_id'         => $device->id,
-                                'user_id_on_device' => $userData['user_id_on_device'],
+                                'user_id_on_device' => $deviceUserId,
                             ]);
                             $recordsNew++;
                             Log::info("Created new employee from device user: {$userData['name']} (device: {$device->device_name}, branch_id: {$device->branch_id})");
@@ -127,6 +140,7 @@ class AttendanceSyncService
             'records_fetched' => $recordsFetched,
             'records_new' => $recordsNew,
             'records_updated' => $recordsUpdated,
+            'records_skipped' => $recordsSkipped,
             'message' => $errorMessage ?? "Successfully synced {$recordsFetched} users",
         ];
     }
@@ -134,42 +148,59 @@ class AttendanceSyncService
     /**
      * Sync attendance logs from device
      */
-    public function syncAttendanceLogs(AttendanceDevice $device): array
+    public function syncAttendanceLogs(AttendanceDevice $device, bool $forceFull = false): array
     {
         $startedAt = now();
         $recordsFetched = 0;
         $recordsNew = 0;
         $recordsDuplicate = 0;
+        $recordsSkipped = 0;
         $errorMessage = null;
         $status = 'success';
 
         try {
             Log::info("Starting attendance sync for device: {$device->device_name}");
 
-            // On first sync (last_synced_at is null) fetch ALL historical logs from the device.
-            // On subsequent syncs, only fetch logs since the last successful sync.
+            // On first sync fetch all history. Manual sync can also force a full pull.
             $isFirstSync = is_null($device->last_synced_at);
-            $from = $isFirstSync ? null : Carbon::parse($device->last_synced_at);
+            $from = ($isFirstSync || $forceFull) ? null : Carbon::parse($device->last_synced_at);
 
             if ($isFirstSync) {
                 Log::info("First sync for device {$device->device_name} — fetching all historical logs");
             }
 
-            $logs = $this->zkService->getAttendanceLogs($device, $from);
-            $recordsFetched = $logs->count();
+            if ($forceFull && !$isFirstSync) {
+                Log::info("Force full sync requested for device {$device->device_name} — fetching complete attendance history");
+            }
+
+            $fetchedLogs = $this->zkService->getAttendanceLogs($device, $from);
+            $recordsFetched = $fetchedLogs->count();
+
+            $logs = $fetchedLogs->filter(function ($logData) {
+                return !empty($this->normalizeDeviceUserId($logData['user_id_on_device'] ?? null));
+            });
+
+            $recordsSkipped = max(0, $recordsFetched - $logs->count());
 
             if ($recordsFetched === 0) {
                 Log::info("No new attendance logs for device {$device->device_name}");
-                // Mark the device as synced even when empty so future syncs are incremental.
-                $device->update(['last_synced_at' => now()]);
+            } elseif ($logs->isEmpty()) {
+                Log::warning("Fetched {$recordsFetched} logs for device {$device->device_name}, but none had valid user IDs. Sync cursor not advanced.");
             } else {
                 foreach ($logs as $logData) {
                     try {
+                        $deviceUserId = $this->normalizeDeviceUserId($logData['user_id_on_device'] ?? null);
+
+                        if ($deviceUserId === '') {
+                            $recordsSkipped++;
+                            continue;
+                        }
+
                         // Try to insert, will fail silently on duplicate (unique constraint)
                         $rawLog = AttendanceRawLog::firstOrCreate(
                             [
                                 'device_id' => $device->id,
-                                'user_id_on_device' => $logData['user_id_on_device'],
+                                'user_id_on_device' => $deviceUserId,
                                 'punch_time' => $logData['punch_time'],
                             ],
                             [
@@ -192,8 +223,12 @@ class AttendanceSyncService
                     }
                 }
 
-                // Update last synced time
-                $device->update(['last_synced_at' => now()]);
+                $latestPunchTime = $logs->max('punch_time');
+                if ($latestPunchTime instanceof Carbon) {
+                    $device->update(['last_synced_at' => $latestPunchTime]);
+                } else {
+                    $device->update(['last_synced_at' => now()]);
+                }
 
                 Log::info("Attendance sync completed for device {$device->device_name}: {$recordsNew} new, {$recordsDuplicate} duplicates");
 
@@ -225,6 +260,7 @@ class AttendanceSyncService
             'records_fetched' => $recordsFetched,
             'records_new' => $recordsNew,
             'records_duplicate' => $recordsDuplicate,
+            'records_skipped' => $recordsSkipped,
             'message' => $errorMessage ?? "Successfully synced {$recordsNew} new attendance logs",
         ];
     }
@@ -254,10 +290,8 @@ class AttendanceSyncService
             $skipped = 0;
 
             foreach ($unprocessedLogs as $rawLog) {
-                // Find employee directly by device and user_id_on_device
-                $employee = Employee::where('device_id', $device->id)
-                    ->where('user_id_on_device', $rawLog->user_id_on_device)
-                    ->first();
+                // Find employee linked to this device user (with numeric fallback for IDs like 001 vs 1)
+                $employee = $this->findEmployeeByDeviceUserId($device, $rawLog->user_id_on_device);
 
                 if (!$employee) {
                     Log::debug("Employee not found for device user_id_on_device: {$rawLog->user_id_on_device} on device {$device->device_name}");
@@ -309,6 +343,108 @@ class AttendanceSyncService
             Log::error("Error processing raw logs for device {$device->device_name}: " . $e->getMessage());
             Log::error("Stack trace: " . $e->getTraceAsString());
         }
+    }
+
+    /**
+     * Normalize device user ID for matching operations.
+     */
+    protected function normalizeDeviceUserId($value): string
+    {
+        if ($value === null) {
+            return '';
+        }
+
+        return trim(str_replace("\0", '', (string) $value));
+    }
+
+    /**
+     * Find employee mapped to device user ID (exact first, numeric fallback second).
+     */
+    protected function findEmployeeByDeviceUserId(AttendanceDevice $device, $deviceUserId): ?Employee
+    {
+        $normalizedId = $this->normalizeDeviceUserId($deviceUserId);
+
+        if ($normalizedId === '') {
+            return null;
+        }
+
+        $employee = Employee::where('device_id', $device->id)
+            ->where('user_id_on_device', $normalizedId)
+            ->first();
+
+        if ($employee) {
+            return $employee;
+        }
+
+        if (is_numeric($normalizedId)) {
+            $numericVariant = (string) ((int) $normalizedId);
+
+            if ($numericVariant !== $normalizedId) {
+                return Employee::where('device_id', $device->id)
+                    ->where('user_id_on_device', $numericVariant)
+                    ->first();
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Find a safe match for a device user from existing employees.
+     */
+    protected function findSafeEmployeeMatchForDeviceUser(AttendanceDevice $device, string $deviceUserId, ?string $deviceUserName = null): ?Employee
+    {
+        $strategies = (array) config('zkteco.mapping_strategies', ['employee_id']);
+
+        // Strategy 1: Match by employee primary key if device user ID is numeric.
+        if (in_array('employee_id', $strategies, true) && is_numeric($deviceUserId)) {
+            $employee = Employee::find((int) $deviceUserId);
+            if ($employee) {
+                return $employee;
+            }
+        }
+
+        // Strategy 2: Strict exact name match in same branch, only for currently unlinked employees.
+        if (in_array('name_exact', $strategies, true) && !empty($deviceUserName)) {
+            $candidates = Employee::query()
+                ->where('name', trim($deviceUserName))
+                ->where('branch_id', $device->branch_id)
+                ->whereNull('device_id')
+                ->whereNull('user_id_on_device')
+                ->get();
+
+            if ($candidates->count() === 1) {
+                return $candidates->first();
+            }
+
+            if ($candidates->count() > 1) {
+                Log::warning("Ambiguous name match for device user {$deviceUserId} ({$deviceUserName}) on device {$device->device_name}; skipping auto-link");
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Ensure we don't overwrite an existing device-user mapping.
+     */
+    protected function canLinkEmployeeToDeviceUser(Employee $employee, AttendanceDevice $device, string $deviceUserId): bool
+    {
+        if (
+            $employee->device_id !== null &&
+            $employee->user_id_on_device !== null &&
+            (
+                (int) $employee->device_id !== (int) $device->id ||
+                $this->normalizeDeviceUserId($employee->user_id_on_device) !== $deviceUserId
+            )
+        ) {
+            return false;
+        }
+
+        return !Employee::where('device_id', $device->id)
+            ->where('user_id_on_device', $deviceUserId)
+            ->where('id', '!=', $employee->id)
+            ->exists();
     }
 
     /**

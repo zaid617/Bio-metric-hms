@@ -14,6 +14,51 @@ class ZKTecoService
     protected $zk;
     protected $timeout = 30;
 
+    public function __construct()
+    {
+        $this->configureVendorLogger();
+    }
+
+    /**
+     * Configure a writable log file for the vendor package.
+     */
+    protected function configureVendorLogger(): void
+    {
+        if (defined('ZK_LIB_LOG')) {
+            return;
+        }
+
+        $logPath = (string) config('zkteco.lib_log_path', storage_path('logs/zkteco/error.log'));
+
+        if ($logPath === '') {
+            $logPath = storage_path('logs/zkteco/error.log');
+        }
+
+        $logDir = dirname($logPath);
+
+        if (!is_dir($logDir)) {
+            @mkdir($logDir, 0755, true);
+        }
+
+        if (!file_exists($logPath)) {
+            @touch($logPath);
+        }
+
+        define('ZK_LIB_LOG', $logPath);
+    }
+
+    /**
+     * Normalize device user IDs from device payloads for stable matching.
+     */
+    protected function normalizeDeviceUserId($value): string
+    {
+        if ($value === null) {
+            return '';
+        }
+
+        return trim(str_replace("\0", '', (string) $value));
+    }
+
     /**
      * Connect to ZKTeco device
      */
@@ -223,10 +268,7 @@ class ZKTecoService
             // Convert array to collection and format data
             $collection = collect($users)->map(function ($user) {
                 // Normalize user ID - ensure it's trimmed and consistent
-                $userId = $user['userid'] ?? $user['uid'] ?? '';
-                if (is_string($userId)) {
-                    $userId = trim($userId);
-                }
+                $userId = $this->normalizeDeviceUserId($user['userid'] ?? $user['uid'] ?? '');
 
                 return [
                     'uid' => $user['uid'] ?? null,
@@ -288,10 +330,7 @@ class ZKTecoService
                 }
 
                 // Clean and normalize user ID
-                $userId = $log['id'] ?? $log['uid'] ?? '';
-                if (is_string($userId)) {
-                    $userId = trim($userId);
-                }
+                $userId = $this->normalizeDeviceUserId($log['id'] ?? $log['uid'] ?? '');
 
                 return [
                     'uid' => $log['uid'] ?? null,
