@@ -66,6 +66,16 @@ class StorePayrollAdjustmentRequest extends FormRequest
         return [
             PayrollAdjustmentType::EARNING => [
                 PayrollEarningType::ADDITIONAL_SALARY       => 'Additional Salary',
+                PayrollEarningType::INCENTIVE_SUNDAY_ROSTER => 'Sunday Roster Incentive',
+                PayrollEarningType::INCENTIVE_HOME_VISIT => 'Home Visit Incentive',
+                PayrollEarningType::INCENTIVE_SPEECH_THERAPY => 'Speech Therapy Incentive',
+                PayrollEarningType::INCENTIVE_DRY_NEEDLING => 'Dry Needling Incentive',
+                PayrollEarningType::ALLOWANCE_ALLIED_HEALTH_COUNCIL => 'Allied Health Council Allowance',
+                PayrollEarningType::ALLOWANCE_HOUSE_JOB => 'House Job Allowance',
+                PayrollEarningType::ALLOWANCE_CONVEYANCE => 'Conveyance Allowance',
+                PayrollEarningType::ALLOWANCE_MEDICAL => 'Medical Allowance',
+                PayrollEarningType::ALLOWANCE_HOUSE_RENT => 'House Rent Allowance',
+                PayrollEarningType::OTHER_ALLOWANCE => 'Other Allowance',
                 PayrollEarningType::TREATMENT_EXTENSION_COMMISSION => 'Treatment Extension Commission',
                 PayrollEarningType::SATISFACTION_BONUS      => 'Patient Satisfaction Bonus',
                 PayrollEarningType::ASSESSMENT_BONUS        => 'Staff Assessment Incentive',

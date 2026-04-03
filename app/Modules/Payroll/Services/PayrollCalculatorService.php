@@ -27,6 +27,13 @@ class PayrollCalculatorService
             ->where('code', PayrollEarningType::ADDITIONAL_SALARY)
             ->sum('amount');
 
+        $allowanceAlliedHealthCouncil = (float) ($employee->allowance_allied_health_council ?? 0);
+        $allowanceHouseJob = (float) ($employee->allowance_house_job ?? 0);
+        $allowanceConveyance = (float) ($employee->allowance_conveyance ?? 0);
+        $allowanceMedical = (float) ($employee->allowance_medical ?? 0);
+        $allowanceHouseRent = (float) ($employee->allowance_house_rent ?? 0);
+        $otherAllowance = (float) ($employee->other_allowance ?? 0);
+
         $shiftHours = (float) ($employee->working_hours ?? config('payroll.default_shift_hours', 8));
         $hourlyRate = $totalWorkingDays > 0 ? $baseSalary / max($totalWorkingDays * $shiftHours, 1) : 0.0;
         $overtimeHours = ((int) $attendanceMetrics['overtime_minutes']) / 60;
@@ -87,6 +94,12 @@ class PayrollCalculatorService
         $earnings = [
             ['type' => PayrollEarningType::BASIC_SALARY, 'amount' => $baseSalary, 'notes' => null],
             ['type' => PayrollEarningType::ADDITIONAL_SALARY, 'amount' => $additionalSalary, 'notes' => 'Manual/admin additional salary'],
+            ['type' => PayrollEarningType::ALLOWANCE_ALLIED_HEALTH_COUNCIL, 'amount' => $allowanceAlliedHealthCouncil, 'notes' => 'Employee profile component'],
+            ['type' => PayrollEarningType::ALLOWANCE_HOUSE_JOB, 'amount' => $allowanceHouseJob, 'notes' => 'Employee profile component'],
+            ['type' => PayrollEarningType::ALLOWANCE_CONVEYANCE, 'amount' => $allowanceConveyance, 'notes' => 'Employee profile component'],
+            ['type' => PayrollEarningType::ALLOWANCE_MEDICAL, 'amount' => $allowanceMedical, 'notes' => 'Employee profile component'],
+            ['type' => PayrollEarningType::ALLOWANCE_HOUSE_RENT, 'amount' => $allowanceHouseRent, 'notes' => 'Employee profile component'],
+            ['type' => PayrollEarningType::OTHER_ALLOWANCE, 'amount' => $otherAllowance, 'notes' => 'Employee profile component'],
             ['type' => PayrollEarningType::OVERTIME, 'amount' => $overtime, 'notes' => 'Attendance overtime'],
             ['type' => PayrollEarningType::SATISFACTORY_SESSIONS, 'amount' => $satisfactorySessions, 'notes' => null],
             ['type' => PayrollEarningType::TREATMENT_EXTENSION_COMMISSION, 'amount' => $treatmentExtensionCommission, 'notes' => '10% commission'],
@@ -127,6 +140,12 @@ class PayrollCalculatorService
             'overtime_hours' => round($overtimeHours, 2),
             'basic_salary' => round($baseSalary, 2),
             'additional_salary' => round($additionalSalary, 2),
+            'allowance_allied_health_council' => round($allowanceAlliedHealthCouncil, 2),
+            'allowance_house_job' => round($allowanceHouseJob, 2),
+            'allowance_conveyance' => round($allowanceConveyance, 2),
+            'allowance_medical' => round($allowanceMedical, 2),
+            'allowance_house_rent' => round($allowanceHouseRent, 2),
+            'other_allowance' => round($otherAllowance, 2),
             'overtime' => round($overtime, 2),
             'satisfactory_sessions' => round($satisfactorySessions, 2),
             'treatment_extension_commission' => round($treatmentExtensionCommission, 2),

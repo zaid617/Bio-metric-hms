@@ -46,6 +46,7 @@
                         <th style="min-width: 150px;">Department</th>
                         <th style="min-width: 100px;">Shift</th>
                         <th style="min-width: 120px;" class="text-end">Basic Salary</th>
+                        <th style="min-width: 180px;" class="text-end">Salary Components</th>
                         <th style="min-width: 120px;">Phone</th>
                         <th style="min-width: 120px;">Joining Date</th>
                         <th class="text-nowrap" style="width: 130px;">Actions</th>
@@ -94,6 +95,19 @@
 
                         <td class="text-end fw-bold">
                             {{ number_format($employee->basic_salary) }}
+                        </td>
+
+                        @php
+                            $totalAllowances = (float)($employee->allowance_allied_health_council ?? 0)
+                                + (float)($employee->allowance_house_job ?? 0)
+                                + (float)($employee->allowance_conveyance ?? 0)
+                                + (float)($employee->allowance_medical ?? 0)
+                                + (float)($employee->allowance_house_rent ?? 0);
+                            $otherAllowance = (float)($employee->other_allowance ?? 0);
+                        @endphp
+                        <td class="text-end">
+                            <div class="small text-muted">Allowances: {{ number_format($totalAllowances, 2) }}</div>
+                            <div class="small text-muted">Other: {{ number_format($otherAllowance, 2) }}</div>
                         </td>
 
                         <td class="text-center">

@@ -215,6 +215,8 @@ var codes = {
         {v:'ASSESSMENT_BONUS', l:'Staff Assessment Incentive (5%)'},
         {v:'REFERENCE_BONUS', l:'Patient Reference Reward'},
         {v:'PERSONAL_PATIENT_COMMISSION', l:'Personal Patient Commission (20%)'},
+        {v:'SUNDAY_ROSTER', l:'Sunday Roster and home Visit'},
+        {v:'SPEECH_THERAPY_INCENTIVES', l:'Speech therapy'},
         {v:'CUSTOM', l:'Custom Earning'},
     ],
     award: [

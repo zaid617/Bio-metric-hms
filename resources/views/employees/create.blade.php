@@ -97,7 +97,8 @@
                     {{-- Basic Salary --}}
                     <div class="col-md-6">
                         <label for="basic_salary" class="form-label fw-semibold">Basic Salary</label>
-                        <input type="text" class="form-control form-control-lg" id="basic_salary" name="basic_salary" placeholder="Basic Salary" required>
+                        <input type="text" class="form-control form-control-lg js-money-format" id="basic_salary" name="basic_salary" placeholder="Basic Salary" value="{{ old('basic_salary') }}" required>
+                        @error('basic_salary')<small class="text-danger">{{ $message }}</small>@enderror
                     </div>
 
                     {{-- Working Hours --}}
@@ -105,6 +106,72 @@
                         <label for="working_hours" class="form-label fw-semibold">Working Hours / Day</label>
                         <input type="number" class="form-control form-control-lg" id="working_hours" name="working_hours"
                                placeholder="e.g. 8" min="1" max="24" step="0.5" value="{{ old('working_hours', 8) }}" required>
+                    </div>
+
+                    <div class="col-12">
+                        <div class="card border mt-2">
+                            <div class="card-header bg-light d-flex align-items-center justify-content-between">
+                                <h6 class="mb-0 fw-bold">Salary Components</h6>
+                                <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#salaryComponentsCreate" aria-expanded="false" aria-controls="salaryComponentsCreate">
+                                    Show Components
+                                </button>
+                            </div>
+                            <div class="collapse" id="salaryComponentsCreate">
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <h6 class="text-primary mb-3">Allowances</h6>
+                                        <div class="row g-3">
+                                            <div class="col-md-4">
+                                                <label for="allowance_allied_health_council" class="form-label">Allied Health Council</label>
+                                                <input type="number" step="0.01" min="0" id="allowance_allied_health_council" name="allowance_allied_health_council" class="form-control salary-component" placeholder="0.00" value="{{ old('allowance_allied_health_council', '0.00') }}">
+                                                @error('allowance_allied_health_council')<small class="text-danger">{{ $message }}</small>@enderror
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label for="allowance_house_job" class="form-label">House Job</label>
+                                                <input type="number" step="0.01" min="0" id="allowance_house_job" name="allowance_house_job" class="form-control salary-component" placeholder="0.00" value="{{ old('allowance_house_job', '0.00') }}">
+                                                @error('allowance_house_job')<small class="text-danger">{{ $message }}</small>@enderror
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label for="allowance_conveyance" class="form-label">Conveyance</label>
+                                                <input type="number" step="0.01" min="0" id="allowance_conveyance" name="allowance_conveyance" class="form-control salary-component" placeholder="0.00" value="{{ old('allowance_conveyance', '0.00') }}">
+                                                @error('allowance_conveyance')<small class="text-danger">{{ $message }}</small>@enderror
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label for="allowance_medical" class="form-label">Medical</label>
+                                                <input type="number" step="0.01" min="0" id="allowance_medical" name="allowance_medical" class="form-control salary-component" placeholder="0.00" value="{{ old('allowance_medical', '0.00') }}">
+                                                @error('allowance_medical')<small class="text-danger">{{ $message }}</small>@enderror
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label for="allowance_house_rent" class="form-label">House Rent Allowance</label>
+                                                <input type="number" step="0.01" min="0" id="allowance_house_rent" name="allowance_house_rent" class="form-control salary-component" placeholder="0.00" value="{{ old('allowance_house_rent', '0.00') }}">
+                                                @error('allowance_house_rent')<small class="text-danger">{{ $message }}</small>@enderror
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <h6 class="text-primary mb-3">Other</h6>
+                                        <div class="row g-3">
+                                            <div class="col-md-4">
+                                                <label for="other_allowance" class="form-label">Other</label>
+                                                <input type="number" step="0.01" min="0" id="other_allowance" name="other_allowance" class="form-control salary-component" placeholder="0.00" value="{{ old('other_allowance', '0.00') }}">
+                                                @error('other_allowance')<small class="text-danger">{{ $message }}</small>@enderror
+                                            </div>
+                                            <div class="col-md-8">
+                                                <label for="other_allowance_label" class="form-label">Other Description or Label</label>
+                                                <input type="text" id="other_allowance_label" name="other_allowance_label" class="form-control" placeholder="Enter custom label" value="{{ old('other_allowance_label') }}">
+                                                @error('other_allowance_label')<small class="text-danger">{{ $message }}</small>@enderror
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="alert alert-info mb-0 d-flex justify-content-between align-items-center">
+                                        <span class="fw-semibold">Total Earnings (Allowances + Other)</span>
+                                        <span id="salaryComponentsTotal" class="fw-bold">0.00</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     {{-- Phone --}}
@@ -141,4 +208,40 @@
 <script src="{{ URL::asset('build/plugins/metismenu/metisMenu.min.js') }}"></script>
 <script src="{{ URL::asset('build/plugins/simplebar/js/simplebar.min.js') }}"></script>
 <script src="{{ URL::asset('build/js/main.js') }}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const componentFields = document.querySelectorAll('.salary-component');
+    const totalNode = document.getElementById('salaryComponentsTotal');
+
+    const toNumber = (value) => {
+        const normalized = String(value || '').replace(/,/g, '').trim();
+        const parsed = parseFloat(normalized);
+        return Number.isNaN(parsed) ? 0 : parsed;
+    };
+
+    const renderTotal = () => {
+        let total = 0;
+        componentFields.forEach((field) => {
+            total += toNumber(field.value);
+        });
+        totalNode.textContent = total.toFixed(2);
+    };
+
+    componentFields.forEach((field) => {
+        field.addEventListener('input', renderTotal);
+    });
+
+    document.querySelectorAll('.js-money-format').forEach((field) => {
+        field.addEventListener('blur', function () {
+            if (this.value === '') {
+                return;
+            }
+
+            this.value = toNumber(this.value).toFixed(2);
+        });
+    });
+
+    renderTotal();
+});
+</script>
 @endpush

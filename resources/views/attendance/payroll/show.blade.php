@@ -96,6 +96,16 @@
                             $earningsItems = [
                                 ['label'=>'Basic Salary',   'val'=> $payroll->basic_salary ?? $payroll->base_salary ?? 0],
                                 ['label'=>'Additional Salary','val'=> $payroll->additional_salary ?? 0],
+                                ['label'=>'Sunday Roster Incentive','val'=> data_get(collect($payroll->earnings_breakdown ?? [])->firstWhere('type', 'INCENTIVE_SUNDAY_ROSTER'), 'amount', 0)],
+                                ['label'=>'Home Visit Incentive','val'=> data_get(collect($payroll->earnings_breakdown ?? [])->firstWhere('type', 'INCENTIVE_HOME_VISIT'), 'amount', 0)],
+                                ['label'=>'Speech Therapy Incentive','val'=> data_get(collect($payroll->earnings_breakdown ?? [])->firstWhere('type', 'INCENTIVE_SPEECH_THERAPY'), 'amount', 0)],
+                                ['label'=>'Dry Needling Incentive','val'=> data_get(collect($payroll->earnings_breakdown ?? [])->firstWhere('type', 'INCENTIVE_DRY_NEEDLING'), 'amount', 0)],
+                                ['label'=>'Allied Health Council Allowance','val'=> data_get(collect($payroll->earnings_breakdown ?? [])->firstWhere('type', 'ALLOWANCE_ALLIED_HEALTH_COUNCIL'), 'amount', 0)],
+                                ['label'=>'House Job Allowance','val'=> data_get(collect($payroll->earnings_breakdown ?? [])->firstWhere('type', 'ALLOWANCE_HOUSE_JOB'), 'amount', 0)],
+                                ['label'=>'Conveyance Allowance','val'=> data_get(collect($payroll->earnings_breakdown ?? [])->firstWhere('type', 'ALLOWANCE_CONVEYANCE'), 'amount', 0)],
+                                ['label'=>'Medical Allowance','val'=> data_get(collect($payroll->earnings_breakdown ?? [])->firstWhere('type', 'ALLOWANCE_MEDICAL'), 'amount', 0)],
+                                ['label'=>'House Rent Allowance','val'=> data_get(collect($payroll->earnings_breakdown ?? [])->firstWhere('type', 'ALLOWANCE_HOUSE_RENT'), 'amount', 0)],
+                                ['label'=>'Other Allowance','val'=> data_get(collect($payroll->earnings_breakdown ?? [])->firstWhere('type', 'OTHER_ALLOWANCE'), 'amount', 0)],
                                 ['label'=>'Overtime Pay',   'val'=> $payroll->overtime ?? $payroll->overtime_pay ?? 0],
                                 ['label'=>'Satisfactory Sessions','val'=> $payroll->satisfactory_sessions ?? 0],
                                 ['label'=>'Treatment Extension Commission','val'=> $payroll->treatment_extension_commission ?? 0],
@@ -118,7 +128,7 @@
                         @endforeach
                         @if(!empty($payroll->earnings_breakdown))
                             @foreach($payroll->earnings_breakdown as $item)
-                                @if(isset($item['type']) && !in_array($item['type'],['BASIC_SALARY','ADDITIONAL_SALARY','OVERTIME','SATISFACTORY_SESSIONS','TREATMENT_EXTENSION_COMMISSION','SATISFACTION_BONUS','ASSESSMENT_BONUS','REFERENCE_BONUS','PERSONAL_PATIENT_COMMISSION']) && (float)($item['amount']??0)>0)
+                                @if(isset($item['type']) && !in_array($item['type'],['BASIC_SALARY','ADDITIONAL_SALARY','INCENTIVE_SUNDAY_ROSTER','INCENTIVE_HOME_VISIT','INCENTIVE_SPEECH_THERAPY','INCENTIVE_DRY_NEEDLING','ALLOWANCE_ALLIED_HEALTH_COUNCIL','ALLOWANCE_HOUSE_JOB','ALLOWANCE_CONVEYANCE','ALLOWANCE_MEDICAL','ALLOWANCE_HOUSE_RENT','OTHER_ALLOWANCE','OVERTIME','SATISFACTORY_SESSIONS','TREATMENT_EXTENSION_COMMISSION','SATISFACTION_BONUS','ASSESSMENT_BONUS','REFERENCE_BONUS','PERSONAL_PATIENT_COMMISSION']) && (float)($item['amount']??0)>0)
                                 <div class="breakdown-row">
                                     <span class="breakdown-label small text-primary">{{ str_replace('_',' ',$item['type']) }}</span>
                                     <span class="earn small">PKR {{ number_format($item['amount']??0,0) }}</span>
@@ -195,7 +205,7 @@
             <div class="card-body">
                 <div class="net-box d-flex justify-content-between align-items-center">
                     <div>
-                        <div class="text-muted small">Formula: (Basic + Additional + Overtime + Incentives + Awards) − Deductions</div>
+                        <div class="text-muted small">Formula: (Basic + Additional + Allowances + Incentives + Other + Overtime + Awards) − Deductions</div>
                     </div>
                     <div class="text-end">
                         <div class="text-muted small">NET SALARY</div>

@@ -2,8 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\Employee\StoreEmployeeRequest;
+use App\Http\Requests\Employee\UpdateEmployeeRequest;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Http\Request;
 
 class EmployeeController extends Controller
 {
@@ -36,44 +37,37 @@ class EmployeeController extends Controller
     }
 
     // STORE - Save Employee
-    public function store(Request $request)
+    public function store(StoreEmployeeRequest $request)
     {
         try {
-            $request->validate([
-                'prefix'       => 'required|string|in:Mr.,Ms.,Mrs.',
-                'name'         => 'required|string|max:255',
-                'designation'  => 'required|string|max:255',
-                'branch_id'    => 'required|integer|exists:branches,id',
-                'department'   => 'required|string|in:Male Physiotherapy Department,Female Physiotherapy Department,Paeds Physiotherapy Department,Speech Therapy Department,Behavior Therapy Department,Occupational Therapy Department,Remedial Therapy Department,Clinical Psychology Department',
-                'shift'        => 'required|string|in:Morning,Afternoon,Evening',
-                'shift_start_time' => 'required|date_format:H:i',
-                'basic_salary' => 'required',
-                'working_hours' => 'required|numeric|min:1|max:24',
-                'phone'        => 'required|string|max:20',
-                'joining_date' => 'required|date',
-            ]);
+            $validated = $request->validated();
 
-            $salary = str_replace(',', '', $request->basic_salary);
-
-            DB::table('employees')->insert([
-                'prefix'       => $request->prefix,
-                'name'         => $request->name,
-                'designation'  => $request->designation,
-                'branch_id'    => $request->branch_id,
-                'department'   => $request->department,
-                'shift'        => $request->shift,
-                'shift_start_time' => $request->shift_start_time,
-                'basic_salary' => $salary,
-                'working_hours' => $request->working_hours,
-                'phone'        => $request->phone,
-                'joining_date' => $request->joining_date,
-                'created_at'   => now(),
-                'updated_at'   => now(),
-            ]);
+            DB::transaction(function () use ($validated) {
+                DB::table('employees')->insert([
+                    'prefix' => $validated['prefix'],
+                    'name' => $validated['name'],
+                    'designation' => $validated['designation'],
+                    'branch_id' => $validated['branch_id'],
+                    'department' => $validated['department'],
+                    'shift' => $validated['shift'],
+                    'shift_start_time' => $validated['shift_start_time'],
+                    'basic_salary' => (float) str_replace(',', '', (string) $validated['basic_salary']),
+                    'allowance_allied_health_council' => (float) ($validated['allowance_allied_health_council'] ?? 0),
+                    'allowance_house_job' => (float) ($validated['allowance_house_job'] ?? 0),
+                    'allowance_conveyance' => (float) ($validated['allowance_conveyance'] ?? 0),
+                    'allowance_medical' => (float) ($validated['allowance_medical'] ?? 0),
+                    'allowance_house_rent' => (float) ($validated['allowance_house_rent'] ?? 0),
+                    'other_allowance' => (float) ($validated['other_allowance'] ?? 0),
+                    'other_allowance_label' => $validated['other_allowance_label'] ?? null,
+                    'working_hours' => $validated['working_hours'],
+                    'phone' => $validated['phone'],
+                    'joining_date' => $validated['joining_date'],
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            });
 
             return redirect('employees')->with('success', 'Employee added successfully!');
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            return back()->withErrors($e->validator)->withInput();
         } catch (\Exception $e) {
             \Log::error('Employee store error: ' . $e->getMessage());
             return back()->with('error', 'Unable to add employee. Please try again.')->withInput();
@@ -99,43 +93,36 @@ class EmployeeController extends Controller
     }
 
     // UPDATE - Save changes
-    public function update(Request $request, $id)
+    public function update(UpdateEmployeeRequest $request, $id)
     {
         try {
-            $request->validate([
-                 'prefix'       => 'required|string|in:Mr.,Ms.,Mrs.',
-                'name'         => 'required|string|max:255',
-                'designation'  => 'required|string|max:255',
-                'branch_id'    => 'required|integer|exists:branches,id',
-                'department'   => 'required|string|in:Male Physiotherapy Department,Female Physiotherapy Department,Paeds Physiotherapy Department,Speech Therapy Department,Behavior Therapy Department,Occupational Therapy Department,Remedial Therapy Department,Clinical Psychology Department',
-                'shift'        => 'required|string|in:Morning,Afternoon,Evening',
-                'shift_start_time' => 'required|date_format:H:i',
-                'basic_salary' => 'required',
-                'working_hours' => 'required|numeric|min:1|max:24',
-                'phone'        => 'required|string|max:20',
-                'joining_date' => 'required|date',
-            ]);
+            $validated = $request->validated();
 
-            $salary = str_replace(',', '', $request->basic_salary);
-
-            DB::table('employees')->where('id', $id)->update([
-                 'prefix'       => $request->prefix,
-                'name'         => $request->name,
-                'designation'  => $request->designation,
-                'branch_id'    => $request->branch_id,
-                'department'   => $request->department,
-                'shift'        => $request->shift,
-                'shift_start_time' => $request->shift_start_time,
-                'basic_salary' => $salary,
-                'working_hours' => $request->working_hours,
-                'phone'        => $request->phone,
-                'joining_date' => $request->joining_date,
-                'updated_at'   => now(),
-            ]);
+            DB::transaction(function () use ($validated, $id) {
+                DB::table('employees')->where('id', $id)->update([
+                    'prefix' => $validated['prefix'],
+                    'name' => $validated['name'],
+                    'designation' => $validated['designation'],
+                    'branch_id' => $validated['branch_id'],
+                    'department' => $validated['department'],
+                    'shift' => $validated['shift'],
+                    'shift_start_time' => $validated['shift_start_time'],
+                    'basic_salary' => (float) str_replace(',', '', (string) $validated['basic_salary']),
+                    'allowance_allied_health_council' => (float) ($validated['allowance_allied_health_council'] ?? 0),
+                    'allowance_house_job' => (float) ($validated['allowance_house_job'] ?? 0),
+                    'allowance_conveyance' => (float) ($validated['allowance_conveyance'] ?? 0),
+                    'allowance_medical' => (float) ($validated['allowance_medical'] ?? 0),
+                    'allowance_house_rent' => (float) ($validated['allowance_house_rent'] ?? 0),
+                    'other_allowance' => (float) ($validated['other_allowance'] ?? 0),
+                    'other_allowance_label' => $validated['other_allowance_label'] ?? null,
+                    'working_hours' => $validated['working_hours'],
+                    'phone' => $validated['phone'],
+                    'joining_date' => $validated['joining_date'],
+                    'updated_at' => now(),
+                ]);
+            });
 
             return redirect('employees')->with('success', 'Employee updated successfully!');
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            return back()->withErrors($e->validator)->withInput();
         } catch (\Exception $e) {
             \Log::error('Employee update error: ' . $e->getMessage());
             return back()->with('error', 'Unable to update employee. Please try again.')->withInput();

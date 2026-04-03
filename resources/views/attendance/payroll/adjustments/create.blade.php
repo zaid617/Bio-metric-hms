@@ -153,6 +153,16 @@
 var allCodes = {
     earning: [
         {v:'ADDITIONAL_SALARY',         l:'Additional Salary'},
+        {v:'INCENTIVE_SUNDAY_ROSTER',   l:'Sunday Roster Incentive'},
+        {v:'INCENTIVE_HOME_VISIT',      l:'Home Visit Incentive'},
+        {v:'INCENTIVE_SPEECH_THERAPY',  l:'Speech Therapy Incentive'},
+        {v:'INCENTIVE_DRY_NEEDLING',    l:'Dry Needling Incentive'},
+        {v:'ALLOWANCE_ALLIED_HEALTH_COUNCIL', l:'Allied Health Council Allowance'},
+        {v:'ALLOWANCE_HOUSE_JOB',       l:'House Job Allowance'},
+        {v:'ALLOWANCE_CONVEYANCE',      l:'Conveyance Allowance'},
+        {v:'ALLOWANCE_MEDICAL',         l:'Medical Allowance'},
+        {v:'ALLOWANCE_HOUSE_RENT',      l:'House Rent Allowance'},
+        {v:'OTHER_ALLOWANCE',           l:'Other Allowance'},
         {v:'TREATMENT_EXTENSION_COMMISSION', l:'Treatment Extension Commission (10%)'},
         {v:'SATISFACTION_BONUS',         l:'Patient Satisfaction Bonus'},
         {v:'ASSESSMENT_BONUS',           l:'Staff Assessment Incentive (5%)'},
