@@ -10,6 +10,16 @@
             <div class="card-body p-5">
                 <h3 class="mb-4 text-primary fw-bold">Employee Information</h3>
 
+                @if($errors->any())
+                    <div class="alert alert-danger">
+                        <ul class="mb-0">
+                            @foreach($errors->all() as $error)
+                                <li>{{ $error }}</li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @endif
+
                 {{-- Success Message --}}
                 @if(session('success'))
                     <div class="alert alert-success alert-dismissible fade show" role="alert">
@@ -27,9 +37,9 @@
     <label for="prefix" class="form-label fw-semibold">Prefix</label>
     <select class="form-select form-select-lg" id="prefix" name="prefix" required>
         <option value="">Select</option>
-        <option value="Mr.">Mr.</option>
-        <option value="Ms.">Ms.</option>
-        <option value="Mrs.">Mrs.</option>
+        <option value="Mr." {{ old('prefix') === 'Mr.' ? 'selected' : '' }}>Mr.</option>
+        <option value="Ms." {{ old('prefix') === 'Ms.' ? 'selected' : '' }}>Ms.</option>
+        <option value="Mrs." {{ old('prefix') === 'Mrs.' ? 'selected' : '' }}>Mrs.</option>
     </select>
 </div>
 
@@ -37,7 +47,7 @@
                    <div class="col-md-4">
 
                         <label for="name" class="form-label fw-semibold">Name</label>
-                        <input type="text" class="form-control form-control-lg" id="name" name="name" placeholder="Employee Name" required>
+                        <input type="text" class="form-control form-control-lg" id="name" name="name" placeholder="Employee Name" value="{{ old('name') }}" required>
                     </div>
 
                     {{-- Designation --}}
@@ -55,7 +65,7 @@
                         <select class="form-select form-select-lg" id="branch_id" name="branch_id" required>
                             <option value="">Select Branch</option>
                             @foreach ($branches as $branch)
-                                <option value="{{ $branch->id }}">{{ $branch->name }}</option>
+                                <option value="{{ $branch->id }}" {{ (string) old('branch_id') === (string) $branch->id ? 'selected' : '' }}>{{ $branch->name }}</option>
                             @endforeach
                         </select>
                     </div>
@@ -65,14 +75,14 @@
                         <label for="department" class="form-label fw-semibold">Department</label>
                         <select class="form-select form-select-lg" id="department" name="department" required>
                             <option value="">Select Department</option>
-                            <option value="Male Physiotherapy Department">Male Physiotherapy Department</option>
-                            <option value="Female Physiotherapy Department">Female Physiotherapy Department</option>
-                            <option value="Paeds Physiotherapy Department">Paeds Physiotherapy Department</option>
-                            <option value="Speech Therapy Department">Speech Therapy Department</option>
-                            <option value="Behavior Therapy Department">Behavior Therapy Department</option>
-                            <option value="Occupational Therapy Department">Occupational Therapy Department</option>
-                            <option value="Remedial Therapy Department">Remedial Therapy Department</option>
-                            <option value="Clinical Psychology Department">Clinical Psychology Department</option>
+                            <option value="Male Physiotherapy Department" {{ old('department') === 'Male Physiotherapy Department' ? 'selected' : '' }}>Male Physiotherapy Department</option>
+                            <option value="Female Physiotherapy Department" {{ old('department') === 'Female Physiotherapy Department' ? 'selected' : '' }}>Female Physiotherapy Department</option>
+                            <option value="Paeds Physiotherapy Department" {{ old('department') === 'Paeds Physiotherapy Department' ? 'selected' : '' }}>Paeds Physiotherapy Department</option>
+                            <option value="Speech Therapy Department" {{ old('department') === 'Speech Therapy Department' ? 'selected' : '' }}>Speech Therapy Department</option>
+                            <option value="Behavior Therapy Department" {{ old('department') === 'Behavior Therapy Department' ? 'selected' : '' }}>Behavior Therapy Department</option>
+                            <option value="Occupational Therapy Department" {{ old('department') === 'Occupational Therapy Department' ? 'selected' : '' }}>Occupational Therapy Department</option>
+                            <option value="Remedial Therapy Department" {{ old('department') === 'Remedial Therapy Department' ? 'selected' : '' }}>Remedial Therapy Department</option>
+                            <option value="Clinical Psychology Department" {{ old('department') === 'Clinical Psychology Department' ? 'selected' : '' }}>Clinical Psychology Department</option>
                         </select>
                     </div>
 
@@ -81,9 +91,9 @@
                         <label for="shift" class="form-label fw-semibold">Shift</label>
                         <select class="form-select form-select-lg" id="shift" name="shift" required>
                             <option value="">Select Shift</option>
-                            <option value="Morning">Morning</option>
-                            <option value="Afternoon">Afternoon</option>
-                            <option value="Evening">Evening</option>
+                            <option value="Morning" {{ old('shift') === 'Morning' ? 'selected' : '' }}>Morning</option>
+                            <option value="Afternoon" {{ old('shift') === 'Afternoon' ? 'selected' : '' }}>Afternoon</option>
+                            <option value="Evening" {{ old('shift') === 'Evening' ? 'selected' : '' }}>Evening</option>
                         </select>
                     </div>
 
@@ -150,6 +160,28 @@
                                     </div>
 
                                     <div class="mb-3">
+                                        <h6 class="text-primary mb-3">Incentives</h6>
+                                        <div class="row g-3">
+                                            <div class="col-md-3">
+                                                <label for="incentive_sunday_roster" class="form-label">Sunday Roster</label>
+                                                <input type="number" step="0.01" min="0" id="incentive_sunday_roster" name="incentive_sunday_roster" class="form-control salary-component" placeholder="0.00" value="{{ old('incentive_sunday_roster', '0.00') }}">
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label for="incentive_home_visit" class="form-label">Home Visit</label>
+                                                <input type="number" step="0.01" min="0" id="incentive_home_visit" name="incentive_home_visit" class="form-control salary-component" placeholder="0.00" value="{{ old('incentive_home_visit', '0.00') }}">
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label for="incentive_speech_therapy" class="form-label">Speech Therapy</label>
+                                                <input type="number" step="0.01" min="0" id="incentive_speech_therapy" name="incentive_speech_therapy" class="form-control salary-component" placeholder="0.00" value="{{ old('incentive_speech_therapy', '0.00') }}">
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label for="incentive_dry_needling" class="form-label">Dry Needling</label>
+                                                <input type="number" step="0.01" min="0" id="incentive_dry_needling" name="incentive_dry_needling" class="form-control salary-component" placeholder="0.00" value="{{ old('incentive_dry_needling', '0.00') }}">
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="mb-3">
                                         <h6 class="text-primary mb-3">Other</h6>
                                         <div class="row g-3">
                                             <div class="col-md-4">
@@ -177,13 +209,13 @@
                     {{-- Phone --}}
                     <div class="col-md-6">
                         <label for="phone" class="form-label fw-semibold">Phone</label>
-                        <input type="text" class="form-control form-control-lg" id="phone" name="phone" placeholder="Phone Number" required>
+                        <input type="text" class="form-control form-control-lg" id="phone" name="phone" placeholder="Phone Number" value="{{ old('phone') }}" required>
                     </div>
 
                     {{-- Joining Date --}}
                     <div class="col-md-6">
                         <label for="joining_date" class="form-label fw-semibold">Joining Date</label>
-                        <input type="date" class="form-control form-control-lg" id="joining_date" name="joining_date" required>
+                        <input type="date" class="form-control form-control-lg" id="joining_date" name="joining_date" value="{{ old('joining_date') }}" required>
                     </div>
 
                     {{-- Buttons --}}

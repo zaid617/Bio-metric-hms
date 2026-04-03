@@ -8,6 +8,16 @@ use Carbon\Carbon;
 
 class EmployeeSalaryController extends Controller
 {
+    private function toCents($value): int
+    {
+        return (int) round(((float) $value) * 100);
+    }
+
+    private function toMoney(int $cents): float
+    {
+        return round($cents / 100, 2);
+    }
+
     // 🔹 Show all salaries
     public function index()
     {
@@ -42,27 +52,43 @@ class EmployeeSalaryController extends Controller
     public function store(Request $request)
     {
         try {
-            $netSalary = $request->basic_salary + $request->bonuses + $request->allowances - $request->deductions;
+            $validated = $request->validate([
+                'employee_id' => 'required|exists:employees,id',
+                'month' => 'required|date',
+                'basic_salary' => 'required|numeric|min:0',
+                'allowances' => 'nullable|numeric|min:0',
+                'bonuses' => 'nullable|numeric|min:0',
+                'deductions' => 'nullable|numeric|min:0',
+            ]);
 
-            $formattedDate = Carbon::createFromFormat('Y-m-d', $request->month)->format('Y-m-d');
+            $basicSalaryCents = $this->toCents($validated['basic_salary']);
+            $allowancesCents = $this->toCents($validated['allowances'] ?? 0);
+            $bonusesCents = $this->toCents($validated['bonuses'] ?? 0);
+            $deductionsCents = $this->toCents($validated['deductions'] ?? 0);
 
-            DB::table('employee_salaries')->insert([
-                'employee_id'    => $request->employee_id,
+            $netSalary = $this->toMoney(($basicSalaryCents + $allowancesCents + $bonusesCents) - $deductionsCents);
+
+            $formattedDate = Carbon::createFromFormat('Y-m-d', $validated['month'])->format('Y-m-d');
+
+            DB::transaction(function () use ($validated, $formattedDate, $basicSalaryCents, $allowancesCents, $bonusesCents, $deductionsCents, $netSalary) {
+                DB::table('employee_salaries')->insert([
+                'employee_id'    => $validated['employee_id'],
                 'month'          => $formattedDate,
-                'basic_salary'   => $request->basic_salary,
-                'allowances'     => $request->allowances,
-                'deductions'     => $request->deductions,
-                'bonuses'        => $request->bonuses,
+                'basic_salary'   => $this->toMoney($basicSalaryCents),
+                'allowances'     => $this->toMoney($allowancesCents),
+                'deductions'     => $this->toMoney($deductionsCents),
+                'bonuses'        => $this->toMoney($bonusesCents),
                 'net_salary'     => $netSalary,
                 'payment_status' => 'Pending',
                 'created_at'     => now(),
                 'updated_at'     => now(),
             ]);
+            });
 
             return redirect('salaries')->with('success', 'Salary added successfully.');
         } catch (\Exception $e) {
             \Log::error('Salary store error: ' . $e->getMessage());
-            return redirect()->back()->with('error', 'Unable to add salary.');
+            return redirect()->back()->with('error', 'Unable to add salary.')->withInput();
         }
     }
 
@@ -89,13 +115,13 @@ class EmployeeSalaryController extends Controller
         try {
             $request->validate([
                 'salary_id'  => 'required|exists:employee_salaries,id',
-                'bonuses'    => 'nullable|numeric',
-                'deductions' => 'nullable|numeric',
+                'bonuses'    => 'nullable|numeric|min:0',
+                'deductions' => 'nullable|numeric|min:0',
             ]);
 
             $salaryId  = $request->input('salary_id');
-            $bonus     = $request->input('bonuses') ?? 0;
-            $deduction = $request->input('deductions') ?? 0;
+            $bonus     = $this->toCents($request->input('bonuses') ?? 0);
+            $deduction = $this->toCents($request->input('deductions') ?? 0);
 
             $salary = DB::table('employee_salaries')->where('id', $salaryId)->first();
 
@@ -103,12 +129,15 @@ class EmployeeSalaryController extends Controller
                 return redirect()->back()->with('error', 'Salary already paid or not found.');
             }
 
-            $newNetSalary = ($salary->basic_salary + $salary->allowances + $bonus) - $deduction;
+            $newNetSalaryCents = $this->toCents($salary->basic_salary)
+                + $this->toCents($salary->allowances)
+                + $bonus
+                - $deduction;
 
             DB::table('employee_salaries')->where('id', $salaryId)->update([
-                'bonuses'        => $bonus,
-                'deductions'     => $deduction,
-                'net_salary'     => $newNetSalary,
+                'bonuses'        => $this->toMoney($bonus),
+                'deductions'     => $this->toMoney($deduction),
+                'net_salary'     => $this->toMoney($newNetSalaryCents),
                 'payment_status' => 'Paid',
                 'paid_on'        => now(),
                 'updated_at'     => now(),

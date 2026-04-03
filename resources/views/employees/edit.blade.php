@@ -23,12 +23,17 @@
                     @csrf
                     @method('PUT')
                     @php
+                        $hasIncentiveComponents = (float)($employee->incentive_sunday_roster ?? 0)
+                            + (float)($employee->incentive_home_visit ?? 0)
+                            + (float)($employee->incentive_speech_therapy ?? 0)
+                            + (float)($employee->incentive_dry_needling ?? 0) > 0;
                         $hasSalaryComponents = (float)($employee->allowance_allied_health_council ?? 0)
                             + (float)($employee->allowance_house_job ?? 0)
                             + (float)($employee->allowance_conveyance ?? 0)
                             + (float)($employee->allowance_medical ?? 0)
                             + (float)($employee->allowance_house_rent ?? 0)
-                            + (float)($employee->other_allowance ?? 0) > 0;
+                            + (float)($employee->other_allowance ?? 0) > 0
+                            || $hasIncentiveComponents;
                     @endphp
 
                     {{-- Prefix --}}
@@ -170,6 +175,32 @@
                                                 <label for="allowance_house_rent" class="form-label">House Rent Allowance</label>
                                                 <input type="number" step="0.01" min="0" id="allowance_house_rent" name="allowance_house_rent" class="form-control salary-component" placeholder="0.00" value="{{ old('allowance_house_rent', $employee->allowance_house_rent ?? '0.00') }}">
                                                 @error('allowance_house_rent')<small class="text-danger">{{ $message }}</small>@enderror
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <h6 class="text-primary mb-3">Incentives</h6>
+                                        <div class="row g-3">
+                                            <div class="col-md-3">
+                                                <label for="incentive_sunday_roster" class="form-label">Sunday Roster</label>
+                                                <input type="number" step="0.01" min="0" id="incentive_sunday_roster" name="incentive_sunday_roster" class="form-control salary-component" placeholder="0.00" value="{{ old('incentive_sunday_roster', $employee->incentive_sunday_roster ?? '0.00') }}">
+                                                @error('incentive_sunday_roster')<small class="text-danger">{{ $message }}</small>@enderror
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label for="incentive_home_visit" class="form-label">Home Visit</label>
+                                                <input type="number" step="0.01" min="0" id="incentive_home_visit" name="incentive_home_visit" class="form-control salary-component" placeholder="0.00" value="{{ old('incentive_home_visit', $employee->incentive_home_visit ?? '0.00') }}">
+                                                @error('incentive_home_visit')<small class="text-danger">{{ $message }}</small>@enderror
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label for="incentive_speech_therapy" class="form-label">Speech Therapy</label>
+                                                <input type="number" step="0.01" min="0" id="incentive_speech_therapy" name="incentive_speech_therapy" class="form-control salary-component" placeholder="0.00" value="{{ old('incentive_speech_therapy', $employee->incentive_speech_therapy ?? '0.00') }}">
+                                                @error('incentive_speech_therapy')<small class="text-danger">{{ $message }}</small>@enderror
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label for="incentive_dry_needling" class="form-label">Dry Needling</label>
+                                                <input type="number" step="0.01" min="0" id="incentive_dry_needling" name="incentive_dry_needling" class="form-control salary-component" placeholder="0.00" value="{{ old('incentive_dry_needling', $employee->incentive_dry_needling ?? '0.00') }}">
+                                                @error('incentive_dry_needling')<small class="text-danger">{{ $message }}</small>@enderror
                                             </div>
                                         </div>
                                     </div>

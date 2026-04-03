@@ -31,6 +31,10 @@ class StoreEmployeeRequest extends FormRequest
             'allowance_conveyance' => 'nullable|numeric|min:0',
             'allowance_medical' => 'nullable|numeric|min:0',
             'allowance_house_rent' => 'nullable|numeric|min:0',
+            'incentive_sunday_roster' => 'nullable|numeric|min:0',
+            'incentive_home_visit' => 'nullable|numeric|min:0',
+            'incentive_speech_therapy' => 'nullable|numeric|min:0',
+            'incentive_dry_needling' => 'nullable|numeric|min:0',
 
             'other_allowance' => 'nullable|numeric|min:0',
             'other_allowance_label' => 'nullable|string|max:255',
@@ -46,6 +50,10 @@ class StoreEmployeeRequest extends FormRequest
             'allowance_conveyance.numeric' => 'Conveyance allowance must be a valid number.',
             'allowance_medical.numeric' => 'Medical allowance must be a valid number.',
             'allowance_house_rent.numeric' => 'House rent allowance must be a valid number.',
+            'incentive_sunday_roster.numeric' => 'Sunday roster incentive must be a valid number.',
+            'incentive_home_visit.numeric' => 'Home visit incentive must be a valid number.',
+            'incentive_speech_therapy.numeric' => 'Speech therapy incentive must be a valid number.',
+            'incentive_dry_needling.numeric' => 'Dry needling incentive must be a valid number.',
             'other_allowance.numeric' => 'Other allowance must be a valid number.',
             'other_allowance_label.max' => 'Other allowance label may not be greater than 255 characters.',
         ];

@@ -463,6 +463,10 @@ class AttendanceSyncService
 
         $checkIn = Carbon::parse($dateOnly . ' ' . $record->check_in);
         $employee = $record->employee;
+        $shiftRule = $this->resolveShiftRuleForRecord($record, Carbon::parse($dateOnly));
+        $shiftStartAt = $shiftRule['shift_start_at'];
+        $shiftEndAt = $shiftRule['shift_end_at'];
+        $graceMinutes = $shiftRule['grace_minutes'];
 
         if ($record->check_out) {
             $checkOut = Carbon::parse($dateOnly . ' ' . $record->check_out);
@@ -473,33 +477,20 @@ class AttendanceSyncService
             }
 
             $record->total_working_minutes = $checkIn->diffInMinutes($checkOut);
-
-            // Calculate overtime based on employee's standard working hours
-            $standardMinutes = ($employee && $employee->working_hours)
-                ? (float) $employee->working_hours * 60
-                : 8 * 60;
-
-            if ($record->total_working_minutes > $standardMinutes) {
-                $record->overtime_minutes = (int) ($record->total_working_minutes - $standardMinutes);
-            } else {
-                $record->overtime_minutes = 0;
-            }
-        }
-
-        // Detect late arrival using employee shift start time (fallback: payroll setting).
-        $employeeShiftStart = ($employee && !empty($employee->shift_start_time))
-            ? substr((string) $employee->shift_start_time, 0, 5)
-            : config('payroll.shift_start', '09:00');
-        $shiftStart   = preg_match('/^\d{2}:\d{2}$/', $employeeShiftStart)
-            ? $employeeShiftStart
-            : config('payroll.shift_start', '09:00');
-        $graceMinutes = (int) config('payroll.late_grace_minutes', 15);
-        $deadline     = Carbon::parse($dateOnly . ' ' . $shiftStart)->addMinutes($graceMinutes);
-        if ($checkIn->gt($deadline)) {
-            $record->status = 'late';
+            $record->overtime_minutes = $checkOut->gt($shiftEndAt)
+                ? $shiftEndAt->diffInMinutes($checkOut)
+                : 0;
+            $record->is_checkout_missing = false;
         } else {
-            $record->status = 'present';
+            $record->overtime_minutes = 0;
         }
+
+        $deadline = (clone $shiftStartAt)->addMinutes($graceMinutes);
+        $record->is_late = $checkIn->gt($deadline);
+        $record->late_minutes = $checkIn->gt($shiftStartAt)
+            ? $shiftStartAt->diffInMinutes($checkIn)
+            : 0;
+        $record->status = $record->is_late ? 'late' : 'present';
 
         // Check for missing checkout
         if (!$record->check_out) {
@@ -507,6 +498,62 @@ class AttendanceSyncService
         }
 
         $record->save();
+    }
+
+    protected function resolveShiftRuleForRecord(AttendanceRecord $record, Carbon $attendanceDate): array
+    {
+        $employee = $record->employee;
+        $defaultShiftStart = (string) config('payroll.shift_start', '09:00');
+        $defaultGrace = (int) config('payroll.late_grace_minutes', 15);
+        $shiftStart = !empty($employee?->shift_start_time)
+            ? substr((string) $employee->shift_start_time, 0, 5)
+            : $defaultShiftStart;
+
+        $graceMinutes = $defaultGrace;
+        $shiftName = trim((string) ($employee?->shift ?? ''));
+        static $hasShiftTable = null;
+
+        if ($shiftName !== '') {
+            if ($hasShiftTable === null) {
+                $hasShiftTable = DB::getSchemaBuilder()->hasTable('attendance_shifts');
+            }
+
+            if ($hasShiftTable) {
+                $match = DB::table('attendance_shifts')
+                    ->when(!empty($employee?->branch_id), function ($query) use ($employee) {
+                        $query->where(function ($inner) use ($employee) {
+                            $inner->where('branch_id', $employee->branch_id)
+                                ->orWhereNull('branch_id');
+                        });
+                    })
+                    ->whereRaw('LOWER(shift_name) = ?', [strtolower($shiftName)])
+                    ->orderByDesc('is_default')
+                    ->first();
+
+                if ($match) {
+                    $candidateStart = substr((string) $match->start_time, 0, 5);
+                    if (preg_match('/^\d{2}:\d{2}$/', $candidateStart)) {
+                        $shiftStart = $candidateStart;
+                    }
+
+                    $graceMinutes = (int) ($match->grace_period_minutes ?? $graceMinutes);
+                }
+            }
+        }
+
+        if (!preg_match('/^\d{2}:\d{2}$/', $shiftStart)) {
+            $shiftStart = $defaultShiftStart;
+        }
+
+        $shiftStartAt = Carbon::parse($attendanceDate->toDateString() . ' ' . $shiftStart);
+        $workingHours = (float) ($employee?->working_hours ?? config('payroll.default_shift_hours', 8));
+        $shiftEndAt = (clone $shiftStartAt)->addMinutes((int) round(max(0, $workingHours) * 60));
+
+        return [
+            'shift_start_at' => $shiftStartAt,
+            'shift_end_at' => $shiftEndAt,
+            'grace_minutes' => max(0, $graceMinutes),
+        ];
     }
 
     /**

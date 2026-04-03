@@ -11,6 +11,8 @@
         .status-absent { background-color: #dc3545; color: white; padding: 4px 8px; border-radius: 4px; }
         .status-half_day { background-color: #17a2b8; color: white; padding: 4px 8px; border-radius: 4px; }
         .status-leave { background-color: #6c757d; color: white; padding: 4px 8px; border-radius: 4px; }
+        .late-badge { background-color: #dc3545; color: #fff; padding: 2px 8px; border-radius: 999px; font-size: 11px; }
+        .ot-note { color: #6c757d; font-style: italic; font-size: 11px; }
     </style>
 @endpush
 
@@ -95,6 +97,7 @@
                                     <th>Check In</th>
                                     <th>Check Out</th>
                                     <th>Working Hours</th>
+                                    <th>Late</th>
                                     <th>Overtime (mins)</th>
                                     <th>Status</th>
                                     <th>Actions</th>
@@ -114,7 +117,17 @@
                                             @endif
                                         </td>
                                         <td>{{ $record->working_hours ?? 0 }}h</td>
-                                        <td>{{ $record->calculated_overtime_minutes ?? 0 }}</td>
+                                        <td>
+                                            @if((int) ($record->late_minutes ?? 0) > 0)
+                                                <span class="late-badge">Late: {{ (int) $record->late_minutes }} min</span>
+                                            @else
+                                                <span class="text-muted">-</span>
+                                            @endif
+                                        </td>
+                                        <td>
+                                            {{ max(0, (int) ($record->overtime_minutes ?? 0)) }}
+                                            <div class="ot-note">for record only</div>
+                                        </td>
                                         <td>
                                             <span class="status-{{ $record->status }}">
                                                 {{ ucfirst(str_replace('_', ' ', $record->status)) }}
@@ -129,7 +142,7 @@
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="9" class="text-center">No attendance records found.</td>
+                                        <td colspan="10" class="text-center">No attendance records found.</td>
                                     </tr>
                                 @endforelse
                             </tbody>

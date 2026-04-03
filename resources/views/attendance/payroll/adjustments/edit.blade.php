@@ -184,6 +184,12 @@ var allCodes = {
         {v:'CUSTOM',            l:'Custom Award'},
     ],
     deduction: [
+        {v:'TAX',                     l:'Tax Deduction'},
+        {v:'PROVIDENT_FUND',          l:'Provident Fund'},
+        {v:'EOBI',                    l:'EOBI'},
+        {v:'ADVANCE',                 l:'Advance'},
+        {v:'LOAN',                    l:'Loan Recovery'},
+        {v:'OTHER_DEDUCTION',         l:'Other Deduction'},
         {v:'SESSION_NUMBER_MISSING',   l:'Missing Session Number'},
         {v:'WRONG_EMR_NUMBER',         l:'Wrong EMR Number'},
         {v:'TIME_MISSING',             l:'Missing Time Entry'},

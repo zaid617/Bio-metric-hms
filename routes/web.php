@@ -654,6 +654,20 @@ Route::middleware(['auth:web', 'role:admin|manager|receptionist'])
                 ->name('payroll.settings.update');
         });
 
+        Route::prefix('payroll')->name('payroll.')->group(function () {
+            Route::get('/{payroll}/payslip/preview', [\App\Http\Controllers\Attendance\AttendancePayrollController::class, 'previewPayslip'])
+                ->middleware('check_user_permission:view payroll')
+                ->name('payslip.preview');
+
+            Route::get('/{payroll}/payslip/download', [\App\Http\Controllers\Attendance\AttendancePayrollController::class, 'downloadPayslip'])
+                ->middleware('check_user_permission:view payroll')
+                ->name('payslip.download');
+
+            Route::post('/payslips/bulk-download', [\App\Http\Controllers\Attendance\AttendancePayrollController::class, 'bulkDownloadPayslips'])
+                ->middleware('check_user_permission:view payroll')
+                ->name('payslip.bulk-download');
+        });
+
         Route::prefix('general-settings')->group(function () {
             Route::get('/', [GeneralSettingController::class, 'index'])
                 ->middleware('check_user_permission:manage_appointments')

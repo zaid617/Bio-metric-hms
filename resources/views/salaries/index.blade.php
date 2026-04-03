@@ -35,7 +35,7 @@
                         <tr>
                             <td>{{ $salary->employee_name }}</td>
                             <td>{{ $salary->month }}</td>
-                            <td>₨ {{ number_format($salary->net_salary) }}</td>
+                            <td>₨ {{ number_format((float) $salary->net_salary, 2) }}</td>
                             <td>
                                 <span class="badge bg-{{ strtolower($salary->payment_status) === 'paid' ? 'success' : 'warning' }}">
                                     {{ ucfirst($salary->payment_status) }}
@@ -56,11 +56,11 @@
                                 @endif
                             </td>
                             <td>
-                                <strong>Basic:</strong> ₨ {{ number_format($salary->basic_salary) }}<br>
-                                <strong>Allowances:</strong> ₨ {{ number_format($salary->allowances) }}<br>
-                                <strong>Bonus:</strong> ₨ {{ number_format($salary->bonuses) }}<br>
-                                <strong>Deductions:</strong> ₨ {{ number_format($salary->deductions) }}<br>
-                                <strong>Net:</strong> ₨ {{ number_format($salary->net_salary) }}
+                                <strong>Basic:</strong> ₨ {{ number_format((float) $salary->basic_salary, 2) }}<br>
+                                <strong>Allowances:</strong> ₨ {{ number_format((float) $salary->allowances, 2) }}<br>
+                                <strong>Bonus:</strong> ₨ {{ number_format((float) $salary->bonuses, 2) }}<br>
+                                <strong>Deductions:</strong> ₨ {{ number_format((float) $salary->deductions, 2) }}<br>
+                                <strong>Net:</strong> ₨ {{ number_format((float) $salary->net_salary, 2) }}
                             </td>
                         </tr>
                         @empty
@@ -72,7 +72,7 @@
                     <tfoot>
                         <tr>
                             <td colspan="2" class="text-end"><strong>Total to Pay:</strong></td>
-                            <td><strong>₨ {{ number_format($totalToPay) }}</strong></td>
+                            <td><strong>₨ {{ number_format((float) $totalToPay, 2) }}</strong></td>
                             <td colspan="3"></td>
                         </tr>
                     </tfoot>

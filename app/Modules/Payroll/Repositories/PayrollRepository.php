@@ -51,81 +51,177 @@ class PayrollRepository
         $records = AttendanceRecord::query()
             ->where('employee_id', $employee->id)
             ->whereBetween('attendance_date', [$periodStart->toDateString(), $periodEnd->toDateString()])
-            ->get();
+            ->get()
+            ->keyBy(function (AttendanceRecord $record) {
+                return $record->attendance_date instanceof Carbon
+                    ? $record->attendance_date->toDateString()
+                    : (string) $record->attendance_date;
+            });
 
         // Determine off-days: Sunday always off; Saturday off only if work_on_saturday = false
         $offDays = config('payroll.work_on_saturday', true) ? [0] : [0, 6];
 
-        // Count working days in the period (mirrors PayrollCalculatorService)
-        $workingDays = 0;
-        foreach (CarbonPeriod::create($periodStart, $periodEnd) as $date) {
-            if (!in_array($date->dayOfWeek, $offDays, true)) {
-                $workingDays++;
+        $effectiveStart = $periodStart->copy();
+        if (!empty($employee->joining_date)) {
+            $joiningDate = Carbon::parse($employee->joining_date);
+            if ($joiningDate->betweenIncluded($periodStart, $periodEnd) && $joiningDate->gt($effectiveStart)) {
+                $effectiveStart = $joiningDate->copy();
             }
         }
 
-        // Shift start from employee profile (fallback: payroll setting) and late-grace config
-        $employeeShiftStart = !empty($employee->shift_start_time)
-            ? substr((string) $employee->shift_start_time, 0, 5)
-            : config('payroll.shift_start', '09:00');
-        $shiftStart      = preg_match('/^\d{2}:\d{2}$/', $employeeShiftStart)
-            ? $employeeShiftStart
-            : config('payroll.shift_start', '09:00');
-        $graceMinutes    = (int) config('payroll.late_grace_minutes', 15);  // minutes of grace
-        $standardMinutesPerDay = (float) ($employee->working_hours ?? config('payroll.default_shift_hours', 8)) * 60;
+        if ($effectiveStart->gt($periodEnd)) {
+            return [
+                'working_days' => 0,
+                'present_days' => 0,
+                'absent_days' => 0,
+                'leave_days' => 0,
+                'holiday_days' => 0,
+                'weekend_days' => 0,
+                'late_days' => 0,
+                'total_late_count' => 0,
+                'total_late_minutes' => 0,
+                'total_working_minutes' => 0,
+                'overtime_minutes' => 0,
+                'no_attendance_warning' => true,
+            ];
+        }
 
-        $presentDays  = 0;
-        $lateDays     = 0;
-        $workingMinutes = 0;
+        $workingDays = 0;
+        $presentDays = 0;
+        $absentDays = 0;
+        $leaveDays = 0;
+        $holidayDays = 0;
+        $weekendDays = 0;
+        $totalLateCount = 0;
+        $totalLateMinutes = 0;
+        $totalWorkingMinutes = 0;
         $overtimeMinutes = 0;
 
-        foreach ($records as $record) {
-            // Resolve attendance_date to a Carbon for dayOfWeek check
-            $attDate = $record->attendance_date instanceof Carbon
-                ? $record->attendance_date
-                : Carbon::parse($record->attendance_date);
+        foreach (CarbonPeriod::create($effectiveStart, $periodEnd) as $date) {
+            $dateKey = $date->toDateString();
 
-            // Only count records that fall on an actual working day
-            if (in_array($attDate->dayOfWeek, $offDays, true)) {
+            if (in_array($date->dayOfWeek, $offDays, true)) {
+                $weekendDays++;
                 continue;
             }
 
-            $status = $record->status ?? 'present';
+            $workingDays++;
+            /** @var AttendanceRecord|null $record */
+            $record = $records->get($dateKey);
+
+            if (!$record) {
+                $absentDays++;
+                continue;
+            }
+
+            $status = strtolower((string) ($record->status ?? 'absent'));
 
             if (in_array($status, ['present', 'late', 'half_day'], true)) {
                 $presentDays++;
+                $totalWorkingMinutes += (int) ($record->total_working_minutes ?? 0);
+                $overtimeMinutes += max(0, (int) ($record->overtime_minutes ?? 0));
 
-                // Detect late arrival: compare check_in to shift_start + grace
-                if (!empty($record->check_in)) {
-                    $dateStr  = $attDate->toDateString();
-                    $checkIn  = Carbon::parse($dateStr . ' ' . $record->check_in);
-                    $deadline = Carbon::parse($dateStr . ' ' . $shiftStart)->addMinutes($graceMinutes);
-                    if ($checkIn->gt($deadline)) {
-                        $lateDays++;
-                    }
+                $recordLateMinutes = (int) ($record->late_minutes ?? 0);
+                $isLate = (bool) ($record->is_late ?? false);
+                if (!$isLate && $recordLateMinutes <= 0 && !empty($record->check_in)) {
+                    $recordLateMinutes = $this->calculateLateMinutes($employee, $dateKey, (string) $record->check_in);
+                    $isLate = $recordLateMinutes > 0;
                 }
 
-                $recordOvertime = (int) ($record->overtime_minutes ?? 0);
-                if ($recordOvertime > 0) {
-                    $overtimeMinutes += $recordOvertime;
-                } else {
-                    $overtimeMinutes += (int) max(0, ((int) ($record->total_working_minutes ?? 0)) - $standardMinutesPerDay);
+                if ($isLate || $status === 'late') {
+                    $totalLateCount++;
+                    $totalLateMinutes += max(0, $recordLateMinutes);
                 }
+
+                continue;
             }
 
-            $workingMinutes += (int) ($record->total_working_minutes ?? 0);
+            if ($status === 'leave') {
+                $leaveDays++;
+                continue;
+            }
+
+            if ($status === 'holiday') {
+                $holidayDays++;
+                continue;
+            }
+
+            if ($status === 'weekend') {
+                $weekendDays++;
+                continue;
+            }
+
+            $absentDays++;
         }
 
-        // Absent = working days the employee was not present
-        $absentDays = max(0, $workingDays - $presentDays);
+        $lateDays = $totalLateCount;
 
         return [
+            'working_days'           => $workingDays,
             'present_days'           => $presentDays,
             'absent_days'            => $absentDays,
+            'leave_days'             => $leaveDays,
+            'holiday_days'           => $holidayDays,
+            'weekend_days'           => $weekendDays,
             'late_days'              => $lateDays,
-            'total_working_minutes'  => $workingMinutes,
+            'total_late_count'       => $totalLateCount,
+            'total_late_minutes'     => $totalLateMinutes,
+            'total_working_minutes'  => $totalWorkingMinutes,
             'overtime_minutes'       => $overtimeMinutes,
+            'no_attendance_warning'  => $records->isEmpty(),
         ];
+    }
+
+    private function calculateLateMinutes(Employee $employee, string $attendanceDate, string $checkInTime): int
+    {
+        $shiftStart = $this->resolveShiftStart($employee);
+        $shiftStartAt = Carbon::parse($attendanceDate . ' ' . $shiftStart);
+        $checkInAt = Carbon::parse($attendanceDate . ' ' . substr($checkInTime, 0, 8));
+
+        return $checkInAt->gt($shiftStartAt)
+            ? $shiftStartAt->diffInMinutes($checkInAt)
+            : 0;
+    }
+
+    private function resolveShiftStart(Employee $employee): string
+    {
+        $defaultShiftStart = (string) config('payroll.shift_start', '09:00');
+        $shiftStart = !empty($employee->shift_start_time)
+            ? substr((string) $employee->shift_start_time, 0, 5)
+            : $defaultShiftStart;
+
+        static $hasShiftTable = null;
+        $shiftName = trim((string) ($employee->shift ?? ''));
+
+        if ($shiftName !== '') {
+            if ($hasShiftTable === null) {
+                $hasShiftTable = DB::getSchemaBuilder()->hasTable('attendance_shifts');
+            }
+
+            if ($hasShiftTable) {
+                $match = DB::table('attendance_shifts')
+                    ->when(!empty($employee->branch_id), function ($query) use ($employee) {
+                        $query->where(function ($inner) use ($employee) {
+                            $inner->where('branch_id', $employee->branch_id)
+                                ->orWhereNull('branch_id');
+                        });
+                    })
+                    ->whereRaw('LOWER(shift_name) = ?', [strtolower($shiftName)])
+                    ->orderByDesc('is_default')
+                    ->first();
+
+                if ($match) {
+                    $candidateStart = substr((string) $match->start_time, 0, 5);
+                    if (preg_match('/^\d{2}:\d{2}$/', $candidateStart)) {
+                        $shiftStart = $candidateStart;
+                    }
+                }
+            }
+        }
+
+        return preg_match('/^\d{2}:\d{2}$/', $shiftStart)
+            ? $shiftStart
+            : $defaultShiftStart;
     }
 
     public function findDoctorByEmployee(Employee $employee): ?Doctor

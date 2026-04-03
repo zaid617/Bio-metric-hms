@@ -103,7 +103,7 @@
                             <div class="small text-muted font-monospace">{{ $adj->code }}</div>
                         </td>
                         <td class="{{ $adj->adjustment_type=='deduction'?'text-danger':'text-success' }} fw-bold">
-                            {{ $adj->adjustment_type=='deduction'?'−':'+' }} {{ number_format($adj->amount,0) }}
+                            {{ $adj->adjustment_type=='deduction'?'−':'+' }} {{ number_format((float) $adj->amount,2) }}
                         </td>
                         <td>
                             @if($adj->payroll_id)

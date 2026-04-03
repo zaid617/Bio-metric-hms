@@ -40,19 +40,19 @@
                 <div class="row text-center">
                     <div class="col-md-3 col-6 mb-3">
                         <div class="text-muted small">Basic Salary</div>
-                        <div class="fw-bold fs-5">PKR {{ number_format($payroll->basic_salary ?? $payroll->base_salary ?? 0,0) }}</div>
+                        <div class="fw-bold fs-5">PKR {{ number_format((float) ($payroll->basic_salary ?? $payroll->base_salary ?? 0),2) }}</div>
                     </div>
                     <div class="col-md-3 col-6 mb-3">
                         <div class="text-muted small">Incentives + Awards</div>
-                        <div class="fw-bold fs-5 text-success">PKR {{ number_format($incentivesTotal + $awardsTotal,0) }}</div>
+                        <div class="fw-bold fs-5 text-success">PKR {{ number_format((float) ($incentivesTotal + $awardsTotal),2) }}</div>
                     </div>
                     <div class="col-md-3 col-6 mb-3">
                         <div class="text-muted small">Deductions</div>
-                        <div class="fw-bold fs-5 text-danger">PKR {{ number_format($deductionsTotal,0) }}</div>
+                        <div class="fw-bold fs-5 text-danger">PKR {{ number_format((float) $deductionsTotal,2) }}</div>
                     </div>
                     <div class="col-md-3 col-6 mb-3">
                         <div class="text-muted small">Current Net Salary</div>
-                        <div class="fw-bold fs-5 text-success">PKR {{ number_format($payroll->final_salary ?? $payroll->final_settlement ?? 0,0) }}</div>
+                        <div class="fw-bold fs-5 text-success">PKR {{ number_format((float) ($payroll->final_salary ?? $payroll->final_settlement ?? 0),2) }}</div>
                     </div>
                 </div>
             </div>
@@ -190,7 +190,7 @@
                             <td><span class="badge @if($adj->adjustment_type=='deduction') bg-danger @elseif($adj->adjustment_type=='award') bg-warning text-dark @else bg-success @endif">{{ ucfirst($adj->adjustment_type) }}</span></td>
                             <td>{{ $adj->title ?: str_replace('_',' ',$adj->code) }}</td>
                             <td class="{{ $adj->adjustment_type=='deduction'?'text-danger':'text-success' }} fw-semibold">
-                                {{ $adj->adjustment_type=='deduction'?'-':'+' }} PKR {{ number_format($adj->amount,0) }}
+                                {{ $adj->adjustment_type=='deduction'?'-':'+' }} PKR {{ number_format((float) $adj->amount,2) }}
                             </td>
                             <td class="small text-muted">{{ $adj->notes ?? $adj->reason ?? '—' }}</td>
                             <td class="small">{{ $adj->creator->name ?? 'System' }}</td>
@@ -210,13 +210,21 @@
 var codes = {
     earning: [
         {v:'ADDITIONAL_SALARY', l:'Additional Salary'},
+        {v:'INCENTIVE_SUNDAY_ROSTER', l:'Sunday Roster Incentive'},
+        {v:'INCENTIVE_HOME_VISIT', l:'Home Visit Incentive'},
+        {v:'INCENTIVE_SPEECH_THERAPY', l:'Speech Therapy Incentive'},
+        {v:'INCENTIVE_DRY_NEEDLING', l:'Dry Needling Incentive'},
+        {v:'ALLOWANCE_ALLIED_HEALTH_COUNCIL', l:'Allied Health Council Allowance'},
+        {v:'ALLOWANCE_HOUSE_JOB', l:'House Job Allowance'},
+        {v:'ALLOWANCE_CONVEYANCE', l:'Conveyance Allowance'},
+        {v:'ALLOWANCE_MEDICAL', l:'Medical Allowance'},
+        {v:'ALLOWANCE_HOUSE_RENT', l:'House Rent Allowance'},
+        {v:'OTHER_ALLOWANCE', l:'Other Allowance'},
         {v:'TREATMENT_EXTENSION_COMMISSION', l:'Treatment Extension Commission (10%)'},
         {v:'SATISFACTION_BONUS', l:'Patient Satisfaction Bonus'},
         {v:'ASSESSMENT_BONUS', l:'Staff Assessment Incentive (5%)'},
         {v:'REFERENCE_BONUS', l:'Patient Reference Reward'},
         {v:'PERSONAL_PATIENT_COMMISSION', l:'Personal Patient Commission (20%)'},
-        {v:'SUNDAY_ROSTER', l:'Sunday Roster and home Visit'},
-        {v:'SPEECH_THERAPY_INCENTIVES', l:'Speech therapy'},
         {v:'CUSTOM', l:'Custom Earning'},
     ],
     award: [
@@ -224,6 +232,12 @@ var codes = {
         {v:'CUSTOM', l:'Custom Award'},
     ],
     deduction: [
+        {v:'TAX', l:'Tax Deduction'},
+        {v:'PROVIDENT_FUND', l:'Provident Fund'},
+        {v:'EOBI', l:'EOBI'},
+        {v:'ADVANCE', l:'Advance'},
+        {v:'LOAN', l:'Loan Recovery'},
+        {v:'OTHER_DEDUCTION', l:'Other Deduction'},
         {v:'SESSION_NUMBER_MISSING', l:'Missing Session Number'},
         {v:'WRONG_EMR_NUMBER', l:'Wrong EMR Number'},
         {v:'TIME_MISSING', l:'Missing Time Entry'},

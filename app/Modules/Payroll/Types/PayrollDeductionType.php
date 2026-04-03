@@ -4,6 +4,15 @@ namespace App\Modules\Payroll\Types;
 
 final class PayrollDeductionType
 {
+    public const TAX = 'TAX';
+    public const PROVIDENT_FUND = 'PROVIDENT_FUND';
+    public const EOBI = 'EOBI';
+    public const ADVANCE = 'ADVANCE';
+    public const LOAN = 'LOAN';
+    public const ABSENT_DEDUCTION = 'ABSENT_DEDUCTION';
+    public const LATE_DEDUCTION = 'LATE_DEDUCTION';
+    public const OTHER_DEDUCTION = 'OTHER_DEDUCTION';
+
     public const SESSION_NUMBER_MISSING = 'SESSION_NUMBER_MISSING';
     public const WRONG_EMR_NUMBER = 'WRONG_EMR_NUMBER';
     public const TIME_MISSING = 'TIME_MISSING';

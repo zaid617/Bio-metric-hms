@@ -47,21 +47,21 @@
                         <label class="form-label fw-semibold">Generate For</label>
                         <div class="row g-2">
                             <div class="col-md-4">
-                                <input type="radio" class="btn-check" name="generate_type" id="gen_all" value="all" checked>
+                                <input type="radio" class="btn-check" name="generate_type" id="gen_all" value="all" {{ old('generate_type', 'all') === 'all' ? 'checked' : '' }}>
                                 <label class="btn btn-outline-primary w-100" for="gen_all">
                                     <span class="material-icons-outlined d-block mb-1" style="font-size:24px">groups</span>
                                     All Employees
                                 </label>
                             </div>
                             <div class="col-md-4">
-                                <input type="radio" class="btn-check" name="generate_type" id="gen_branch" value="branch">
+                                <input type="radio" class="btn-check" name="generate_type" id="gen_branch" value="branch" {{ old('generate_type') === 'branch' ? 'checked' : '' }}>
                                 <label class="btn btn-outline-primary w-100" for="gen_branch">
                                     <span class="material-icons-outlined d-block mb-1" style="font-size:24px">business</span>
                                     By Branch
                                 </label>
                             </div>
                             <div class="col-md-4">
-                                <input type="radio" class="btn-check" name="generate_type" id="gen_emp" value="employee">
+                                <input type="radio" class="btn-check" name="generate_type" id="gen_emp" value="employee" {{ old('generate_type') === 'employee' ? 'checked' : '' }}>
                                 <label class="btn btn-outline-primary w-100" for="gen_emp">
                                     <span class="material-icons-outlined d-block mb-1" style="font-size:24px">person</span>
                                     Single Employee
@@ -72,28 +72,30 @@
 
                     <div class="mb-3" id="branch_field" style="display:none">
                         <label for="branch_id" class="form-label fw-semibold">Select Branch</label>
-                        <select name="branch_id" id="branch_id" class="form-select">
+                        <select name="branch_id" id="branch_id" class="form-select @error('branch_id') is-invalid @enderror">
                             <option value="">— Choose Branch —</option>
                             @foreach($branches as $branch)
-                                <option value="{{ $branch->id }}">{{ $branch->name }}</option>
+                                <option value="{{ $branch->id }}" {{ (string) old('branch_id') === (string) $branch->id ? 'selected' : '' }}>{{ $branch->name }}</option>
                             @endforeach
                         </select>
+                        @error('branch_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
                     </div>
 
                     <div class="mb-3" id="employee_field" style="display:none">
                         <label for="employee_id" class="form-label fw-semibold">Select Employee</label>
-                        <select name="employee_id" id="employee_id" class="form-select">
+                        <select name="employee_id" id="employee_id" class="form-select @error('employee_id') is-invalid @enderror">
                             <option value="">— Choose Employee —</option>
                             @foreach($employees as $emp)
-                                <option value="{{ $emp->id }}">
+                                <option value="{{ $emp->id }}" {{ (string) old('employee_id') === (string) $emp->id ? 'selected' : '' }}>
                                     {{ $emp->name }} — {{ $emp->designation }} ({{ $emp->branch->name ?? 'N/A' }})
                                 </option>
                             @endforeach
                         </select>
+                        @error('employee_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
                     </div>
 
                     <div class="form-check mb-4">
-                        <input class="form-check-input" type="checkbox" name="force_regenerate" id="force_regenerate" value="1">
+                        <input class="form-check-input" type="checkbox" name="force_regenerate" id="force_regenerate" value="1" {{ old('force_regenerate') ? 'checked' : '' }}>
                         <label class="form-check-label" for="force_regenerate">
                             <strong>Force Regenerate</strong>
                             <small class="text-muted d-block">Overwrite existing draft payrolls for the selected period</small>
@@ -133,14 +135,21 @@
         }
     });
 
+    function toggleGenerateFields(selectedType) {
+        document.getElementById('branch_field').style.display   = selectedType === 'branch'   ? '' : 'none';
+        document.getElementById('employee_field').style.display = selectedType === 'employee' ? '' : 'none';
+    }
+
     document.querySelectorAll('input[name="generate_type"]').forEach(function(radio) {
         radio.addEventListener('change', function() {
-            document.getElementById('branch_field').style.display   = this.value === 'branch'   ? '' : 'none';
-            document.getElementById('employee_field').style.display = this.value === 'employee' ? '' : 'none';
+            toggleGenerateFields(this.value);
             if (this.value !== 'branch')   document.getElementById('branch_id').value   = '';
             if (this.value !== 'employee') document.getElementById('employee_id').value = '';
         });
     });
+
+    var selected = document.querySelector('input[name="generate_type"]:checked');
+    toggleGenerateFields(selected ? selected.value : 'all');
 </script>
 @endpush
 @endsection

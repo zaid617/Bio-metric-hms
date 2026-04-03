@@ -26,6 +26,8 @@
                                     <th>Earnings</th>
                                     <th>Awards</th>
                                     <th>Deductions</th>
+                                    <th>Late</th>
+                                    <th>OT Hours</th>
                                     <th>Final Salary</th>
                                     <th>Action</th>
                                 </tr>
@@ -39,6 +41,14 @@
                                         <td>PKR {{ number_format(collect($payroll->earnings_breakdown ?? [])->sum('amount'), 2) }}</td>
                                         <td>PKR {{ number_format($payroll->awards_total ?? 0, 2) }}</td>
                                         <td>PKR {{ number_format($payroll->deductions_total ?? 0, 2) }}</td>
+                                        <td>
+                                            {{ (int) ($payroll->total_late_count ?? $payroll->late_days ?? 0) }}
+                                            <span class="text-muted">/ {{ (int) ($payroll->total_late_minutes ?? 0) }} min</span>
+                                        </td>
+                                        <td>
+                                            {{ number_format((float) ($payroll->total_overtime_hours ?? $payroll->overtime_hours ?? 0), 2) }}
+                                            <span class="text-muted fst-italic">record only</span>
+                                        </td>
                                         <td><strong>PKR {{ number_format($payroll->final_salary ?? $payroll->final_settlement, 2) }}</strong></td>
                                         <td>
                                             <a href="{{ route('attendance.payroll.show', $payroll) }}" class="btn btn-sm btn-primary">Details</a>
@@ -46,7 +56,7 @@
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="8" class="text-center">No payroll records found for the selected month.</td>
+                                        <td colspan="10" class="text-center">No payroll records found for the selected month.</td>
                                     </tr>
                                 @endforelse
                             </tbody>

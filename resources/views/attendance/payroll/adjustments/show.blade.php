@@ -25,7 +25,7 @@
                     @if($adjustment->adjustment_type=='earning') text-success
                     @elseif($adjustment->adjustment_type=='award') text-warning-emphasis
                     @else text-danger @endif fs-6">
-                    {{ $adjustment->adjustment_type=='deduction'?'−':'+' }} PKR {{ number_format($adjustment->amount,0) }}
+                    {{ $adjustment->adjustment_type=='deduction'?'−':'+' }} PKR {{ number_format((float) $adjustment->amount,2) }}
                 </span>
             </div>
             <div class="card-body">

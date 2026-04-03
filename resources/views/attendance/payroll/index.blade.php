@@ -27,7 +27,7 @@
 <div class="row">
     <div class="col-xl-12 mx-auto">
 
-        {{-- â”€â”€ Action Buttons â”€â”€ --}}
+        {{-- Action Buttons --}}
         <div class="card mb-3">
             <div class="card-body py-2">
                 <div class="d-flex flex-wrap gap-2 align-items-center">
@@ -35,11 +35,15 @@
                         <span class="material-icons-outlined me-1" style="font-size:18px;vertical-align:middle">add_circle</span>
                         Generate Payroll
                     </a>
+                    <button type="submit" form="bulk-payslip-form" class="btn btn-outline-secondary" id="bulk-download-btn" disabled>
+                        <span class="material-icons-outlined me-1" style="font-size:18px;vertical-align:middle">download</span>
+                        Download Selected Payslips
+                    </button>
                 </div>
             </div>
         </div>
 
-        {{-- â”€â”€ Payroll Records â”€â”€ --}}
+        {{-- Payroll Records --}}
         <div class="card">
             <div class="card-body">
                 <h5 class="card-title mb-3">Payroll Records</h5>
@@ -114,16 +118,22 @@
                 @endif
 
                 {{-- Table --}}
+                <form id="bulk-payslip-form" action="{{ route('payroll.payslip.bulk-download') }}" method="POST">
+                    @csrf
                 <div class="table-responsive">
                     <table class="table table-hover payroll-table align-middle">
                         <thead class="table-light">
                             <tr>
+                                <th style="width: 40px;" class="text-center">
+                                    <input type="checkbox" id="select-all-payrolls" class="form-check-input">
+                                </th>
                                 <th>#</th>
                                 <th>Employee</th>
                                 <th>Branch</th>
                                 <th>Period</th>
                                 <th>Basic Salary</th>
                                 <th>Incentives</th>
+                                <th>OT Hours</th>
                                 <th>Awards</th>
                                 <th>Deductions</th>
                                 <th class="text-end">Net Salary</th>
@@ -134,23 +144,30 @@
                         <tbody>
                             @forelse($payrolls as $payroll)
                             <tr>
+                                <td class="text-center">
+                                    <input type="checkbox" name="payroll_ids[]" value="{{ $payroll->id }}" class="form-check-input payroll-select-item">
+                                </td>
                                 <td class="text-muted small">{{ $payroll->id }}</td>
                                 <td>
-                                    <div class="fw-semibold">{{ $payroll->employee->name ?? 'â€”' }}</div>
+                                    <div class="fw-semibold">{{ $payroll->employee->name ?? '-' }}</div>
                                     <div class="text-muted small">{{ $payroll->employee->designation ?? '' }}</div>
                                 </td>
-                                <td class="small">{{ $payroll->branch->name ?? 'â€”' }}</td>
+                                <td class="small">{{ $payroll->branch->name ?? '-' }}</td>
                                 <td class="small">
                                     {{ str_pad($payroll->month, 2, '0', STR_PAD_LEFT) }}/{{ $payroll->year }}
                                 </td>
-                                <td>PKR {{ number_format($payroll->basic_salary ?? $payroll->base_salary, 0) }}</td>
+                                <td>PKR {{ number_format((float) ($payroll->basic_salary ?? $payroll->base_salary), 2) }}</td>
                                 <td class="text-success">
-                                    PKR {{ number_format(max(0, ($payroll->calculated_salary ?? 0) - ($payroll->basic_salary ?? $payroll->base_salary ?? 0)), 0) }}
+                                    PKR {{ number_format(max(0, (float) ($payroll->calculated_salary ?? 0) - (float) ($payroll->basic_salary ?? $payroll->base_salary ?? 0)), 2) }}
                                 </td>
-                                <td class="text-success">PKR {{ number_format($payroll->awards_total ?? $payroll->bonus ?? 0, 0) }}</td>
-                                <td class="text-danger">PKR {{ number_format($payroll->deductions_total ?? $payroll->deductions ?? 0, 0) }}</td>
+                                <td class="text-muted">
+                                    {{ number_format((float) ($payroll->total_overtime_hours ?? $payroll->overtime_hours ?? 0), 2) }}h
+                                    <div class="small fst-italic text-secondary">record only</div>
+                                </td>
+                                <td class="text-success">PKR {{ number_format((float) ($payroll->awards_total ?? $payroll->bonus ?? 0), 2) }}</td>
+                                <td class="text-danger">PKR {{ number_format((float) ($payroll->deductions_total ?? $payroll->deductions ?? 0), 2) }}</td>
                                 <td class="text-end fw-bold text-success">
-                                    PKR {{ number_format($payroll->final_salary ?? $payroll->final_settlement ?? 0, 0) }}
+                                    PKR {{ number_format((float) ($payroll->final_salary ?? $payroll->final_settlement ?? 0), 2) }}
                                 </td>
                                 <td>
                                     <span class="badge badge-{{ $payroll->status ?? 'draft' }}">
@@ -163,6 +180,14 @@
                                            class="btn btn-sm btn-outline-primary" title="View">
                                             <span class="material-icons-outlined" style="font-size:16px">visibility</span>
                                         </a>
+                                        <a href="{{ route('payroll.payslip.preview', $payroll->id) }}"
+                                           class="btn btn-sm btn-outline-secondary" title="Preview Payslip" target="_blank">
+                                            <span class="material-icons-outlined" style="font-size:16px">article</span>
+                                        </a>
+                                        <a href="{{ route('payroll.payslip.download', $payroll->id) }}"
+                                           class="btn btn-sm btn-outline-dark" title="Download Payslip">
+                                            <span class="material-icons-outlined" style="font-size:16px">download</span>
+                                        </a>
                                         @if($payroll->status == 'draft')
                                         <a href="{{ route('attendance.payroll.edit', $payroll->id) }}"
                                            class="btn btn-sm btn-outline-warning" title="Adjust">
@@ -174,7 +199,7 @@
                             </tr>
                             @empty
                             <tr>
-                                <td colspan="11" class="text-center py-5 text-muted">
+                                <td colspan="13" class="text-center py-5 text-muted">
                                     <span class="material-icons-outlined d-block mb-2" style="font-size:40px">inbox</span>
                                     No payroll records found for the selected filters.
                                     <br>
@@ -187,6 +212,7 @@
                         </tbody>
                     </table>
                 </div>
+                </form>
 
                 {{-- Pagination --}}
                 <div class="d-flex justify-content-between align-items-center mt-3">
@@ -202,4 +228,36 @@
     </div>
 </div>
 @endsection
+
+@push('script')
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var selectAll = document.getElementById('select-all-payrolls');
+    var itemSelector = '.payroll-select-item';
+    var bulkDownloadBtn = document.getElementById('bulk-download-btn');
+
+    function syncBulkButtonState() {
+        var anyChecked = Array.from(document.querySelectorAll(itemSelector)).some(function (el) {
+            return el.checked;
+        });
+        bulkDownloadBtn.disabled = !anyChecked;
+    }
+
+    if (selectAll) {
+        selectAll.addEventListener('change', function () {
+            document.querySelectorAll(itemSelector).forEach(function (checkbox) {
+                checkbox.checked = selectAll.checked;
+            });
+            syncBulkButtonState();
+        });
+    }
+
+    document.querySelectorAll(itemSelector).forEach(function (checkbox) {
+        checkbox.addEventListener('change', syncBulkButtonState);
+    });
+
+    syncBulkButtonState();
+});
+</script>
+@endpush
 

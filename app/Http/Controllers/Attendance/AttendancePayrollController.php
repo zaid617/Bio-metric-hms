@@ -13,9 +13,12 @@ use App\Modules\Payroll\Types\PayrollAwardType;
 use App\Modules\Payroll\Types\PayrollDeductionType;
 use App\Modules\Payroll\Types\PayrollEarningType;
 use App\Services\Attendance\AttendancePayrollService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
+use ZipArchive;
 use Exception;
 
 class AttendancePayrollController extends Controller
@@ -336,6 +339,124 @@ class AttendancePayrollController extends Controller
             'payrolls' => $payrolls,
             'periodMonth' => $validated['period_month'],
         ]);
+    }
+
+    public function previewPayslip(AttendancePayroll $payroll)
+    {
+        $payroll->load(['employee', 'branch']);
+
+        return view('payroll.payslip-pdf', $this->buildPayslipViewData($payroll));
+    }
+
+    public function downloadPayslip(AttendancePayroll $payroll)
+    {
+        $payroll->load(['employee', 'branch']);
+
+        $pdf = Pdf::loadView('payroll.payslip-pdf', $this->buildPayslipViewData($payroll))
+            ->setPaper('a4', 'portrait');
+
+        return $pdf->download($this->buildPayslipFilename($payroll));
+    }
+
+    public function bulkDownloadPayslips(Request $request)
+    {
+        $validated = $request->validate([
+            'payroll_ids' => 'required|array|min:1',
+            'payroll_ids.*' => 'required|integer|exists:attendance_payrolls,id',
+        ]);
+
+        $payrolls = AttendancePayroll::query()
+            ->with(['employee', 'branch'])
+            ->whereIn('id', $validated['payroll_ids'])
+            ->orderBy('id')
+            ->get();
+
+        if ($payrolls->isEmpty()) {
+            return redirect()->back()->with('error', 'No payroll records found for bulk payslip download.');
+        }
+
+        $tempDir = storage_path('app/temp');
+        if (!is_dir($tempDir)) {
+            @mkdir($tempDir, 0755, true);
+        }
+
+        $zipPath = $tempDir . DIRECTORY_SEPARATOR . 'payslips_' . now()->format('Ymd_His') . '_' . uniqid() . '.zip';
+        $zip = new ZipArchive();
+
+        if ($zip->open($zipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+            return redirect()->back()->with('error', 'Unable to create payslip ZIP archive.');
+        }
+
+        foreach ($payrolls as $payroll) {
+            $pdfContent = Pdf::loadView('payroll.payslip-pdf', $this->buildPayslipViewData($payroll))
+                ->setPaper('a4', 'portrait')
+                ->output();
+
+            $zip->addFromString($this->buildPayslipFilename($payroll), $pdfContent);
+        }
+
+        $zip->close();
+
+        $zipDownloadName = 'Payslips_' . now()->format('M_Y') . '.zip';
+        return response()->download($zipPath, $zipDownloadName)->deleteFileAfterSend(true);
+    }
+
+    private function buildPayslipViewData(AttendancePayroll $payroll): array
+    {
+        $netSalary = (float) ($payroll->final_salary ?? $payroll->final_settlement ?? 0);
+        $periodDate = Carbon::create((int) $payroll->year, (int) $payroll->month, 1);
+        $attendanceData = (array) data_get($payroll->payslip_data, 'attendance', []);
+        $warnings = collect((array) data_get($payroll->payslip_data, 'warnings', []))
+            ->filter(fn ($warning) => is_string($warning) && trim($warning) !== '')
+            ->values();
+
+        return [
+            'payroll' => $payroll,
+            'periodDate' => $periodDate,
+            'periodLabel' => $periodDate->format('F Y'),
+            'attendanceData' => [
+                'working_days' => (int) ($attendanceData['working_days'] ?? $payroll->total_working_days ?? 0),
+                'present_days' => (int) ($attendanceData['present_days'] ?? $payroll->present_days ?? 0),
+                'absent_days' => (int) ($attendanceData['absent_days'] ?? $payroll->absent_days ?? 0),
+                'leave_days' => (int) ($attendanceData['leave_days'] ?? $payroll->leave_days ?? 0),
+                'late_count' => (int) ($attendanceData['late_count'] ?? $payroll->total_late_count ?? $payroll->late_days ?? 0),
+                'late_minutes' => (int) ($attendanceData['late_minutes'] ?? $payroll->total_late_minutes ?? 0),
+                'overtime_hours' => round((float) ($attendanceData['overtime_hours'] ?? $payroll->total_overtime_hours ?? $payroll->overtime_hours ?? 0), 2),
+            ],
+            'warnings' => $warnings,
+            'amountInWords' => $this->amountInWords($netSalary),
+            'generatedAt' => now(),
+        ];
+    }
+
+    private function buildPayslipFilename(AttendancePayroll $payroll): string
+    {
+        $employeeName = Str::slug((string) ($payroll->employee?->name ?? 'Employee'), '_');
+        $month = str_pad((string) $payroll->month, 2, '0', STR_PAD_LEFT);
+        $year = (string) $payroll->year;
+
+        return 'Payslip_' . $employeeName . '_' . $month . '_' . $year . '.pdf';
+    }
+
+    private function amountInWords(float $amount): string
+    {
+        $amount = round($amount, 2);
+
+        if (class_exists(\NumberFormatter::class)) {
+            $formatter = new \NumberFormatter('en', \NumberFormatter::SPELLOUT);
+            $whole = (int) floor($amount);
+            $fraction = (int) round(($amount - $whole) * 100);
+            $wholeWords = ucfirst((string) $formatter->format($whole));
+
+            if ($fraction > 0) {
+                $fractionWords = (string) $formatter->format($fraction);
+                return $wholeWords . ' rupees and ' . $fractionWords . ' paisa only';
+            }
+
+            return $wholeWords . ' rupees only';
+        }
+
+        return number_format($amount, 2) . ' rupees only';
     }
 
     /**

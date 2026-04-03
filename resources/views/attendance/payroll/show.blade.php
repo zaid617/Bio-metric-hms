@@ -36,6 +36,9 @@
                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             </div>
         @endif
+        @foreach((array) data_get($payroll->payslip_data, 'warnings', []) as $warning)
+            <div class="alert alert-warning">{{ $warning }}</div>
+        @endforeach
 
         {{-- Header Card --}}
         <div class="card mb-3 overflow-hidden">
@@ -71,8 +74,9 @@
                     ['label'=>'Present','value'=> $payroll->present_days ?? 0,'icon'=>'check_circle','color'=>'success'],
                     ['label'=>'Absent','value'=> $payroll->absent_days ?? 0,'icon'=>'cancel','color'=>'danger'],
                     ['label'=>'Late','value'=> $payroll->late_days ?? 0,'icon'=>'schedule','color'=>'warning'],
+                    ['label'=>'Late Minutes','value'=> ($payroll->total_late_minutes ?? 0).' min','icon'=>'alarm','color'=>'danger'],
                     ['label'=>'Work Hours','value'=> number_format($payroll->total_working_hours ?? 0,1).'h','icon'=>'timer','color'=>'info'],
-                    ['label'=>'Overtime','value'=> number_format($payroll->overtime_hours ?? 0,1).'h','icon'=>'more_time','color'=>'success'],
+                    ['label'=>'OT (Record Only)','value'=> number_format($payroll->total_overtime_hours ?? $payroll->overtime_hours ?? 0,1).'h','icon'=>'more_time','color'=>'secondary'],
                 ] as $att)
                 <div class="col border-end py-3">
                     <div class="text-{{ $att['color'] }}"><span class="material-icons-outlined" style="font-size:20px">{{ $att['icon'] }}</span></div>
@@ -106,7 +110,6 @@
                                 ['label'=>'Medical Allowance','val'=> data_get(collect($payroll->earnings_breakdown ?? [])->firstWhere('type', 'ALLOWANCE_MEDICAL'), 'amount', 0)],
                                 ['label'=>'House Rent Allowance','val'=> data_get(collect($payroll->earnings_breakdown ?? [])->firstWhere('type', 'ALLOWANCE_HOUSE_RENT'), 'amount', 0)],
                                 ['label'=>'Other Allowance','val'=> data_get(collect($payroll->earnings_breakdown ?? [])->firstWhere('type', 'OTHER_ALLOWANCE'), 'amount', 0)],
-                                ['label'=>'Overtime Pay',   'val'=> $payroll->overtime ?? $payroll->overtime_pay ?? 0],
                                 ['label'=>'Satisfactory Sessions','val'=> $payroll->satisfactory_sessions ?? 0],
                                 ['label'=>'Treatment Extension Commission','val'=> $payroll->treatment_extension_commission ?? 0],
                                 ['label'=>'Satisfaction Bonus','val'=> $payroll->satisfaction_bonus ?? 0],
@@ -122,7 +125,7 @@
                             @if((float)$item['val'] > 0)
                             <div class="breakdown-row">
                                 <span class="breakdown-label small">{{ $item['label'] }}</span>
-                                <span class="earn small">PKR {{ number_format($item['val'],0) }}</span>
+                                <span class="earn small">PKR {{ number_format((float) $item['val'],2) }}</span>
                             </div>
                             @endif
                         @endforeach
@@ -131,13 +134,13 @@
                                 @if(isset($item['type']) && !in_array($item['type'],['BASIC_SALARY','ADDITIONAL_SALARY','INCENTIVE_SUNDAY_ROSTER','INCENTIVE_HOME_VISIT','INCENTIVE_SPEECH_THERAPY','INCENTIVE_DRY_NEEDLING','ALLOWANCE_ALLIED_HEALTH_COUNCIL','ALLOWANCE_HOUSE_JOB','ALLOWANCE_CONVEYANCE','ALLOWANCE_MEDICAL','ALLOWANCE_HOUSE_RENT','OTHER_ALLOWANCE','OVERTIME','SATISFACTORY_SESSIONS','TREATMENT_EXTENSION_COMMISSION','SATISFACTION_BONUS','ASSESSMENT_BONUS','REFERENCE_BONUS','PERSONAL_PATIENT_COMMISSION']) && (float)($item['amount']??0)>0)
                                 <div class="breakdown-row">
                                     <span class="breakdown-label small text-primary">{{ str_replace('_',' ',$item['type']) }}</span>
-                                    <span class="earn small">PKR {{ number_format($item['amount']??0,0) }}</span>
+                                    <span class="earn small">PKR {{ number_format((float) ($item['amount'] ?? 0),2) }}</span>
                                 </div>
                                 @endif
                             @endforeach
                         @endif
                         <div class="mt-2 pt-2 border-top d-flex justify-content-between fw-bold">
-                            <span>Total Earnings</span><span class="earn">PKR {{ number_format($earningsTotal,0) }}</span>
+                            <span>Total Earnings</span><span class="earn">PKR {{ number_format((float) $earningsTotal,2) }}</span>
                         </div>
                     </div>
                 </div>
@@ -154,14 +157,14 @@
                             @foreach($payroll->awards_breakdown as $item)
                             <div class="breakdown-row">
                                 <span class="small breakdown-label">{{ str_replace('_',' ',$item['type']??'Award') }}</span>
-                                <span class="earn small">PKR {{ number_format($item['amount']??0,0) }}</span>
+                                <span class="earn small">PKR {{ number_format((float) ($item['amount'] ?? 0),2) }}</span>
                             </div>
                             @endforeach
                         @else
                             <div class="text-muted small py-2">No awards this period.</div>
                         @endif
                         <div class="mt-2 pt-2 border-top d-flex justify-content-between fw-bold">
-                            <span>Total Awards</span><span class="earn">PKR {{ number_format($payroll->awards_total ?? $payroll->bonus ?? 0,0) }}</span>
+                            <span>Total Awards</span><span class="earn">PKR {{ number_format((float) ($payroll->awards_total ?? $payroll->bonus ?? 0),2) }}</span>
                         </div>
                     </div>
                 </div>
@@ -178,7 +181,7 @@
                             @foreach($payroll->deductions_breakdown as $item)
                             <div class="breakdown-row">
                                 <span class="small breakdown-label">{{ str_replace('_',' ',$item['type']??'Deduction') }}</span>
-                                <span class="deduct small">- PKR {{ number_format($item['amount']??0,0) }}</span>
+                                <span class="deduct small">- PKR {{ number_format((float) ($item['amount'] ?? 0),2) }}</span>
                             </div>
                             @endforeach
                         @else
@@ -188,12 +191,12 @@
                         <div class="breakdown-row">
                             <span class="small breakdown-label">Admin Adjustment</span>
                             <span class="{{ $payroll->admin_adjustment_amount>0?'earn':'deduct' }} small">
-                                {{ $payroll->admin_adjustment_amount>0?'+':'' }}PKR {{ number_format($payroll->admin_adjustment_amount,0) }}
+                                {{ $payroll->admin_adjustment_amount>0?'+':'' }}PKR {{ number_format((float) $payroll->admin_adjustment_amount,2) }}
                             </span>
                         </div>
                         @endif
                         <div class="mt-2 pt-2 border-top d-flex justify-content-between fw-bold">
-                            <span>Total Deductions</span><span class="deduct">- PKR {{ number_format($payroll->deductions_total ?? $payroll->deductions ?? 0,0) }}</span>
+                            <span>Total Deductions</span><span class="deduct">- PKR {{ number_format((float) ($payroll->deductions_total ?? $payroll->deductions ?? 0),2) }}</span>
                         </div>
                     </div>
                 </div>
@@ -205,7 +208,8 @@
             <div class="card-body">
                 <div class="net-box d-flex justify-content-between align-items-center">
                     <div>
-                        <div class="text-muted small">Formula: (Basic + Additional + Allowances + Incentives + Other + Overtime + Awards) − Deductions</div>
+                        <div class="text-muted small">Formula: (Basic + Allowances + Incentives + Other + Awards/Bonus) - Deductions</div>
+                        <div class="small fst-italic text-secondary">Overtime is tracked for records only and excluded from salary settlement.</div>
                     </div>
                     <div class="text-end">
                         <div class="text-muted small">NET SALARY</div>
@@ -235,7 +239,7 @@
                             <td><span class="badge @if($adj->adjustment_type=='deduction') bg-danger @elseif($adj->adjustment_type=='award') bg-warning text-dark @else bg-success @endif">{{ ucfirst($adj->adjustment_type) }}</span></td>
                             <td>{{ $adj->title ?: str_replace('_',' ',$adj->code) }}</td>
                             <td class="{{ $adj->adjustment_type=='deduction'?'text-danger':'text-success' }} fw-semibold">
-                                {{ $adj->adjustment_type=='deduction'?'-':'+' }} PKR {{ number_format($adj->amount,0) }}
+                                {{ $adj->adjustment_type=='deduction'?'-':'+' }} PKR {{ number_format((float) $adj->amount,2) }}
                             </td>
                             <td class="small text-muted">{{ $adj->notes ?? $adj->reason ?? '—' }}</td>
                             <td class="small">{{ $adj->creator->name ?? 'System' }}</td>
@@ -255,6 +259,12 @@
                         <span class="material-icons-outlined me-1" style="vertical-align:middle;font-size:18px">arrow_back</span>Back to List
                     </a>
                     <div class="d-flex flex-wrap gap-2">
+                        <a href="{{ route('payroll.payslip.preview',$payroll->id) }}" class="btn btn-outline-secondary" target="_blank">
+                            <span class="material-icons-outlined me-1" style="vertical-align:middle;font-size:18px">article</span>Payslip Preview
+                        </a>
+                        <a href="{{ route('payroll.payslip.download',$payroll->id) }}" class="btn btn-outline-dark">
+                            <span class="material-icons-outlined me-1" style="vertical-align:middle;font-size:18px">download</span>Download Payslip
+                        </a>
                         @if($payroll->status=='draft')
                             <a href="{{ route('attendance.payroll.edit',$payroll->id) }}" class="btn btn-warning">
                                 <span class="material-icons-outlined me-1" style="vertical-align:middle;font-size:18px">tune</span>Add Adjustment

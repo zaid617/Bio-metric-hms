@@ -84,6 +84,12 @@ class StorePayrollAdjustmentRequest extends FormRequest
                 PayrollEarningType::CUSTOM                  => 'Custom Earning',
             ],
             PayrollAdjustmentType::DEDUCTION => [
+                PayrollDeductionType::TAX                     => 'Tax Deduction',
+                PayrollDeductionType::PROVIDENT_FUND          => 'Provident Fund',
+                PayrollDeductionType::EOBI                    => 'EOBI',
+                PayrollDeductionType::ADVANCE                 => 'Advance',
+                PayrollDeductionType::LOAN                    => 'Loan Recovery',
+                PayrollDeductionType::OTHER_DEDUCTION         => 'Other Deduction',
                 PayrollDeductionType::SESSION_NUMBER_MISSING  => 'Missing Session Number',
                 PayrollDeductionType::WRONG_EMR_NUMBER        => 'Wrong EMR Number',
                 PayrollDeductionType::TIME_MISSING            => 'Missing Time Entry',

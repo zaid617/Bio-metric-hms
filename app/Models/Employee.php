@@ -18,6 +18,10 @@ class Employee extends Model
         'branch_id',
         'department',
         'basic_salary',
+  'incentive_sunday_roster',
+  'incentive_home_visit',
+  'incentive_speech_therapy',
+  'incentive_dry_needling',
         'allowance_allied_health_council',
         'allowance_house_job',
         'allowance_conveyance',
@@ -36,6 +40,10 @@ class Employee extends Model
 
       protected $casts = [
         'basic_salary' => 'decimal:2',
+        'incentive_sunday_roster' => 'decimal:2',
+        'incentive_home_visit' => 'decimal:2',
+        'incentive_speech_therapy' => 'decimal:2',
+        'incentive_dry_needling' => 'decimal:2',
         'allowance_allied_health_council' => 'decimal:2',
         'allowance_house_job' => 'decimal:2',
         'allowance_conveyance' => 'decimal:2',
@@ -47,7 +55,10 @@ class Employee extends Model
 
       public function getTotalIncentivesAttribute(): float
       {
-        return 0.0;
+        return (float) $this->incentive_sunday_roster
+            + (float) $this->incentive_home_visit
+            + (float) $this->incentive_speech_therapy
+            + (float) $this->incentive_dry_needling;
       }
 
       public function getTotalAllowancesAttribute(): float
@@ -62,6 +73,7 @@ class Employee extends Model
       public function getGrossSalaryAttribute(): float
       {
         return (float) $this->basic_salary
+        + (float) $this->total_incentives
             + (float) $this->total_allowances
             + (float) $this->other_allowance;
       }
@@ -81,7 +93,12 @@ class Employee extends Model
 
       public function scopeWithIncentives($query)
       {
-        return $query;
+        return $query->addSelect([
+            'incentive_sunday_roster',
+            'incentive_home_visit',
+            'incentive_speech_therapy',
+            'incentive_dry_needling',
+        ]);
       }
 
       public function branch(): BelongsTo
