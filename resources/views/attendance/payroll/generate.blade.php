@@ -98,7 +98,7 @@
                         <input class="form-check-input" type="checkbox" name="force_regenerate" id="force_regenerate" value="1" {{ old('force_regenerate') ? 'checked' : '' }}>
                         <label class="form-check-label" for="force_regenerate">
                             <strong>Force Regenerate</strong>
-                            <small class="text-muted d-block">Overwrite existing draft payrolls for the selected period</small>
+                            <small class="text-muted d-block">Overwrite non-draft payrolls too (approved/paid). Draft payrolls are refreshed automatically.</small>
                         </label>
                     </div>
 

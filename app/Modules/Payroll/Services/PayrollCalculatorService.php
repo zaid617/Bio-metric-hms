@@ -50,36 +50,32 @@ class PayrollCalculatorService
         $incentiveSpeechTherapy = $this->money($employee->incentive_speech_therapy ?? 0);
         $incentiveDryNeedling = $this->money($employee->incentive_dry_needling ?? 0);
 
-        $earningAdjustments = $adjustments->where('adjustment_type', 'earning');
-        $awardAdjustments = $adjustments->where('adjustment_type', 'award');
-        $deductionAdjustments = $adjustments->where('adjustment_type', 'deduction');
+        $earningAdjustments = $adjustments
+            ->where('adjustment_type', 'earning')
+            ->values();
+        $awardAdjustments = $adjustments
+            ->where('adjustment_type', 'award')
+            ->values();
+        $deductionAdjustments = $adjustments
+            ->where('adjustment_type', 'deduction')
+            ->values();
+
+        $normalizeCode = static function ($value, string $fallback): string {
+            $normalized = strtoupper(trim((string) $value));
+            return $normalized !== '' ? $normalized : $fallback;
+        };
+
+        $sumByCode = static function (Collection $items, array $codes): float {
+            return (float) $items
+                ->filter(function ($adjustment) use ($codes) {
+                    $code = strtoupper(trim((string) data_get($adjustment, 'code', '')));
+                    return in_array($code, $codes, true);
+                })
+                ->sum('amount');
+        };
 
         $additionalSalary = $this->money(
-            (float) $earningAdjustments
-                ->where('code', PayrollEarningType::ADDITIONAL_SALARY)
-                ->sum('amount')
-        );
-
-        $manualEarningCodes = [
-            PayrollEarningType::ADDITIONAL_SALARY,
-            PayrollEarningType::OVERTIME,
-            PayrollEarningType::BASIC_SALARY,
-            PayrollEarningType::ALLOWANCE_ALLIED_HEALTH_COUNCIL,
-            PayrollEarningType::ALLOWANCE_HOUSE_JOB,
-            PayrollEarningType::ALLOWANCE_CONVEYANCE,
-            PayrollEarningType::ALLOWANCE_MEDICAL,
-            PayrollEarningType::ALLOWANCE_HOUSE_RENT,
-            PayrollEarningType::OTHER_ALLOWANCE,
-            PayrollEarningType::INCENTIVE_SUNDAY_ROSTER,
-            PayrollEarningType::INCENTIVE_HOME_VISIT,
-            PayrollEarningType::INCENTIVE_SPEECH_THERAPY,
-            PayrollEarningType::INCENTIVE_DRY_NEEDLING,
-        ];
-
-        $manualAdditionalEarnings = $this->money(
-            (float) $earningAdjustments
-                ->reject(fn ($adjustment) => in_array($adjustment->code, $manualEarningCodes, true))
-                ->sum('amount')
+            $sumByCode($earningAdjustments, [PayrollEarningType::ADDITIONAL_SALARY])
         );
 
         $dailyRate = $totalWorkingDays > 0
@@ -88,17 +84,11 @@ class PayrollCalculatorService
         $absentDeduction = $this->money($absentDays * $dailyRate);
         $lateDeduction = $this->money(floor($totalLateCount / 3) * ($dailyRate / 2));
 
-        $sumDeductionCodes = static function (Collection $items, array $codes): float {
-            return (float) $items
-                ->filter(fn ($adjustment) => in_array(strtoupper((string) $adjustment->code), $codes, true))
-                ->sum('amount');
-        };
-
-        $tax = $this->money($sumDeductionCodes($deductionAdjustments, [PayrollDeductionType::TAX]));
-        $providentFund = $this->money($sumDeductionCodes($deductionAdjustments, [PayrollDeductionType::PROVIDENT_FUND]));
-        $eobi = $this->money($sumDeductionCodes($deductionAdjustments, [PayrollDeductionType::EOBI]));
-        $advance = $this->money($sumDeductionCodes($deductionAdjustments, [PayrollDeductionType::ADVANCE, PayrollDeductionType::ADVANCE_SALARY_DEDUCTION]));
-        $loan = $this->money($sumDeductionCodes($deductionAdjustments, [PayrollDeductionType::LOAN]));
+        $tax = $this->money($sumByCode($deductionAdjustments, [PayrollDeductionType::TAX]));
+        $providentFund = $this->money($sumByCode($deductionAdjustments, [PayrollDeductionType::PROVIDENT_FUND]));
+        $eobi = $this->money($sumByCode($deductionAdjustments, [PayrollDeductionType::EOBI]));
+        $advance = $this->money($sumByCode($deductionAdjustments, [PayrollDeductionType::ADVANCE, PayrollDeductionType::ADVANCE_SALARY_DEDUCTION]));
+        $loan = $this->money($sumByCode($deductionAdjustments, [PayrollDeductionType::LOAN]));
 
         $excludedOtherDeductionCodes = [
             PayrollDeductionType::TAX,
@@ -113,18 +103,14 @@ class PayrollCalculatorService
             PayrollDeductionType::LATE_DEDUCTION,
         ];
 
-        $otherDeductionItems = $deductionAdjustments
-            ->filter(fn ($adjustment) => !in_array(strtoupper((string) $adjustment->code), $excludedOtherDeductionCodes, true))
-            ->map(function ($adjustment) {
-                return [
-                    'type' => $adjustment->code ?: PayrollDeductionType::OTHER_DEDUCTION,
-                    'amount' => $this->money((float) $adjustment->amount),
-                    'notes' => $adjustment->notes,
-                ];
-            })
-            ->values();
-
-        $otherDeduction = $this->money((float) $otherDeductionItems->sum('amount'));
+        $otherDeduction = $this->money(
+            (float) $deductionAdjustments
+                ->reject(function ($adjustment) use ($normalizeCode, $excludedOtherDeductionCodes) {
+                    $code = $normalizeCode(data_get($adjustment, 'code'), PayrollDeductionType::CUSTOM);
+                    return in_array($code, $excludedOtherDeductionCodes, true);
+                })
+                ->sum('amount')
+        );
 
         $awards = [];
         $fullyPresent = $presentDays >= $totalWorkingDays && $totalWorkingDays > 0;
@@ -138,14 +124,14 @@ class PayrollCalculatorService
 
         foreach ($awardAdjustments as $adjustment) {
             $awards[] = [
-                'type' => $adjustment->code ?: PayrollAwardType::CUSTOM,
-                'amount' => $this->money((float) $adjustment->amount),
-                'notes' => $adjustment->notes,
+                'type' => $normalizeCode(data_get($adjustment, 'code'), PayrollAwardType::CUSTOM),
+                'amount' => $this->money((float) data_get($adjustment, 'amount', 0)),
+                'notes' => data_get($adjustment, 'notes') ?? data_get($adjustment, 'reason'),
             ];
         }
 
         $earnings = [
-            ['type' => PayrollEarningType::BASIC_SALARY, 'amount' => $baseSalary, 'notes' => null],
+            ['type' => PayrollEarningType::BASIC_SALARY, 'amount' => $baseSalary, 'notes' => 'Employee base salary'],
             ['type' => PayrollEarningType::ALLOWANCE_ALLIED_HEALTH_COUNCIL, 'amount' => $allowanceAlliedHealthCouncil, 'notes' => 'Employee profile allowance'],
             ['type' => PayrollEarningType::ALLOWANCE_HOUSE_JOB, 'amount' => $allowanceHouseJob, 'notes' => 'Employee profile allowance'],
             ['type' => PayrollEarningType::ALLOWANCE_CONVEYANCE, 'amount' => $allowanceConveyance, 'notes' => 'Employee profile allowance'],
@@ -156,23 +142,40 @@ class PayrollCalculatorService
             ['type' => PayrollEarningType::INCENTIVE_SPEECH_THERAPY, 'amount' => $incentiveSpeechTherapy, 'notes' => 'Employee profile incentive'],
             ['type' => PayrollEarningType::INCENTIVE_DRY_NEEDLING, 'amount' => $incentiveDryNeedling, 'notes' => 'Employee profile incentive'],
             ['type' => PayrollEarningType::OTHER_ALLOWANCE, 'amount' => $otherAllowance, 'notes' => 'Employee profile allowance'],
-            ['type' => PayrollEarningType::ADDITIONAL_SALARY, 'amount' => $additionalSalary, 'notes' => 'Manual/admin additional salary'],
-            ['type' => PayrollEarningType::CUSTOM, 'amount' => $manualAdditionalEarnings, 'notes' => 'Other earning adjustments'],
         ];
+
+        foreach ($earningAdjustments as $adjustment) {
+            $code = $normalizeCode(data_get($adjustment, 'code'), PayrollEarningType::CUSTOM);
+            if ($code === PayrollEarningType::OVERTIME) {
+                continue;
+            }
+
+            $earnings[] = [
+                'type' => $code,
+                'amount' => $this->money((float) data_get($adjustment, 'amount', 0)),
+                'notes' => data_get($adjustment, 'notes') ?? data_get($adjustment, 'reason') ?? 'Adjustment',
+            ];
+        }
 
         $deductions = [
-            ['type' => PayrollDeductionType::TAX, 'amount' => $tax, 'notes' => 'Tax deduction'],
-            ['type' => PayrollDeductionType::PROVIDENT_FUND, 'amount' => $providentFund, 'notes' => 'Provident fund deduction'],
-            ['type' => PayrollDeductionType::EOBI, 'amount' => $eobi, 'notes' => 'EOBI deduction'],
-            ['type' => PayrollDeductionType::ADVANCE, 'amount' => $advance, 'notes' => 'Advance deduction'],
-            ['type' => PayrollDeductionType::LOAN, 'amount' => $loan, 'notes' => 'Loan recovery'],
-            ['type' => PayrollDeductionType::ABSENT_DEDUCTION, 'amount' => $absentDeduction, 'notes' => 'Absent deduction = absent days × (basic / working days)'],
-            ['type' => PayrollDeductionType::LATE_DEDUCTION, 'amount' => $lateDeduction, 'notes' => 'Late deduction = floor(late count / 3) × (basic / working days / 2)'],
-            ['type' => PayrollDeductionType::OTHER_DEDUCTION, 'amount' => $otherDeduction, 'notes' => 'Other deduction adjustments'],
+            [
+                'type' => PayrollDeductionType::ABSENT_DEDUCTION,
+                'amount' => $absentDeduction,
+                'notes' => 'Absent deduction = absent days × (basic / working days)',
+            ],
+            [
+                'type' => PayrollDeductionType::LATE_DEDUCTION,
+                'amount' => $lateDeduction,
+                'notes' => 'Late deduction = floor(late count / 3) × (basic / working days / 2)',
+            ],
         ];
 
-        foreach ($otherDeductionItems as $otherDeductionItem) {
-            $deductions[] = $otherDeductionItem;
+        foreach ($deductionAdjustments as $adjustment) {
+            $deductions[] = [
+                'type' => $normalizeCode(data_get($adjustment, 'code'), PayrollDeductionType::CUSTOM),
+                'amount' => $this->money((float) data_get($adjustment, 'amount', 0)),
+                'notes' => data_get($adjustment, 'notes') ?? data_get($adjustment, 'reason') ?? 'Adjustment',
+            ];
         }
 
         $earningsTotal = $this->money((float) collect($earnings)->sum('amount'));

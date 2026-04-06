@@ -82,13 +82,15 @@
 
         .attendance-table th,
         .attendance-table td,
+        .money-table th,
         .money-table td,
         .totals-table td {
             border: 1px solid #e5e7eb;
             padding: 6px;
         }
 
-        .attendance-table th {
+        .attendance-table th,
+        .money-table th {
             background: #f3f4f6;
             text-align: left;
         }
@@ -104,12 +106,19 @@
             padding: 0 4px;
         }
 
-        .money-table td:first-child {
-            width: 72%;
+        .money-table td:first-child,
+        .money-table th:first-child {
+            width: 42%;
         }
 
-        .money-table td:last-child {
-            width: 28%;
+        .money-table td:nth-child(2),
+        .money-table th:nth-child(2) {
+            width: 36%;
+        }
+
+        .money-table td:last-child,
+        .money-table th:last-child {
+            width: 22%;
             text-align: right;
         }
 
@@ -168,35 +177,59 @@
     $employee = $payroll->employee;
     $attendance = $attendanceData ?? [];
 
-    $earningsLines = [
-        ['label' => 'Basic Salary', 'amount' => (float) ($payroll->basic_salary ?? 0)],
-        ['label' => 'Allied Health Council', 'amount' => (float) data_get(collect($payroll->earnings_breakdown ?? [])->firstWhere('type', 'ALLOWANCE_ALLIED_HEALTH_COUNCIL'), 'amount', $payroll->allowance_allied_health_council ?? 0)],
-        ['label' => 'House Job', 'amount' => (float) data_get(collect($payroll->earnings_breakdown ?? [])->firstWhere('type', 'ALLOWANCE_HOUSE_JOB'), 'amount', $payroll->allowance_house_job ?? 0)],
-        ['label' => 'Conveyance', 'amount' => (float) data_get(collect($payroll->earnings_breakdown ?? [])->firstWhere('type', 'ALLOWANCE_CONVEYANCE'), 'amount', $payroll->allowance_conveyance ?? 0)],
-        ['label' => 'Medical', 'amount' => (float) data_get(collect($payroll->earnings_breakdown ?? [])->firstWhere('type', 'ALLOWANCE_MEDICAL'), 'amount', $payroll->allowance_medical ?? 0)],
-        ['label' => 'House Rent', 'amount' => (float) data_get(collect($payroll->earnings_breakdown ?? [])->firstWhere('type', 'ALLOWANCE_HOUSE_RENT'), 'amount', $payroll->allowance_house_rent ?? 0)],
-        ['label' => 'Sunday Roster Incentive', 'amount' => (float) data_get(collect($payroll->earnings_breakdown ?? [])->firstWhere('type', 'INCENTIVE_SUNDAY_ROSTER'), 'amount', $payroll->incentive_sunday_roster ?? 0)],
-        ['label' => 'Home Visit Incentive', 'amount' => (float) data_get(collect($payroll->earnings_breakdown ?? [])->firstWhere('type', 'INCENTIVE_HOME_VISIT'), 'amount', $payroll->incentive_home_visit ?? 0)],
-        ['label' => 'Speech Therapy Incentive', 'amount' => (float) data_get(collect($payroll->earnings_breakdown ?? [])->firstWhere('type', 'INCENTIVE_SPEECH_THERAPY'), 'amount', $payroll->incentive_speech_therapy ?? 0)],
-        ['label' => 'Dry Needling Incentive', 'amount' => (float) data_get(collect($payroll->earnings_breakdown ?? [])->firstWhere('type', 'INCENTIVE_DRY_NEEDLING'), 'amount', $payroll->incentive_dry_needling ?? 0)],
-        ['label' => 'Other Allowance', 'amount' => (float) data_get(collect($payroll->earnings_breakdown ?? [])->firstWhere('type', 'OTHER_ALLOWANCE'), 'amount', $payroll->other_allowance ?? 0)],
-        ['label' => 'Awards / Bonus', 'amount' => (float) ($payroll->awards_total ?? $payroll->bonus ?? 0)],
+    $earningsRows = collect($earningsBreakdown ?? $payroll->earnings_breakdown ?? [])
+        ->map(fn ($line) => [
+            'type' => (string) ($line['type'] ?? 'EARNING'),
+            'amount' => (float) ($line['amount'] ?? 0),
+            'notes' => (string) ($line['notes'] ?? ''),
+        ])
+        ->filter(fn ($line) => $line['amount'] > 0)
+        ->values();
+
+    $awardsRows = collect($awardsBreakdown ?? $payroll->awards_breakdown ?? [])
+        ->map(fn ($line) => [
+            'type' => (string) ($line['type'] ?? 'AWARD'),
+            'amount' => (float) ($line['amount'] ?? 0),
+            'notes' => (string) ($line['notes'] ?? ''),
+        ])
+        ->filter(fn ($line) => $line['amount'] > 0)
+        ->values();
+
+    $deductionRows = collect($deductionsBreakdown ?? $payroll->deductions_breakdown ?? [])
+        ->map(fn ($line) => [
+            'type' => (string) ($line['type'] ?? 'DEDUCTION'),
+            'amount' => (float) ($line['amount'] ?? 0),
+            'notes' => (string) ($line['notes'] ?? ''),
+        ])
+        ->filter(fn ($line) => $line['amount'] > 0)
+        ->values();
+
+    $allowanceTypes = [
+        'ALLOWANCE_ALLIED_HEALTH_COUNCIL',
+        'ALLOWANCE_HOUSE_JOB',
+        'ALLOWANCE_CONVEYANCE',
+        'ALLOWANCE_MEDICAL',
+        'ALLOWANCE_HOUSE_RENT',
+        'OTHER_ALLOWANCE',
     ];
 
-    $deductionLines = [
-        ['label' => 'Tax', 'amount' => (float) ($payroll->tax ?? 0)],
-        ['label' => 'Provident Fund', 'amount' => (float) ($payroll->provident_fund ?? 0)],
-        ['label' => 'EOBI', 'amount' => (float) ($payroll->eobi ?? 0)],
-        ['label' => 'Advance', 'amount' => (float) ($payroll->advance ?? 0)],
-        ['label' => 'Loan', 'amount' => (float) ($payroll->loan ?? 0)],
-        ['label' => 'Absent Deduction', 'amount' => (float) ($payroll->absent_deduction ?? 0)],
-        ['label' => 'Late Deduction', 'amount' => (float) ($payroll->late_deduction ?? 0)],
-        ['label' => 'Other Deduction', 'amount' => (float) ($payroll->other_deduction ?? 0)],
-    ];
+    $allowanceRows = $earningsRows
+        ->filter(fn ($line) => in_array($line['type'], $allowanceTypes, true))
+        ->values();
 
-    $totalEarnings = (float) (($payroll->calculated_salary ?? 0) + ($payroll->awards_total ?? 0));
-    $totalDeductions = (float) ($payroll->deductions_total ?? 0);
-    $netSalary = (float) ($payroll->final_salary ?? $payroll->final_settlement ?? 0);
+    $incentiveRows = $earningsRows
+        ->filter(fn ($line) => $line['type'] !== 'BASIC_SALARY' && !in_array($line['type'], $allowanceTypes, true))
+        ->values();
+
+    $basicSalaryTotal = (float) $earningsRows
+        ->where('type', 'BASIC_SALARY')
+        ->sum('amount');
+    $allowancesTotal = (float) $allowanceRows->sum('amount');
+    $incentivesTotal = (float) $incentiveRows->sum('amount');
+    $awardsTotal = (float) $awardsRows->sum('amount');
+    $grossPay = $basicSalaryTotal + $allowancesTotal + $incentivesTotal + $awardsTotal;
+    $totalDeductions = (float) $deductionRows->sum('amount');
+    $netSalary = (float) ($payroll->final_salary ?? $payroll->final_settlement ?? ($grossPay - $totalDeductions));
 
     $bankMasked = (string) data_get($payroll->payslip_data, 'employee.bank_masked', 'N/A');
     if ($bankMasked !== 'N/A') {
@@ -240,7 +273,7 @@
 </table>
 
 <div class="card">
-    <p class="section-title">Attendance</p>
+    <p class="section-title">Attendance Summary</p>
     <table class="attendance-table">
         <tr>
             <th>Working Days</th>
@@ -264,20 +297,84 @@
     <div class="ot-note">Overtime is for record only - not included in salary.</div>
 </div>
 
+<div class="card">
+    <p class="section-title">Allowances (Auto Added from Employee Profile)</p>
+    <table class="money-table">
+        <thead>
+            <tr>
+                <th>Allowance</th>
+                <th>Notes</th>
+                <th>Amount</th>
+            </tr>
+        </thead>
+        <tbody>
+            @forelse($allowanceRows as $line)
+                <tr>
+                    <td>{{ str_replace('_', ' ', $line['type']) }}</td>
+                    <td class="muted">{{ $line['notes'] !== '' ? $line['notes'] : '-' }}</td>
+                    <td>{{ number_format((float) $line['amount'], 2) }}</td>
+                </tr>
+            @empty
+                <tr>
+                    <td colspan="3" class="muted">No allowances for this payroll.</td>
+                </tr>
+            @endforelse
+        </tbody>
+    </table>
+</div>
+
+<div class="card">
+    <p class="section-title">Incentives</p>
+    <table class="money-table">
+        <thead>
+            <tr>
+                <th>Incentive</th>
+                <th>Notes</th>
+                <th>Amount</th>
+            </tr>
+        </thead>
+        <tbody>
+            @forelse($incentiveRows as $line)
+                <tr>
+                    <td>{{ str_replace('_', ' ', $line['type']) }}</td>
+                    <td class="muted">{{ $line['notes'] !== '' ? $line['notes'] : '-' }}</td>
+                    <td>{{ number_format((float) $line['amount'], 2) }}</td>
+                </tr>
+            @empty
+                <tr>
+                    <td colspan="3" class="muted">No incentives for this payroll.</td>
+                </tr>
+            @endforelse
+        </tbody>
+    </table>
+</div>
+
 <table class="money-wrap">
     <tr>
         <td>
             <div class="card">
-                <p class="section-title">Earnings</p>
+                <p class="section-title">Awards / Rewards</p>
                 <table class="money-table">
-                    @foreach($earningsLines as $line)
-                        @if((float) $line['amount'] > 0)
+                    <thead>
+                        <tr>
+                            <th>Award</th>
+                            <th>Notes</th>
+                            <th>Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse($awardsRows as $line)
                             <tr>
-                                <td>{{ $line['label'] }}</td>
+                                <td>{{ str_replace('_', ' ', $line['type']) }}</td>
+                                <td class="muted">{{ $line['notes'] !== '' ? $line['notes'] : '-' }}</td>
                                 <td>{{ number_format((float) $line['amount'], 2) }}</td>
                             </tr>
-                        @endif
-                    @endforeach
+                        @empty
+                            <tr>
+                                <td colspan="3" class="muted">No awards for this payroll.</td>
+                            </tr>
+                        @endforelse
+                    </tbody>
                 </table>
             </div>
         </td>
@@ -285,14 +382,26 @@
             <div class="card">
                 <p class="section-title">Deductions</p>
                 <table class="money-table">
-                    @foreach($deductionLines as $line)
-                        @if((float) $line['amount'] > 0)
+                    <thead>
+                        <tr>
+                            <th>Deduction</th>
+                            <th>Notes</th>
+                            <th>Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse($deductionRows as $line)
                             <tr>
-                                <td>{{ $line['label'] }}</td>
+                                <td>{{ str_replace('_', ' ', $line['type']) }}</td>
+                                <td class="muted">{{ $line['notes'] !== '' ? $line['notes'] : '-' }}</td>
                                 <td>{{ number_format((float) $line['amount'], 2) }}</td>
                             </tr>
-                        @endif
-                    @endforeach
+                        @empty
+                            <tr>
+                                <td colspan="3" class="muted">No deductions for this payroll.</td>
+                            </tr>
+                        @endforelse
+                    </tbody>
                 </table>
             </div>
         </td>
@@ -302,8 +411,24 @@
 <div class="card">
     <table class="totals-table">
         <tr>
-            <td>Total Earnings</td>
-            <td>{{ number_format($totalEarnings, 2) }}</td>
+            <td>Base Salary</td>
+            <td>{{ number_format($basicSalaryTotal, 2) }}</td>
+        </tr>
+        <tr>
+            <td>Total Allowances</td>
+            <td>{{ number_format($allowancesTotal, 2) }}</td>
+        </tr>
+        <tr>
+            <td>Total Incentives</td>
+            <td>{{ number_format($incentivesTotal, 2) }}</td>
+        </tr>
+        <tr>
+            <td>Total Awards</td>
+            <td>{{ number_format($awardsTotal, 2) }}</td>
+        </tr>
+        <tr>
+            <td>Gross Pay (Base + Allowances + Incentives + Awards)</td>
+            <td>{{ number_format($grossPay, 2) }}</td>
         </tr>
         <tr>
             <td>Total Deductions</td>

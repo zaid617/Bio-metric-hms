@@ -31,7 +31,8 @@ class GenerateMonthlySalaries extends Command
             (bool) $this->option('force')
         );
 
-        $this->info("Payroll generation complete for {$month}/{$year}. Created: {$result['created']->count()}, Skipped: {$result['skipped']->count()}.");
+        $updatedCount = collect($result['updated'] ?? [])->count();
+        $this->info("Payroll generation complete for {$month}/{$year}. Created: {$result['created']->count()}, Updated: {$updatedCount}, Skipped: {$result['skipped']->count()}.");
 
         return self::SUCCESS;
     }

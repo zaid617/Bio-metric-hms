@@ -3,11 +3,11 @@
 namespace App\Services\Attendance;
 
 use App\Models\Attendance\AttendanceDevice;
-use App\Models\Attendance\AttendanceRawLog;
 use App\Models\Attendance\AttendanceRecord;
 use App\Models\Attendance\AttendanceSyncLog;
 use App\Models\Employee;
 use Carbon\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Exception;
@@ -24,7 +24,7 @@ class AttendanceSyncService
     /**
      * Sync device users from ZKTeco device directly into employees table
      */
-    public function syncDeviceUsers(AttendanceDevice $device): array
+    public function syncDeviceUsers(AttendanceDevice $device, ?Collection $users = null): array
     {
         $startedAt = now();
         $recordsFetched = 0;
@@ -38,10 +38,23 @@ class AttendanceSyncService
             Log::info("Starting user sync for device: {$device->device_name}");
 
             // Fetch users from device
-            $users = $this->zkService->getUsers($device)
+            $users = ($users ?? $this->zkService->getUsers($device))
                 ->filter(function ($userData) {
                     return !empty($this->normalizeDeviceUserId($userData['user_id_on_device'] ?? null));
                 });
+
+            $linkedEmployees = Employee::where('device_id', $device->id)
+                ->whereNotNull('user_id_on_device')
+                ->orderBy('id')
+                ->get();
+
+            $employeesByDeviceUserId = collect([]);
+            foreach ($linkedEmployees as $linkedEmployee) {
+                $normalizedLinkedId = $this->normalizeDeviceUserId($linkedEmployee->user_id_on_device);
+                if ($normalizedLinkedId !== '' && !$employeesByDeviceUserId->has($normalizedLinkedId)) {
+                    $employeesByDeviceUserId->put($normalizedLinkedId, $linkedEmployee);
+                }
+            }
 
             $recordsFetched = $users->count();
 
@@ -58,9 +71,7 @@ class AttendanceSyncService
                     }
 
                     // Check if an employee is already linked to this device user
-                    $employee = Employee::where('device_id', $device->id)
-                        ->where('user_id_on_device', $deviceUserId)
-                        ->first();
+                    $employee = $employeesByDeviceUserId->get($deviceUserId);
 
                     if ($employee) {
                         // Update name if it changed on the device
@@ -87,6 +98,7 @@ class AttendanceSyncService
                                 'device_id' => $device->id,
                                 'user_id_on_device' => $deviceUserId,
                             ]);
+                            $employeesByDeviceUserId->put($deviceUserId, $matched);
 
                             if (!empty($userData['name']) && $matched->name !== $userData['name']) {
                                 $matched->update(['name' => $userData['name']]);
@@ -96,7 +108,7 @@ class AttendanceSyncService
                             Log::info("Linked existing employee {$matched->name} to device user {$deviceUserId} on device {$device->device_name}");
                         } else {
                             // Create a new employee from this device user
-                            Employee::create([
+                            $createdEmployee = Employee::create([
                                 'name'              => !empty($userData['name']) ? $userData['name'] : "Device User {$deviceUserId}",
                                 'designation'       => 'Employee',
                                 'branch_id'         => $device->branch_id,
@@ -107,6 +119,7 @@ class AttendanceSyncService
                                 'device_id'         => $device->id,
                                 'user_id_on_device' => $deviceUserId,
                             ]);
+                            $employeesByDeviceUserId->put($deviceUserId, $createdEmployee);
                             $recordsNew++;
                             Log::info("Created new employee from device user: {$userData['name']} (device: {$device->device_name}, branch_id: {$device->branch_id})");
                         }
@@ -148,7 +161,7 @@ class AttendanceSyncService
     /**
      * Sync attendance logs from device
      */
-    public function syncAttendanceLogs(AttendanceDevice $device, bool $forceFull = false): array
+    public function syncAttendanceLogs(AttendanceDevice $device, bool $forceFull = false, ?Collection $fetchedLogs = null): array
     {
         $startedAt = now();
         $recordsFetched = 0;
@@ -173,11 +186,24 @@ class AttendanceSyncService
                 Log::info("Force full sync requested for device {$device->device_name} — fetching complete attendance history");
             }
 
-            $fetchedLogs = $this->zkService->getAttendanceLogs($device, $from);
+            $fetchedLogs = $fetchedLogs ?? $this->zkService->getAttendanceLogs($device, $from);
             $recordsFetched = $fetchedLogs->count();
 
-            $logs = $fetchedLogs->filter(function ($logData) {
-                return !empty($this->normalizeDeviceUserId($logData['user_id_on_device'] ?? null));
+            $logs = $fetchedLogs->map(function ($logData) {
+                $normalizedDeviceUserId = $this->normalizeDeviceUserId($logData['user_id_on_device'] ?? null);
+
+                if ($normalizedDeviceUserId === '') {
+                    return null;
+                }
+
+                return [
+                    'user_id_on_device' => $normalizedDeviceUserId,
+                    'punch_time' => $logData['punch_time'] instanceof Carbon
+                        ? $logData['punch_time']
+                        : Carbon::parse($logData['punch_time']),
+                ];
+            })->filter(function ($logData) {
+                return $logData !== null;
             });
 
             $recordsSkipped = max(0, $recordsFetched - $logs->count());
@@ -187,53 +213,180 @@ class AttendanceSyncService
             } elseif ($logs->isEmpty()) {
                 Log::warning("Fetched {$recordsFetched} logs for device {$device->device_name}, but none had valid user IDs. Sync cursor not advanced.");
             } else {
-                foreach ($logs as $logData) {
-                    try {
-                        $deviceUserId = $this->normalizeDeviceUserId($logData['user_id_on_device'] ?? null);
+                $linkedEmployees = Employee::where('device_id', $device->id)
+                    ->whereNotNull('user_id_on_device')
+                    ->orderBy('id')
+                    ->get();
 
-                        if ($deviceUserId === '') {
-                            $recordsSkipped++;
-                            continue;
+                $employeesByDeviceUserId = collect([]);
+                $employeesByNumericUserId = collect([]);
+
+                foreach ($linkedEmployees as $employee) {
+                    $normalizedId = $this->normalizeDeviceUserId($employee->user_id_on_device);
+
+                    if ($normalizedId === '') {
+                        continue;
+                    }
+
+                    if (!$employeesByDeviceUserId->has($normalizedId)) {
+                        $employeesByDeviceUserId->put($normalizedId, $employee);
+                    }
+
+                    if (is_numeric($normalizedId)) {
+                        $numericVariant = (string) ((int) $normalizedId);
+                        if ($numericVariant !== '' && !$employeesByNumericUserId->has($numericVariant)) {
+                            $employeesByNumericUserId->put($numericVariant, $employee);
                         }
-
-                        // Try to insert, will fail silently on duplicate (unique constraint)
-                        $rawLog = AttendanceRawLog::firstOrCreate(
-                            [
-                                'device_id' => $device->id,
-                                'user_id_on_device' => $deviceUserId,
-                                'punch_time' => $logData['punch_time'],
-                            ],
-                            [
-                                'device_user_uid' => $logData['uid'],
-                                'punch_type' => $logData['punch_type'],
-                                'verify_type' => $logData['verify_type'],
-                                'work_code' => $logData['work_code'],
-                                'is_processed' => false,
-                            ]
-                        );
-
-                        if ($rawLog->wasRecentlyCreated) {
-                            $recordsNew++;
-                        } else {
-                            $recordsDuplicate++;
-                        }
-                    } catch (Exception $e) {
-                        // Duplicate entry, skip
-                        $recordsDuplicate++;
                     }
                 }
 
-                $latestPunchTime = $logs->max('punch_time');
-                if ($latestPunchTime instanceof Carbon) {
-                    $device->update(['last_synced_at' => $latestPunchTime]);
-                } else {
-                    $device->update(['last_synced_at' => now()]);
+                $matchedPunches = collect([]);
+
+                foreach ($logs as $logData) {
+                    $employee = $this->findEmployeeByDeviceUserId(
+                        $device,
+                        $logData['user_id_on_device'],
+                        $employeesByDeviceUserId,
+                        $employeesByNumericUserId
+                    );
+
+                    if (!$employee) {
+                        $recordsSkipped++;
+                        continue;
+                    }
+
+                    $matchedPunches->push([
+                        'employee_id' => (int) $employee->id,
+                        'employee' => $employee,
+                        'attendance_date' => $logData['punch_time']->toDateString(),
+                        'punch_time' => $logData['punch_time'],
+                    ]);
                 }
 
-                Log::info("Attendance sync completed for device {$device->device_name}: {$recordsNew} new, {$recordsDuplicate} duplicates");
+                if ($matchedPunches->isEmpty()) {
+                    Log::warning("Fetched {$recordsFetched} logs for device {$device->device_name}, but none matched linked employees. Sync cursor not advanced.");
+                } else {
+                    $groupedPunches = $matchedPunches->groupBy(function ($punchData) {
+                        return $punchData['employee_id'] . '_' . $punchData['attendance_date'];
+                    });
 
-                // Process raw logs (always process, not just when new records exist)
-                $this->processRawLogs($device);
+                    $affectedEmployeeIds = $groupedPunches->map(function ($group) {
+                        return (int) $group->first()['employee_id'];
+                    })->unique()->values();
+
+                    $affectedDates = $groupedPunches->map(function ($group) {
+                        return $group->first()['attendance_date'];
+                    })->unique()->values();
+
+                    $existingRecordsByKey = collect([]);
+                    if ($affectedEmployeeIds->isNotEmpty() && $affectedDates->isNotEmpty()) {
+                        $existingRecordsByKey = AttendanceRecord::whereIn('employee_id', $affectedEmployeeIds)
+                            ->whereIn('attendance_date', $affectedDates)
+                            ->get()
+                            ->keyBy(function (AttendanceRecord $record) {
+                                $dateKey = $record->attendance_date instanceof Carbon
+                                    ? $record->attendance_date->toDateString()
+                                    : (string) $record->attendance_date;
+
+                                return $record->employee_id . '_' . $dateKey;
+                            });
+                    }
+
+                    $shiftRuleCache = $this->preloadShiftRules($linkedEmployees);
+
+                    DB::transaction(function () use (
+                        $device,
+                        $groupedPunches,
+                        &$existingRecordsByKey,
+                        &$shiftRuleCache,
+                        &$recordsNew,
+                        &$recordsDuplicate,
+                        &$recordsSkipped
+                    ) {
+                        foreach ($groupedPunches as $groupKey => $punchGroup) {
+                            $sortedPunches = $punchGroup->sortBy(function ($item) {
+                                return $item['punch_time']->getTimestamp();
+                            })->values();
+
+                            $firstPunch = $sortedPunches->first();
+                            $lastPunch = $sortedPunches->last();
+
+                            if (!$firstPunch || !$lastPunch) {
+                                $recordsSkipped++;
+                                continue;
+                            }
+
+                            /** @var Employee $employee */
+                            $employee = $firstPunch['employee'];
+                            $attendanceDate = $firstPunch['attendance_date'];
+                            $checkIn = $firstPunch['punch_time']->format('H:i:s');
+                            $checkOut = $lastPunch['punch_time']->format('H:i:s');
+
+                            if ($checkOut === $checkIn) {
+                                $checkOut = null;
+                            }
+
+                            $attendanceRecord = $existingRecordsByKey->get($groupKey);
+                            $isNewRecord = !$attendanceRecord;
+
+                            if ($attendanceRecord && $attendanceRecord->is_manually_adjusted) {
+                                $recordsSkipped++;
+                                continue;
+                            }
+
+                            if (!$attendanceRecord) {
+                                $attendanceRecord = new AttendanceRecord([
+                                    'employee_id' => $employee->id,
+                                    'attendance_date' => $attendanceDate,
+                                ]);
+                            }
+
+                            $recordChanged = false;
+
+                            if ($isNewRecord) {
+                                $attendanceRecord->branch_id = $employee->branch_id;
+                                $attendanceRecord->device_id = $device->id;
+                                $attendanceRecord->status = 'present';
+                                $recordChanged = true;
+                            }
+
+                            if ((string) ($attendanceRecord->check_in ?? '') !== (string) $checkIn) {
+                                $attendanceRecord->check_in = $checkIn;
+                                $recordChanged = true;
+                            }
+
+                            if ((string) ($attendanceRecord->check_out ?? '') !== (string) ($checkOut ?? '')) {
+                                $attendanceRecord->check_out = $checkOut;
+                                $recordChanged = true;
+                            }
+
+                            if (!$recordChanged && !$attendanceRecord->isDirty()) {
+                                $recordsDuplicate++;
+                                continue;
+                            }
+
+                            $attendanceRecord->setRelation('employee', $employee);
+                            $shiftRule = $this->getCachedShiftRuleForDate((int) $employee->id, $attendanceDate, $shiftRuleCache);
+                            $this->applyWorkingTimeCalculation($attendanceRecord, $shiftRule);
+                            $attendanceRecord->save();
+
+                            if ($isNewRecord) {
+                                $recordsNew++;
+                            }
+
+                            $existingRecordsByKey->put($groupKey, $attendanceRecord);
+                        }
+                    });
+
+                    $latestPunchTime = $matchedPunches->max('punch_time');
+                    if ($latestPunchTime instanceof Carbon) {
+                        $device->update(['last_synced_at' => $latestPunchTime]);
+                    } else {
+                        $device->update(['last_synced_at' => now()]);
+                    }
+
+                    Log::info("Attendance sync completed for device {$device->device_name}: {$recordsNew} new, {$recordsDuplicate} duplicates");
+                }
             }
         } catch (Exception $e) {
             $status = 'failed';
@@ -266,86 +419,6 @@ class AttendanceSyncService
     }
 
     /**
-     * Process raw attendance logs into attendance records
-     */
-    public function processRawLogs(AttendanceDevice $device): void
-    {
-        try {
-            Log::info("Processing raw attendance logs for device: {$device->device_name}");
-
-            // Get unprocessed logs
-            $unprocessedLogs = AttendanceRawLog::where('device_id', $device->id)
-                ->where('is_processed', false)
-                ->orderBy('punch_time', 'asc')
-                ->get();
-
-            if ($unprocessedLogs->isEmpty()) {
-                Log::info("No unprocessed logs found for device {$device->device_name}");
-                return;
-            }
-
-            Log::info("Found {$unprocessedLogs->count()} unprocessed logs for device {$device->device_name}");
-
-            $processed = 0;
-            $skipped = 0;
-
-            foreach ($unprocessedLogs as $rawLog) {
-                // Find employee linked to this device user (with numeric fallback for IDs like 001 vs 1)
-                $employee = $this->findEmployeeByDeviceUserId($device, $rawLog->user_id_on_device);
-
-                if (!$employee) {
-                    Log::debug("Employee not found for device user_id_on_device: {$rawLog->user_id_on_device} on device {$device->device_name}");
-                    $skipped++;
-                    continue;
-                }
-
-                $attendanceDate = $rawLog->punch_time->toDateString();
-                $punchTime = $rawLog->punch_time->format('H:i:s');
-
-                // Find or create attendance record for this date
-                $attendanceRecord = AttendanceRecord::firstOrNew([
-                    'employee_id' => $employee->id,
-                    'attendance_date' => $attendanceDate,
-                ]);
-
-                // Determine if this is a new record or existing
-                $isNewRecord = !$attendanceRecord->exists;
-
-                // First punch of the day = check-in
-                if ($isNewRecord || empty($attendanceRecord->check_in)) {
-                    $attendanceRecord->branch_id = $employee->branch_id;
-                    $attendanceRecord->device_id = $device->id;
-                    $attendanceRecord->check_in = $punchTime;
-                    $attendanceRecord->check_in_raw_log_id = $rawLog->id;
-                    $attendanceRecord->status = 'present';
-
-                    Log::debug("Created check-in for employee {$employee->name} on {$attendanceDate} at {$punchTime}");
-                } else {
-                    // Subsequent punches update check-out (last punch = checkout)
-                    $attendanceRecord->check_out = $punchTime;
-                    $attendanceRecord->check_out_raw_log_id = $rawLog->id;
-
-                    Log::debug("Updated check-out for employee {$employee->name} on {$attendanceDate} at {$punchTime}");
-                }
-
-                $attendanceRecord->save();
-
-                // Calculate working time and determine status
-                $this->calculateWorkingTime($attendanceRecord);
-
-                // Mark raw log as processed
-                $rawLog->markAsProcessed();
-                $processed++;
-            }
-
-            Log::info("Processed {$processed} raw logs for device {$device->device_name}, skipped {$skipped} (unmapped users)");
-        } catch (Exception $e) {
-            Log::error("Error processing raw logs for device {$device->device_name}: " . $e->getMessage());
-            Log::error("Stack trace: " . $e->getTraceAsString());
-        }
-    }
-
-    /**
      * Normalize device user ID for matching operations.
      */
     protected function normalizeDeviceUserId($value): string
@@ -360,11 +433,32 @@ class AttendanceSyncService
     /**
      * Find employee mapped to device user ID (exact first, numeric fallback second).
      */
-    protected function findEmployeeByDeviceUserId(AttendanceDevice $device, $deviceUserId): ?Employee
+    protected function findEmployeeByDeviceUserId(
+        AttendanceDevice $device,
+        $deviceUserId,
+        ?Collection $employeesByDeviceUserId = null,
+        ?Collection $employeesByNumericUserId = null
+    ): ?Employee
     {
         $normalizedId = $this->normalizeDeviceUserId($deviceUserId);
 
         if ($normalizedId === '') {
+            return null;
+        }
+
+        if ($employeesByDeviceUserId !== null) {
+            $employee = $employeesByDeviceUserId->get($normalizedId);
+            if ($employee) {
+                return $employee;
+            }
+
+            if (is_numeric($normalizedId) && $employeesByNumericUserId !== null) {
+                $numericVariant = (string) ((int) $normalizedId);
+                if ($numericVariant !== '') {
+                    return $employeesByNumericUserId->get($numericVariant);
+                }
+            }
+
             return null;
         }
 
@@ -387,6 +481,173 @@ class AttendanceSyncService
         }
 
         return null;
+    }
+
+    /**
+     * Preload shift rules for employees in one query and cache by employee ID.
+     */
+    protected function preloadShiftRules(Collection $employees): array
+    {
+        $shiftRuleCache = [];
+        $defaultShiftStart = (string) config('payroll.shift_start', '09:00');
+        $defaultGrace = (int) config('payroll.late_grace_minutes', 15);
+        $defaultWorkingMinutes = (int) round(max(0, (float) config('payroll.default_shift_hours', 8)) * 60);
+
+        $hasShiftTable = DB::getSchemaBuilder()->hasTable('attendance_shifts');
+        $shiftRowsByName = collect([]);
+
+        if ($hasShiftTable) {
+            $shiftNames = $employees
+                ->pluck('shift')
+                ->map(function ($shiftName) {
+                    return strtolower(trim((string) $shiftName));
+                })
+                ->filter()
+                ->unique()
+                ->values();
+
+            if ($shiftNames->isNotEmpty()) {
+                $placeholders = implode(',', array_fill(0, $shiftNames->count(), '?'));
+
+                $shiftRows = DB::table('attendance_shifts')
+                    ->whereRaw('LOWER(shift_name) IN (' . $placeholders . ')', $shiftNames->all())
+                    ->get();
+
+                $shiftRowsByName = $shiftRows->groupBy(function ($row) {
+                    return strtolower(trim((string) ($row->shift_name ?? '')));
+                });
+            }
+        }
+
+        foreach ($employees as $employee) {
+            $employeeId = (int) $employee->id;
+            $shiftStart = !empty($employee?->shift_start_time)
+                ? substr((string) $employee->shift_start_time, 0, 5)
+                : $defaultShiftStart;
+            $graceMinutes = $defaultGrace;
+            $shiftName = strtolower(trim((string) ($employee?->shift ?? '')));
+
+            if ($hasShiftTable && $shiftName !== '' && $shiftRowsByName->has($shiftName)) {
+                $candidates = collect($shiftRowsByName->get($shiftName));
+                $matchedShift = null;
+
+                if (!empty($employee?->branch_id)) {
+                    $matchedShift = $candidates->first(function ($row) use ($employee) {
+                        return (int) ($row->branch_id ?? 0) === (int) $employee->branch_id;
+                    });
+                }
+
+                if (!$matchedShift) {
+                    $matchedShift = $candidates->first(function ($row) {
+                        return $row->branch_id === null;
+                    });
+                }
+
+                if (!$matchedShift) {
+                    $matchedShift = $candidates->first();
+                }
+
+                if ($matchedShift) {
+                    $candidateStart = substr((string) ($matchedShift->start_time ?? ''), 0, 5);
+                    if (preg_match('/^\d{2}:\d{2}$/', $candidateStart)) {
+                        $shiftStart = $candidateStart;
+                    }
+
+                    $graceMinutes = (int) ($matchedShift->grace_period_minutes ?? $graceMinutes);
+                }
+            }
+
+            if (!preg_match('/^\d{2}:\d{2}$/', $shiftStart)) {
+                $shiftStart = $defaultShiftStart;
+            }
+
+            $workingHours = (float) ($employee?->working_hours ?? config('payroll.default_shift_hours', 8));
+
+            $shiftRuleCache[$employeeId] = [
+                'shift_start_time' => $shiftStart,
+                'grace_minutes' => max(0, $graceMinutes),
+                'working_minutes' => max(0, (int) round($workingHours * 60)),
+            ];
+        }
+
+        return $shiftRuleCache;
+    }
+
+    /**
+     * Build a date-specific shift rule from a preloaded employee cache.
+     */
+    protected function getCachedShiftRuleForDate(int $employeeId, string $attendanceDate, array &$shiftRuleCache): array
+    {
+        $defaultShiftStart = (string) config('payroll.shift_start', '09:00');
+        $defaultGrace = (int) config('payroll.late_grace_minutes', 15);
+        $defaultWorkingMinutes = (int) round(max(0, (float) config('payroll.default_shift_hours', 8)) * 60);
+
+        $cachedRule = $shiftRuleCache[$employeeId] ?? [
+            'shift_start_time' => $defaultShiftStart,
+            'grace_minutes' => max(0, $defaultGrace),
+            'working_minutes' => $defaultWorkingMinutes,
+        ];
+
+        if (!preg_match('/^\d{2}:\d{2}$/', (string) $cachedRule['shift_start_time'])) {
+            $cachedRule['shift_start_time'] = $defaultShiftStart;
+        }
+
+        $shiftStartAt = Carbon::parse($attendanceDate . ' ' . $cachedRule['shift_start_time']);
+
+        return [
+            'shift_start_at' => $shiftStartAt,
+            'shift_end_at' => (clone $shiftStartAt)->addMinutes((int) $cachedRule['working_minutes']),
+            'grace_minutes' => (int) $cachedRule['grace_minutes'],
+        ];
+    }
+
+    /**
+     * Apply working time and status attributes without saving.
+     */
+    protected function applyWorkingTimeCalculation(AttendanceRecord $record, array $shiftRule): void
+    {
+        if (!$record->check_in) {
+            return;
+        }
+
+        // Ensure attendance_date is just the date part (no time)
+        $dateOnly = $record->attendance_date instanceof \Carbon\Carbon
+            ? $record->attendance_date->toDateString()
+            : date('Y-m-d', strtotime($record->attendance_date));
+
+        $checkIn = Carbon::parse($dateOnly . ' ' . $record->check_in);
+        $shiftStartAt = $shiftRule['shift_start_at'];
+        $shiftEndAt = $shiftRule['shift_end_at'];
+        $graceMinutes = $shiftRule['grace_minutes'];
+
+        if ($record->check_out) {
+            $checkOut = Carbon::parse($dateOnly . ' ' . $record->check_out);
+
+            // Handle night shift (checkout next day)
+            if ($checkOut->lt($checkIn)) {
+                $checkOut->addDay();
+            }
+
+            $record->total_working_minutes = $checkIn->diffInMinutes($checkOut);
+            $record->overtime_minutes = $checkOut->gt($shiftEndAt)
+                ? $shiftEndAt->diffInMinutes($checkOut)
+                : 0;
+            $record->is_checkout_missing = false;
+        } else {
+            $record->overtime_minutes = 0;
+        }
+
+        $deadline = (clone $shiftStartAt)->addMinutes($graceMinutes);
+        $record->is_late = $checkIn->gt($deadline);
+        $record->late_minutes = $checkIn->gt($shiftStartAt)
+            ? $shiftStartAt->diffInMinutes($checkIn)
+            : 0;
+        $record->status = $record->is_late ? 'late' : 'present';
+
+        // Check for missing checkout
+        if (!$record->check_out) {
+            $record->is_checkout_missing = true;
+        }
     }
 
     /**
@@ -450,7 +711,7 @@ class AttendanceSyncService
     /**
      * Calculate working time and status
      */
-    protected function calculateWorkingTime(AttendanceRecord $record): void
+    protected function calculateWorkingTime(AttendanceRecord $record, ?array $shiftRule = null): void
     {
         if (!$record->check_in) {
             return;
@@ -461,43 +722,18 @@ class AttendanceSyncService
             ? $record->attendance_date->toDateString()
             : date('Y-m-d', strtotime($record->attendance_date));
 
-        $checkIn = Carbon::parse($dateOnly . ' ' . $record->check_in);
-        $employee = $record->employee;
-        $shiftRule = $this->resolveShiftRuleForRecord($record, Carbon::parse($dateOnly));
-        $shiftStartAt = $shiftRule['shift_start_at'];
-        $shiftEndAt = $shiftRule['shift_end_at'];
-        $graceMinutes = $shiftRule['grace_minutes'];
-
-        if ($record->check_out) {
-            $checkOut = Carbon::parse($dateOnly . ' ' . $record->check_out);
-
-            // Handle night shift (checkout next day)
-            if ($checkOut->lt($checkIn)) {
-                $checkOut->addDay();
-            }
-
-            $record->total_working_minutes = $checkIn->diffInMinutes($checkOut);
-            $record->overtime_minutes = $checkOut->gt($shiftEndAt)
-                ? $shiftEndAt->diffInMinutes($checkOut)
-                : 0;
-            $record->is_checkout_missing = false;
-        } else {
-            $record->overtime_minutes = 0;
-        }
-
-        $deadline = (clone $shiftStartAt)->addMinutes($graceMinutes);
-        $record->is_late = $checkIn->gt($deadline);
-        $record->late_minutes = $checkIn->gt($shiftStartAt)
-            ? $shiftStartAt->diffInMinutes($checkIn)
-            : 0;
-        $record->status = $record->is_late ? 'late' : 'present';
-
-        // Check for missing checkout
-        if (!$record->check_out) {
-            $record->is_checkout_missing = true;
-        }
+        $resolvedShiftRule = $shiftRule ?? $this->resolveShiftRuleForRecord($record, Carbon::parse($dateOnly));
+        $this->applyWorkingTimeCalculation($record, $resolvedShiftRule);
 
         $record->save();
+    }
+
+    protected function resolveShiftRuleForEmployee(Employee $employee, Carbon $attendanceDate): array
+    {
+        $record = new AttendanceRecord();
+        $record->setRelation('employee', $employee);
+
+        return $this->resolveShiftRuleForRecord($record, $attendanceDate);
     }
 
     protected function resolveShiftRuleForRecord(AttendanceRecord $record, Carbon $attendanceDate): array

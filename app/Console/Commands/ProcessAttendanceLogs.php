@@ -9,7 +9,7 @@ use Illuminate\Console\Command;
 class ProcessAttendanceLogs extends Command
 {
     protected $signature = 'attendance:process-logs {--device= : Process logs for specific device ID}';
-    protected $description = 'Process raw attendance logs into attendance records';
+    protected $description = 'Sync attendance punches directly into attendance records';
 
     protected $syncService;
 
@@ -57,8 +57,9 @@ class ProcessAttendanceLogs extends Command
         $this->info("Processing device: {$device->device_name}");
 
         try {
-            $this->syncService->processRawLogs($device);
-            $this->info("✓ {$device->device_name}: Processed successfully");
+            $result = $this->syncService->syncAttendanceLogs($device);
+            $this->info("✓ {$device->device_name}: Synced successfully");
+            $this->line("  Fetched: {$result['records_fetched']} | New: {$result['records_new']} | Duplicates: {$result['records_duplicate']} | Skipped: {$result['records_skipped']}");
         } catch (\Exception $e) {
             $this->error("✗ {$device->device_name}: " . $e->getMessage());
         }

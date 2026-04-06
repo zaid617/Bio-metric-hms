@@ -96,49 +96,25 @@
                         <h6 class="mb-0 text-success"><span class="material-icons-outlined me-1" style="vertical-align:middle;font-size:18px">trending_up</span>Earnings</h6>
                     </div>
                     <div class="card-body p-3">
-                        @php
-                            $earningsItems = [
-                                ['label'=>'Basic Salary',   'val'=> $payroll->basic_salary ?? $payroll->base_salary ?? 0],
-                                ['label'=>'Additional Salary','val'=> $payroll->additional_salary ?? 0],
-                                ['label'=>'Sunday Roster Incentive','val'=> data_get(collect($payroll->earnings_breakdown ?? [])->firstWhere('type', 'INCENTIVE_SUNDAY_ROSTER'), 'amount', 0)],
-                                ['label'=>'Home Visit Incentive','val'=> data_get(collect($payroll->earnings_breakdown ?? [])->firstWhere('type', 'INCENTIVE_HOME_VISIT'), 'amount', 0)],
-                                ['label'=>'Speech Therapy Incentive','val'=> data_get(collect($payroll->earnings_breakdown ?? [])->firstWhere('type', 'INCENTIVE_SPEECH_THERAPY'), 'amount', 0)],
-                                ['label'=>'Dry Needling Incentive','val'=> data_get(collect($payroll->earnings_breakdown ?? [])->firstWhere('type', 'INCENTIVE_DRY_NEEDLING'), 'amount', 0)],
-                                ['label'=>'Allied Health Council Allowance','val'=> data_get(collect($payroll->earnings_breakdown ?? [])->firstWhere('type', 'ALLOWANCE_ALLIED_HEALTH_COUNCIL'), 'amount', 0)],
-                                ['label'=>'House Job Allowance','val'=> data_get(collect($payroll->earnings_breakdown ?? [])->firstWhere('type', 'ALLOWANCE_HOUSE_JOB'), 'amount', 0)],
-                                ['label'=>'Conveyance Allowance','val'=> data_get(collect($payroll->earnings_breakdown ?? [])->firstWhere('type', 'ALLOWANCE_CONVEYANCE'), 'amount', 0)],
-                                ['label'=>'Medical Allowance','val'=> data_get(collect($payroll->earnings_breakdown ?? [])->firstWhere('type', 'ALLOWANCE_MEDICAL'), 'amount', 0)],
-                                ['label'=>'House Rent Allowance','val'=> data_get(collect($payroll->earnings_breakdown ?? [])->firstWhere('type', 'ALLOWANCE_HOUSE_RENT'), 'amount', 0)],
-                                ['label'=>'Other Allowance','val'=> data_get(collect($payroll->earnings_breakdown ?? [])->firstWhere('type', 'OTHER_ALLOWANCE'), 'amount', 0)],
-                                ['label'=>'Satisfactory Sessions','val'=> $payroll->satisfactory_sessions ?? 0],
-                                ['label'=>'Treatment Extension Commission','val'=> $payroll->treatment_extension_commission ?? 0],
-                                ['label'=>'Satisfaction Bonus','val'=> $payroll->satisfaction_bonus ?? 0],
-                                ['label'=>'Assessment Bonus','val'=> $payroll->assessment_bonus ?? 0],
-                                ['label'=>'Reference Bonus','val'=> $payroll->reference_bonus ?? 0],
-                                ['label'=>'Personal Patient Commission','val'=> $payroll->personal_patient_commission ?? 0],
-                            ];
-                            $earningsTotal = !empty($payroll->earnings_breakdown)
-                                ? collect($payroll->earnings_breakdown)->sum(fn ($item) => (float) ($item['amount'] ?? 0))
-                                : collect($earningsItems)->sum('val');
-                        @endphp
-                        @foreach($earningsItems as $item)
-                            @if((float)$item['val'] > 0)
-                            <div class="breakdown-row">
-                                <span class="breakdown-label small">{{ $item['label'] }}</span>
-                                <span class="earn small">PKR {{ number_format((float) $item['val'],2) }}</span>
-                            </div>
-                            @endif
-                        @endforeach
-                        @if(!empty($payroll->earnings_breakdown))
-                            @foreach($payroll->earnings_breakdown as $item)
-                                @if(isset($item['type']) && !in_array($item['type'],['BASIC_SALARY','ADDITIONAL_SALARY','INCENTIVE_SUNDAY_ROSTER','INCENTIVE_HOME_VISIT','INCENTIVE_SPEECH_THERAPY','INCENTIVE_DRY_NEEDLING','ALLOWANCE_ALLIED_HEALTH_COUNCIL','ALLOWANCE_HOUSE_JOB','ALLOWANCE_CONVEYANCE','ALLOWANCE_MEDICAL','ALLOWANCE_HOUSE_RENT','OTHER_ALLOWANCE','OVERTIME','SATISFACTORY_SESSIONS','TREATMENT_EXTENSION_COMMISSION','SATISFACTION_BONUS','ASSESSMENT_BONUS','REFERENCE_BONUS','PERSONAL_PATIENT_COMMISSION']) && (float)($item['amount']??0)>0)
+                            @php
+                                $earningsRows = collect($payroll->earnings_breakdown ?? [])
+                                    ->filter(fn ($item) => (float) ($item['amount'] ?? 0) > 0)
+                                    ->values();
+                                $earningsTotal = (float) $earningsRows->sum(fn ($item) => (float) ($item['amount'] ?? 0));
+                            @endphp
+                            @forelse($earningsRows as $item)
                                 <div class="breakdown-row">
-                                    <span class="breakdown-label small text-primary">{{ str_replace('_',' ',$item['type']) }}</span>
-                                    <span class="earn small">PKR {{ number_format((float) ($item['amount'] ?? 0),2) }}</span>
+                                    <div class="pe-2">
+                                        <div class="breakdown-label small">{{ str_replace('_',' ',(string)($item['type'] ?? 'Earning')) }}</div>
+                                        @if(!empty($item['notes']))
+                                            <div class="small text-muted">{{ $item['notes'] }}</div>
+                                        @endif
+                                    </div>
+                                    <span class="earn small text-end">PKR {{ number_format((float) ($item['amount'] ?? 0),2) }}</span>
                                 </div>
-                                @endif
-                            @endforeach
-                        @endif
+                            @empty
+                                <div class="text-muted small py-2">No earnings this period.</div>
+                            @endforelse
                         <div class="mt-2 pt-2 border-top d-flex justify-content-between fw-bold">
                             <span>Total Earnings</span><span class="earn">PKR {{ number_format((float) $earningsTotal,2) }}</span>
                         </div>
@@ -153,16 +129,24 @@
                         <h6 class="mb-0 text-warning"><span class="material-icons-outlined me-1" style="vertical-align:middle;font-size:18px">emoji_events</span>Awards</h6>
                     </div>
                     <div class="card-body p-3">
-                        @if(!empty($payroll->awards_breakdown))
-                            @foreach($payroll->awards_breakdown as $item)
+                        @php
+                            $awardsRows = collect($payroll->awards_breakdown ?? [])
+                                ->filter(fn ($item) => (float) ($item['amount'] ?? 0) > 0)
+                                ->values();
+                        @endphp
+                        @forelse($awardsRows as $item)
                             <div class="breakdown-row">
-                                <span class="small breakdown-label">{{ str_replace('_',' ',$item['type']??'Award') }}</span>
-                                <span class="earn small">PKR {{ number_format((float) ($item['amount'] ?? 0),2) }}</span>
+                                <div class="pe-2">
+                                    <div class="small breakdown-label">{{ str_replace('_',' ',(string)($item['type'] ?? 'Award')) }}</div>
+                                    @if(!empty($item['notes']))
+                                        <div class="small text-muted">{{ $item['notes'] }}</div>
+                                    @endif
+                                </div>
+                                <span class="earn small text-end">PKR {{ number_format((float) ($item['amount'] ?? 0),2) }}</span>
                             </div>
-                            @endforeach
-                        @else
+                        @empty
                             <div class="text-muted small py-2">No awards this period.</div>
-                        @endif
+                        @endforelse
                         <div class="mt-2 pt-2 border-top d-flex justify-content-between fw-bold">
                             <span>Total Awards</span><span class="earn">PKR {{ number_format((float) ($payroll->awards_total ?? $payroll->bonus ?? 0),2) }}</span>
                         </div>
@@ -177,16 +161,24 @@
                         <h6 class="mb-0 text-danger"><span class="material-icons-outlined me-1" style="vertical-align:middle;font-size:18px">remove_circle</span>Deductions</h6>
                     </div>
                     <div class="card-body p-3">
-                        @if(!empty($payroll->deductions_breakdown))
-                            @foreach($payroll->deductions_breakdown as $item)
+                        @php
+                            $deductionRows = collect($payroll->deductions_breakdown ?? [])
+                                ->filter(fn ($item) => (float) ($item['amount'] ?? 0) > 0)
+                                ->values();
+                        @endphp
+                        @forelse($deductionRows as $item)
                             <div class="breakdown-row">
-                                <span class="small breakdown-label">{{ str_replace('_',' ',$item['type']??'Deduction') }}</span>
-                                <span class="deduct small">- PKR {{ number_format((float) ($item['amount'] ?? 0),2) }}</span>
+                                <div class="pe-2">
+                                    <div class="small breakdown-label">{{ str_replace('_',' ',(string)($item['type'] ?? 'Deduction')) }}</div>
+                                    @if(!empty($item['notes']))
+                                        <div class="small text-muted">{{ $item['notes'] }}</div>
+                                    @endif
+                                </div>
+                                <span class="deduct small text-end">- PKR {{ number_format((float) ($item['amount'] ?? 0),2) }}</span>
                             </div>
-                            @endforeach
-                        @else
+                        @empty
                             <div class="text-muted small py-2">No deductions this period.</div>
-                        @endif
+                        @endforelse
                         @if(($payroll->admin_adjustment_amount??0)!=0)
                         <div class="breakdown-row">
                             <span class="small breakdown-label">Admin Adjustment</span>

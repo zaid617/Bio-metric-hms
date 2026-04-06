@@ -19,8 +19,6 @@ return new class extends Migration
             $table->date('attendance_date');
             $table->time('check_in')->nullable();
             $table->time('check_out')->nullable();
-            $table->foreignId('check_in_raw_log_id')->nullable()->constrained('attendance_raw_logs')->onDelete('set null');
-            $table->foreignId('check_out_raw_log_id')->nullable()->constrained('attendance_raw_logs')->onDelete('set null');
             $table->integer('total_working_minutes')->nullable();
             $table->integer('overtime_minutes')->default(0);
             $table->enum('status', ['present', 'absent', 'late', 'half_day', 'leave', 'holiday', 'weekend'])->default('present');

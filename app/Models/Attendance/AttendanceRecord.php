@@ -17,8 +17,6 @@ class AttendanceRecord extends Model
         'attendance_date',
         'check_in',
         'check_out',
-        'check_in_raw_log_id',
-        'check_out_raw_log_id',
         'total_working_minutes',
         'overtime_minutes',
         'is_late',
@@ -67,22 +65,6 @@ class AttendanceRecord extends Model
     public function device(): BelongsTo
     {
         return $this->belongsTo(AttendanceDevice::class, 'device_id');
-    }
-
-    /**
-     * Get check-in raw log
-     */
-    public function checkInRawLog(): BelongsTo
-    {
-        return $this->belongsTo(AttendanceRawLog::class, 'check_in_raw_log_id');
-    }
-
-    /**
-     * Get check-out raw log
-     */
-    public function checkOutRawLog(): BelongsTo
-    {
-        return $this->belongsTo(AttendanceRawLog::class, 'check_out_raw_log_id');
     }
 
     /**

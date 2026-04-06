@@ -3,12 +3,13 @@
 namespace App\Console\Commands;
 
 use App\Models\Attendance\AttendanceDevice;
-use App\Models\Attendance\AttendanceRawLog;
 use App\Models\Attendance\AttendanceRecord;
 use App\Models\Attendance\AttendanceSyncLog;
+use App\Models\Employee;
 use App\Services\Attendance\ZKTecoService;
 use App\Services\Attendance\AttendanceSyncService;
 use Illuminate\Console\Command;
+use Illuminate\Support\Collection;
 
 class DiagnoseAttendanceSync extends Command
 {
@@ -69,6 +70,10 @@ class DiagnoseAttendanceSync extends Command
         $this->info("Last Synced: " . ($device->last_synced_at ? $device->last_synced_at->format('Y-m-d H:i:s') : 'Never'));
         $this->newLine();
 
+        $logs = collect([]);
+        $unmappedCount = 0;
+        $mappedCount = 0;
+
         // Check 1: Device Connection
         $this->info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
         $this->info("Check 1: Device Connection");
@@ -90,7 +95,7 @@ class DiagnoseAttendanceSync extends Command
         $this->info("Check 2: Employees Linked to Device");
         $this->info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
-        $linkedEmployees = \App\Models\Employee::where('device_id', $device->id)->get();
+        $linkedEmployees = Employee::where('device_id', $device->id)->get();
 
         $this->info("Employees linked to this device: " . $linkedEmployees->count());
 
@@ -152,49 +157,63 @@ class DiagnoseAttendanceSync extends Command
         }
         $this->newLine();
 
-        // Check 4: Raw Logs in Database
+        // Check 4: Mapping coverage for fetched logs
         $this->info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-        $this->info("Check 4: Raw Logs in Database");
+        $this->info("Check 4: Device Punch Mapping Coverage");
         $this->info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
-        $totalRawLogs = AttendanceRawLog::where('device_id', $device->id)->count();
-        $processedLogs = AttendanceRawLog::where('device_id', $device->id)->where('is_processed', true)->count();
-        $unprocessedLogs = AttendanceRawLog::where('device_id', $device->id)->where('is_processed', false)->count();
+        if ($logs instanceof Collection && $logs->isNotEmpty()) {
+            $employeesByDeviceUserId = collect([]);
+            $employeesByNumericUserId = collect([]);
 
-        $this->info("Total raw logs: {$totalRawLogs}");
-        $this->info("Processed: {$processedLogs}");
-        $this->info("Unprocessed: {$unprocessedLogs}");
+            foreach ($linkedEmployees as $employee) {
+                $normalizedId = trim((string) $employee->user_id_on_device);
+                if ($normalizedId === '') {
+                    continue;
+                }
 
-        if ($totalRawLogs === 0) {
-            $this->warn("⚠ No raw logs in database - attendance has not been synced yet");
-            $this->warn("   Run sync command: php artisan zkteco:sync --device={$deviceId}");
-        } elseif ($unprocessedLogs > 0) {
-            $this->warn("⚠ {$unprocessedLogs} unprocessed logs found");
-            $this->warn("   These logs haven't been converted to attendance records yet");
+                if (!$employeesByDeviceUserId->has($normalizedId)) {
+                    $employeesByDeviceUserId->put($normalizedId, $employee->id);
+                }
 
-            // Check why they're unprocessed
-            $this->newLine();
-            $this->info("Checking unprocessed logs...");
+                if (is_numeric($normalizedId)) {
+                    $numericVariant = (string) ((int) $normalizedId);
+                    if ($numericVariant !== '' && !$employeesByNumericUserId->has($numericVariant)) {
+                        $employeesByNumericUserId->put($numericVariant, $employee->id);
+                    }
+                }
+            }
 
-            $unmappedCount = AttendanceRawLog::where('device_id', $device->id)
-                ->where('is_processed', false)
-                ->whereNotIn('user_id_on_device', function ($query) use ($device) {
-                    $query->select('user_id_on_device')
-                        ->from('employees')
-                        ->where('device_id', $device->id)
-                        ->whereNotNull('user_id_on_device');
-                })
-                ->count();
+            foreach ($logs as $log) {
+                $userIdOnDevice = trim((string) ($log['user_id_on_device'] ?? ''));
+                if ($userIdOnDevice === '') {
+                    $unmappedCount++;
+                    continue;
+                }
+
+                $mapped = $employeesByDeviceUserId->has($userIdOnDevice);
+
+                if (!$mapped && is_numeric($userIdOnDevice)) {
+                    $mapped = $employeesByNumericUserId->has((string) ((int) $userIdOnDevice));
+                }
+
+                if ($mapped) {
+                    $mappedCount++;
+                } else {
+                    $unmappedCount++;
+                }
+            }
+
+            $this->info("Mapped punches: {$mappedCount}");
+            $this->info("Unmapped punches: {$unmappedCount}");
 
             if ($unmappedCount > 0) {
-                $this->error("✗ {$unmappedCount} logs belong to unmapped users!");
-                $this->warn("   Map these device users to employees first");
+                $this->warn("⚠ Some device punches cannot be matched to linked employees");
             } else {
-                $this->info("✓ All unprocessed logs have mapped users");
-                $this->info("   Running process command should handle these...");
+                $this->info("✓ All fetched punches can be matched to linked employees");
             }
         } else {
-            $this->info("✓ All raw logs have been processed");
+            $this->warn("⚠ No fetched punches available to evaluate mapping coverage");
         }
         $this->newLine();
 
@@ -292,35 +311,32 @@ class DiagnoseAttendanceSync extends Command
 
         $hasIssues = false;
 
-        if ($unmappedUsers->count() > 0) {
+        if ($linkedEmployees->isEmpty()) {
             $hasIssues = true;
-            $this->error("Issue 1: {$unmappedUsers->count()} device users are not mapped to employees");
-            $this->warn("Solution: Go to Attendance > Device Users and map them");
-            $this->warn("Command: php artisan attendance:map-users --device={$deviceId}");
+            $this->error("Issue 1: No employees are linked to this device");
+            $this->warn("Solution: Link employees to this device (device_id + user_id_on_device)");
             $this->newLine();
         }
 
-        if ($totalRawLogs === 0) {
+        if (($logs instanceof Collection ? $logs->count() : 0) === 0) {
             $hasIssues = true;
-            $this->error("Issue 2: No attendance logs have been synced from device");
-            $this->warn("Solution: Run sync command");
+            $this->error("Issue 2: No attendance logs were fetched from the device");
+            $this->warn("Solution: Verify device has punches and rerun sync");
             $this->warn("Command: php artisan zkteco:sync --device={$deviceId}");
             $this->newLine();
         }
 
-        if ($unprocessedLogs > 0 && $unmappedCount === 0) {
+        if ($unmappedCount > 0) {
             $hasIssues = true;
-            $this->error("Issue 3: {$unprocessedLogs} raw logs haven't been processed");
-            $this->warn("Solution: Process the raw logs");
-            $this->warn("Command: php artisan attendance:process-logs --device={$deviceId}");
+            $this->error("Issue 3: {$unmappedCount} fetched punches are not mapped to employees");
+            $this->warn("Solution: Ensure employee user_id_on_device values match device user IDs");
             $this->newLine();
         }
 
-        if ($totalRecords === 0 && $totalRawLogs > 0) {
+        if ($totalRecords === 0 && $mappedCount > 0) {
             $hasIssues = true;
-            $this->error("Issue 4: Raw logs exist but no attendance records created");
-            $this->warn("This suggests all logs belong to unmapped users");
-            $this->warn("Solution: Map device users first, then process logs");
+            $this->error("Issue 4: Mapped punches exist but no attendance records were created");
+            $this->warn("Solution: Run sync and inspect logs for failures");
             $this->newLine();
         }
 

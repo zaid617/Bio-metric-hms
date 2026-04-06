@@ -35,9 +35,20 @@
                 <div class="card-body">
                     <div class="d-flex justify-content-between mb-3">
                         <h5 class="mb-0">All Devices</h5>
-                        <a href="{{ route('attendance.devices.create') }}" class="btn btn-primary">
-                            Add New Device
-                        </a>
+                        <div class="d-flex gap-2">
+                            <form action="{{ route('attendance.devices.sync-all-now') }}" method="POST" style="display:inline;">
+                                @csrf
+                                <input type="hidden" name="force_full_sync" value="1">
+                                <input type="hidden" name="clear_after_fetch" value="0">
+                                <button type="submit" class="btn btn-success"
+                                        onclick="return confirm('Sync all active devices with full history? This can take several minutes.')">
+                                    Sync All Active Devices
+                                </button>
+                            </form>
+                            <a href="{{ route('attendance.devices.create') }}" class="btn btn-primary">
+                                Add New Device
+                            </a>
+                        </div>
                     </div>
 
                     @if(session('success'))
@@ -112,6 +123,7 @@
                                                       data-device-id="{{ $device->id }}">
                                                     @csrf
                                                     <input type="hidden" name="force_full_sync" value="1">
+                                                    <input type="hidden" name="clear_after_fetch" value="0">
                                                     <button type="submit" class="btn btn-sm btn-success sync-now-btn" title="Sync Now">
                                                         <span class="sync-icon"><i class="material-icons-outlined">sync</i></span>
                                                         <span class="sync-loader d-none">

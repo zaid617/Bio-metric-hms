@@ -261,25 +261,7 @@ class ZKTecoService
             $users = $this->zk->getUser();
             $this->disconnect();
 
-            if (!$users) {
-                return collect([]);
-            }
-
-            // Convert array to collection and format data
-            $collection = collect($users)->map(function ($user) {
-                // Normalize user ID - ensure it's trimmed and consistent
-                $userId = $this->normalizeDeviceUserId($user['userid'] ?? $user['uid'] ?? '');
-
-                return [
-                    'uid' => $user['uid'] ?? null,
-                    'user_id_on_device' => $userId,
-                    'name' => $user['name'] ?? 'Unknown',
-                    'privilege' => $user['role'] ?? 0,
-                    'password' => $user['password'] ?? null,
-                    'card_number' => $user['cardno'] ?? null,
-                    'raw_data' => $user,
-                ];
-            });
+            $collection = $this->mapDeviceUsers($users);
 
             Log::info("Fetched " . $collection->count() . " users from device: {$device->device_name}");
 
@@ -289,6 +271,85 @@ class ZKTecoService
             $this->disconnect();
             return collect([]);
         }
+    }
+
+    /**
+     * Get users and attendance logs from device in a single connection.
+     */
+    public function getUsersAndAttendance(AttendanceDevice $device, ?Carbon $from = null, bool $clearAfterFetch = false): array
+    {
+        try {
+            if (!$this->connect($device)) {
+                return [
+                    'users' => collect([]),
+                    'logs' => collect([]),
+                ];
+            }
+
+            $users = $this->zk->getUser();
+            $logs = $this->zk->getAttendance();
+
+            if ($clearAfterFetch && !empty($logs)) {
+                try {
+                    $cleared = $this->zk->clearAttendance();
+
+                    if ($cleared) {
+                        Log::info("Cleared attendance logs after fetch for device: {$device->device_name}");
+                    } else {
+                        Log::warning("Failed to clear attendance logs after fetch for device: {$device->device_name}");
+                    }
+                } catch (Exception $e) {
+                    Log::warning("Non-fatal error clearing attendance logs after fetch for device {$device->device_name}: " . $e->getMessage());
+                }
+            }
+
+            $this->disconnect();
+
+            $userCollection = $this->mapDeviceUsers($users);
+            $logCollection = $this->mapAttendanceLogs($logs, $from);
+
+            Log::info("Fetched " . $userCollection->count() . " users from device: {$device->device_name}");
+            Log::info("Fetched " . $logCollection->count() . " attendance logs from device: {$device->device_name}");
+
+            return [
+                'users' => $userCollection,
+                'logs' => $logCollection,
+            ];
+        } catch (Exception $e) {
+            Log::error("Error fetching users and attendance from device {$device->device_name}: " . $e->getMessage());
+            $this->disconnect();
+
+            return [
+                'users' => collect([]),
+                'logs' => collect([]),
+            ];
+        }
+    }
+
+    /**
+     * Map raw device users into normalized collection entries.
+     */
+    protected function mapDeviceUsers($users): Collection
+    {
+        if (!$users) {
+            return collect([]);
+        }
+
+        // Convert array to collection and format data
+        return collect($users)->map(function ($user) {
+            // Normalize user ID - ensure it's trimmed and consistent
+            $userId = $this->normalizeDeviceUserId($user['userid'] ?? $user['uid'] ?? '');
+
+            return [
+                'uid' => $user['uid'] ?? null,
+                'user_id_on_device' => $userId,
+                'name' => $user['name'] ?? 'Unknown',
+                'privilege' => $user['role'] ?? 0,
+                'password' => $user['password'] ?? null,
+                'card_number' => $user['cardno'] ?? null,
+                'raw_data' => $user,
+            ];
+        });
     }
 
     /**
@@ -304,51 +365,7 @@ class ZKTecoService
             $logs = $this->zk->getAttendance();
             $this->disconnect();
 
-            if (!$logs) {
-                return collect([]);
-            }
-
-            // Convert to collection and filter by date if provided
-            $collection = collect($logs)->map(function ($log) {
-                // Parse timestamp - can be string date or unix timestamp
-                $punchTime = null;
-                if (isset($log['timestamp'])) {
-                    try {
-                        if (is_numeric($log['timestamp'])) {
-                            // Unix timestamp
-                            $punchTime = Carbon::createFromTimestamp($log['timestamp']);
-                        } else {
-                            // String date
-                            $punchTime = Carbon::parse($log['timestamp']);
-                        }
-                    } catch (Exception $e) {
-                        Log::warning("Failed to parse timestamp: " . $log['timestamp']);
-                        $punchTime = Carbon::now();
-                    }
-                } else {
-                    $punchTime = Carbon::now();
-                }
-
-                // Clean and normalize user ID
-                $userId = $this->normalizeDeviceUserId($log['id'] ?? $log['uid'] ?? '');
-
-                return [
-                    'uid' => $log['uid'] ?? null,
-                    'user_id_on_device' => $userId,
-                    'punch_time' => $punchTime,
-                    'punch_type' => $log['type'] ?? 0,
-                    'verify_type' => $log['state'] ?? 0,
-                    'work_code' => 0,
-                    'raw_data' => $log,
-                ];
-            });
-
-            // Filter by date if provided
-            if ($from) {
-                $collection = $collection->filter(function ($log) use ($from) {
-                    return $log['punch_time']->greaterThanOrEqualTo($from);
-                });
-            }
+            $collection = $this->mapAttendanceLogs($logs, $from);
 
             Log::info("Fetched " . $collection->count() . " attendance logs from device: {$device->device_name}");
 
@@ -358,6 +375,60 @@ class ZKTecoService
             $this->disconnect();
             return collect([]);
         }
+    }
+
+    /**
+     * Map raw device attendance logs into normalized collection entries.
+     */
+    protected function mapAttendanceLogs($logs, ?Carbon $from = null): Collection
+    {
+        if (!$logs) {
+            return collect([]);
+        }
+
+        // Convert to collection and filter by date if provided
+        $collection = collect($logs)->map(function ($log) {
+            // Parse timestamp - can be string date or unix timestamp
+            $punchTime = null;
+            if (isset($log['timestamp'])) {
+                try {
+                    if (is_numeric($log['timestamp'])) {
+                        // Unix timestamp
+                        $punchTime = Carbon::createFromTimestamp($log['timestamp']);
+                    } else {
+                        // String date
+                        $punchTime = Carbon::parse($log['timestamp']);
+                    }
+                } catch (Exception $e) {
+                    Log::warning("Failed to parse timestamp: " . $log['timestamp']);
+                    $punchTime = Carbon::now();
+                }
+            } else {
+                $punchTime = Carbon::now();
+            }
+
+            // Clean and normalize user ID
+            $userId = $this->normalizeDeviceUserId($log['id'] ?? $log['uid'] ?? '');
+
+            return [
+                'uid' => $log['uid'] ?? null,
+                'user_id_on_device' => $userId,
+                'punch_time' => $punchTime,
+                'punch_type' => $log['type'] ?? 0,
+                'verify_type' => $log['state'] ?? 0,
+                'work_code' => 0,
+                'raw_data' => $log,
+            ];
+        });
+
+        // Filter by date if provided
+        if ($from) {
+            $collection = $collection->filter(function ($log) use ($from) {
+                return $log['punch_time']->greaterThanOrEqualTo($from);
+            });
+        }
+
+        return $collection;
     }
 
     /**

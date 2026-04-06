@@ -35,14 +35,24 @@ class PayrollService
         }
 
         $created = collect();
+        $updated = collect();
         $skipped = collect();
 
-        DB::transaction(function () use ($employees, $periodStart, $periodEnd, $month, $year, $force, $generatedBy, &$created, &$skipped) {
+        DB::transaction(function () use ($employees, $periodStart, $periodEnd, $month, $year, $force, $generatedBy, &$created, &$updated, &$skipped) {
             foreach ($employees as $employee) {
                 $existing = $this->repository->findMonthlyPayroll($employee->id, $month, $year);
 
                 if ($existing && !$force) {
-                    $skipped->push($existing);
+                    // Refresh draft payrolls on generate so salary component updates are applied.
+                    if ($existing->status !== 'draft') {
+                        $skipped->push($existing);
+                        continue;
+                    }
+
+                    $updated->push(
+                        $this->calculateAndPersistPayroll($employee, $periodStart, $periodEnd, $generatedBy, $existing)
+                    );
+
                     continue;
                 }
 
@@ -54,6 +64,7 @@ class PayrollService
 
         return [
             'created' => $created,
+            'updated' => $updated,
             'skipped' => $skipped,
             'period_start' => $periodStart,
             'period_end' => $periodEnd,

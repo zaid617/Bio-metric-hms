@@ -42,14 +42,6 @@ class AttendanceDevice extends Model
     }
 
     /**
-     * Get all raw logs
-     */
-    public function rawLogs(): HasMany
-    {
-        return $this->hasMany(AttendanceRawLog::class, 'device_id');
-    }
-
-    /**
      * Get sync logs
      */
     public function syncLogs(): HasMany

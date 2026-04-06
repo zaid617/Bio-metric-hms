@@ -835,6 +835,10 @@ Route::middleware(['role:admin'])->group(function () {
                 ->middleware('check_user_permission:manage attendance devices')
                 ->name('devices.store');
 
+            Route::post('/devices/sync-all-now', [\App\Http\Controllers\Attendance\AttendanceDeviceController::class, 'syncAllNow'])
+                ->middleware('check_user_permission:sync attendance')
+                ->name('devices.sync-all-now');
+
             Route::get('/devices/{device}/edit', [\App\Http\Controllers\Attendance\AttendanceDeviceController::class, 'edit'])
                 ->middleware('check_user_permission:manage attendance devices')
                 ->name('devices.edit');

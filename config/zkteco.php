@@ -57,5 +57,5 @@ return [
 
     'sync_users_on_device_add' => true,
     'sync_logs_retention_days' => 90, // Keep sync logs for 90 days
-    'raw_logs_retention_days' => 180, // Keep raw logs for 180 days
+    'allow_clear_after_fetch' => env('ZKTECO_ALLOW_CLEAR_AFTER_FETCH', false),
 ];

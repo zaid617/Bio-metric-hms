@@ -64,7 +64,7 @@ class AttendanceRecordController extends Controller
     {
         $record = AttendanceRecord::where('employee_id', $employee->id)
             ->where('attendance_date', $date)
-            ->with(['checkInRawLog', 'checkOutRawLog', 'device', 'branch'])
+            ->with(['device', 'branch'])
             ->firstOrFail();
 
         return view('attendance.records.show', compact('record', 'employee'));

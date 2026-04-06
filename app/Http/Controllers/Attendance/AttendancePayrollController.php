@@ -82,10 +82,11 @@ class AttendancePayrollController extends Controller
             );
 
             $createdCount = $result['created']->count();
+            $updatedCount = collect($result['updated'] ?? [])->count();
             $skippedCount = $result['skipped']->count();
 
             return redirect()->route('attendance.payroll.index')
-                ->with('success', "Payroll generation complete. Created: {$createdCount}, Skipped: {$skippedCount}.");
+                ->with('success', "Payroll generation complete. Created: {$createdCount}, Updated: {$updatedCount}, Skipped: {$skippedCount}.");
         } catch (Exception $e) {
             return redirect()->back()
                 ->with('error', 'Payroll generation failed: ' . $e->getMessage())
@@ -98,7 +99,7 @@ class AttendancePayrollController extends Controller
      */
     public function show(AttendancePayroll $payroll)
     {
-        $payroll->load(['employee', 'branch', 'approver', 'adjustments']);
+        $payroll->load(['employee', 'branch', 'approver', 'adjustments.creator']);
         return view('attendance.payroll.show', compact('payroll'));
     }
 
@@ -406,6 +407,18 @@ class AttendancePayrollController extends Controller
         $netSalary = (float) ($payroll->final_salary ?? $payroll->final_settlement ?? 0);
         $periodDate = Carbon::create((int) $payroll->year, (int) $payroll->month, 1);
         $attendanceData = (array) data_get($payroll->payslip_data, 'attendance', []);
+        $earningsBreakdown = collect($payroll->earnings_breakdown ?: data_get($payroll->payslip_data, 'earnings', []))
+            ->filter(fn ($line) => is_array($line))
+            ->values()
+            ->all();
+        $awardsBreakdown = collect($payroll->awards_breakdown ?: data_get($payroll->payslip_data, 'awards', []))
+            ->filter(fn ($line) => is_array($line))
+            ->values()
+            ->all();
+        $deductionsBreakdown = collect($payroll->deductions_breakdown ?: data_get($payroll->payslip_data, 'deductions', []))
+            ->filter(fn ($line) => is_array($line))
+            ->values()
+            ->all();
         $warnings = collect((array) data_get($payroll->payslip_data, 'warnings', []))
             ->filter(fn ($warning) => is_string($warning) && trim($warning) !== '')
             ->values();
@@ -424,6 +437,9 @@ class AttendancePayrollController extends Controller
                 'overtime_hours' => round((float) ($attendanceData['overtime_hours'] ?? $payroll->total_overtime_hours ?? $payroll->overtime_hours ?? 0), 2),
             ],
             'warnings' => $warnings,
+            'earningsBreakdown' => $earningsBreakdown,
+            'awardsBreakdown' => $awardsBreakdown,
+            'deductionsBreakdown' => $deductionsBreakdown,
             'amountInWords' => $this->amountInWords($netSalary),
             'generatedAt' => now(),
         ];

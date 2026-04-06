@@ -14,6 +14,7 @@ class SyncZKTecoDevices extends Command
      */
     protected $signature = 'zkteco:sync
                             {--device= : Specific device ID to sync}
+                            {--force-full : Ignore last_synced_at and fetch full history}
                             {--handle-missing-checkouts : Handle missing checkouts}';
 
     /**
@@ -58,7 +59,7 @@ class SyncZKTecoDevices extends Command
                 }
 
                 $this->info("Syncing device: {$device->device_name}");
-                $this->syncDevice($device);
+                $this->syncDevice($device, (bool) $this->option('force-full'));
                 return 0;
             }
 
@@ -74,7 +75,7 @@ class SyncZKTecoDevices extends Command
 
             foreach ($devices as $device) {
                 $this->info("Syncing device: {$device->device_name}");
-                $this->syncDevice($device);
+                $this->syncDevice($device, (bool) $this->option('force-full'));
             }
 
             $this->info('All devices synced successfully!');
@@ -88,7 +89,7 @@ class SyncZKTecoDevices extends Command
     /**
      * Sync a single device
      */
-    protected function syncDevice(AttendanceDevice $device): void
+    protected function syncDevice(AttendanceDevice $device, bool $forceFull = false): void
     {
         try {
             // Sync users
@@ -103,7 +104,7 @@ class SyncZKTecoDevices extends Command
 
             // Sync attendance
             $this->line("  → Syncing attendance logs...");
-            $attendanceResult = $this->syncService->syncAttendanceLogs($device);
+            $attendanceResult = $this->syncService->syncAttendanceLogs($device, $forceFull);
 
             if ($attendanceResult['success']) {
                 $this->info("  ✓ Attendance synced: {$attendanceResult['records_new']} new logs");
