@@ -42,10 +42,6 @@ class AttendanceRecordController extends Controller
         }
         if ($request->has('date_to') && $request->date_to) {
             $query->where('attendance_date', '<=', $request->date_to);
-        } else {
-            // Default to current month if no date filter
-            $query->whereMonth('attendance_date', Carbon::now()->month)
-                ->whereYear('attendance_date', Carbon::now()->year);
         }
 
         $records = $query->latest('attendance_date')->paginate(10);

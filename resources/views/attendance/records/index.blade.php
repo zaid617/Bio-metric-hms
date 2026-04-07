@@ -97,8 +97,6 @@
                                     <th>Check In</th>
                                     <th>Check Out</th>
                                     <th>Working Hours</th>
-                                    <th>Late</th>
-                                    <th>Overtime (mins)</th>
                                     <th>Status</th>
                                     <th>Actions</th>
                                 </tr>
@@ -117,17 +115,6 @@
                                             @endif
                                         </td>
                                         <td>{{ $record->working_hours ?? 0 }}h</td>
-                                        <td>
-                                            @if((int) ($record->late_minutes ?? 0) > 0)
-                                                <span class="late-badge">Late: {{ (int) $record->late_minutes }} min</span>
-                                            @else
-                                                <span class="text-muted">-</span>
-                                            @endif
-                                        </td>
-                                        <td>
-                                            {{ max(0, (int) ($record->overtime_minutes ?? 0)) }}
-                                            <div class="ot-note">for record only</div>
-                                        </td>
                                         <td>
                                             <span class="status-{{ $record->status }}">
                                                 {{ ucfirst(str_replace('_', ' ', $record->status)) }}

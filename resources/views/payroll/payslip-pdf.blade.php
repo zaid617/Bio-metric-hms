@@ -281,8 +281,6 @@
             <th>Absent</th>
             <th>Leaves</th>
             <th>Late Count</th>
-            <th>Late Minutes</th>
-            <th>OT Hours</th>
         </tr>
         <tr>
             <td>{{ $attendance['working_days'] ?? 0 }}</td>
@@ -290,11 +288,8 @@
             <td>{{ $attendance['absent_days'] ?? 0 }}</td>
             <td>{{ $attendance['leave_days'] ?? 0 }}</td>
             <td>{{ $attendance['late_count'] ?? 0 }}</td>
-            <td>{{ $attendance['late_minutes'] ?? 0 }}</td>
-            <td>{{ number_format((float) ($attendance['overtime_hours'] ?? 0), 2) }}</td>
         </tr>
     </table>
-    <div class="ot-note">Overtime is for record only - not included in salary.</div>
 </div>
 
 <div class="card">
@@ -303,7 +298,6 @@
         <thead>
             <tr>
                 <th>Allowance</th>
-                <th>Notes</th>
                 <th>Amount</th>
             </tr>
         </thead>
@@ -311,7 +305,6 @@
             @forelse($allowanceRows as $line)
                 <tr>
                     <td>{{ str_replace('_', ' ', $line['type']) }}</td>
-                    <td class="muted">{{ $line['notes'] !== '' ? $line['notes'] : '-' }}</td>
                     <td>{{ number_format((float) $line['amount'], 2) }}</td>
                 </tr>
             @empty
