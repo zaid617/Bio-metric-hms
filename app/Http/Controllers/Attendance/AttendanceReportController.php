@@ -19,6 +19,7 @@ class AttendanceReportController extends Controller
     {
         $date = $request->has('date') ? Carbon::parse($request->date) : Carbon::today();
         $branchId = $request->get('branch_id');
+        $status = $request->get('status');
 
         $query = AttendanceRecord::with(['employee', 'branch'])
             ->where('attendance_date', $date->toDateString());
@@ -27,20 +28,32 @@ class AttendanceReportController extends Controller
             $query->where('branch_id', $branchId);
         }
 
-        $records = $query->get();
+        if ($status) {
+            $query->where('status', $status);
+        }
+
+        $statsQuery = clone $query;
+
+        $records = $query
+            ->orderBy('attendance_date', 'desc')
+            ->orderBy('employee_id')
+            ->paginate(50);
 
         // Statistics
         $stats = [
-            'total' => $records->count(),
-            'present' => $records->whereIn('status', ['present', 'late'])->count(),
-            'late' => $records->where('status', 'late')->count(),
-            'absent' => $records->where('status', 'absent')->count(),
-            'on_leave' => $records->where('status', 'leave')->count(),
+            'total' => (clone $statsQuery)->count(),
+            'present' => (clone $statsQuery)->whereIn('status', ['present', 'late'])->count(),
+            'late' => (clone $statsQuery)->where('status', 'late')->count(),
+            'absent' => (clone $statsQuery)->where('status', 'absent')->count(),
+            'on_leave' => (clone $statsQuery)->where('status', 'leave')->count(),
         ];
+
+        // Backward compatibility for views expecting $summary.
+        $summary = $stats;
 
         $branches = Branch::where('status', 'active')->get();
 
-        return view('attendance.reports.daily', compact('date', 'records', 'stats', 'branches'));
+        return view('attendance.reports.daily', compact('date', 'records', 'stats', 'summary', 'branches'));
     }
 
     /**
@@ -97,25 +110,49 @@ class AttendanceReportController extends Controller
             ? Carbon::parse($request->end_date)
             : Carbon::now()->endOfMonth();
 
-        $records = AttendanceRecord::where('employee_id', $employee->id)
-            ->whereBetween('attendance_date', [$startDate, $endDate])
+        $status = $request->get('status');
+
+        $baseQuery = AttendanceRecord::where('employee_id', $employee->id)
+            ->whereBetween('attendance_date', [$startDate->toDateString(), $endDate->toDateString()]);
+
+        if ($status) {
+            $baseQuery->where('status', $status);
+        }
+
+        $recordsForStats = (clone $baseQuery)->get();
+        $totalDays = $recordsForStats->count();
+        $presentDays = $recordsForStats->whereIn('status', ['present', 'late', 'half_day'])->count();
+        $totalHours = round($recordsForStats->sum('total_working_minutes') / 60, 2);
+        $overtimeHours = round($recordsForStats->sum('overtime_minutes') / 60, 2);
+        $averageHours = $totalDays > 0 ? round($totalHours / $totalDays, 2) : 0;
+        $attendancePercentage = $totalDays > 0 ? round(($presentDays / $totalDays) * 100, 2) : 0;
+
+        $records = $baseQuery
             ->orderBy('attendance_date', 'desc')
-            ->get();
+            ->paginate(50);
 
         // Statistics
         $stats = [
-            'total_days' => $records->count(),
-            'present_days' => $records->whereIn('status', ['present', 'late', 'half_day'])->count(),
-            'absent_days' => $records->where('status', 'absent')->count(),
-            'late_days' => $records->where('status', 'late')->count(),
-            'total_working_hours' => round($records->sum('total_working_minutes') / 60, 2),
-            'overtime_hours' => round($records->sum('overtime_minutes') / 60, 2),
-            'avg_working_hours' => $records->count() > 0
-                ? round(($records->sum('total_working_minutes') / 60) / $records->count(), 2)
-                : 0,
+            'total_days' => $totalDays,
+            'present_days' => $presentDays,
+            'absent_days' => $recordsForStats->where('status', 'absent')->count(),
+            'late_days' => $recordsForStats->where('status', 'late')->count(),
+            'total_working_hours' => $totalHours,
+            'overtime_hours' => $overtimeHours,
+            'avg_working_hours' => $averageHours,
+
+            // Compatibility keys for current blade template.
+            'total_hours' => $totalHours,
+            'avg_hours_per_day' => $averageHours,
+            'attendance_percentage' => $attendancePercentage,
         ];
 
-        return view('attendance.reports.employee', compact('employee', 'records', 'stats', 'startDate', 'endDate'));
+        $employees = Employee::with('branch')
+            ->select('id', 'name', 'designation', 'branch_id')
+            ->orderBy('name')
+            ->get();
+
+        return view('attendance.reports.employee', compact('employee', 'records', 'stats', 'startDate', 'endDate', 'employees'));
     }
 
     /**
