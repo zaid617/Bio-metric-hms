@@ -179,7 +179,7 @@
                                         </div>
                                     </div>
 
-                                    <div class="mb-3">
+                                    {{-- <div class="mb-3">
                                         <h6 class="text-primary mb-3">Incentives</h6>
                                         <div class="row g-3">
                                             <div class="col-md-3">
@@ -203,7 +203,7 @@
                                                 @error('incentive_dry_needling')<small class="text-danger">{{ $message }}</small>@enderror
                                             </div>
                                         </div>
-                                    </div>
+                                    </div> --}}
 
                                     <div class="mb-3">
                                         <h6 class="text-primary mb-3">Other</h6>

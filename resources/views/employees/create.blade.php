@@ -159,7 +159,7 @@
                                         </div>
                                     </div>
 
-                                    <div class="mb-3">
+                                    {{-- <div class="mb-3">
                                         <h6 class="text-primary mb-3">Incentives</h6>
                                         <div class="row g-3">
                                             <div class="col-md-3">
@@ -179,7 +179,7 @@
                                                 <input type="number" step="0.01" min="0" id="incentive_dry_needling" name="incentive_dry_needling" class="form-control salary-component" placeholder="0.00" value="{{ old('incentive_dry_needling', '0.00') }}">
                                             </div>
                                         </div>
-                                    </div>
+                                    </div> --}}
 
                                     <div class="mb-3">
                                         <h6 class="text-primary mb-3">Other</h6>

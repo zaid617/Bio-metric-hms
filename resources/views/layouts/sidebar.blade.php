@@ -263,11 +263,11 @@
                         <i class="material-icons-outlined">payments</i> Payroll
                     </a>
                     </li>
-                    <li>
+                    {{-- <li>
                     <a href="{{ route('attendance.reports.daily') }}">
                         <i class="material-icons-outlined">assessment</i> Reports
                     </a>
-                    </li>
+                    </li> --}}
                 </ul>
             </li>
 

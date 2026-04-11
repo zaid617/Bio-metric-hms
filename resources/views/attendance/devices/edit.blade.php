@@ -11,7 +11,7 @@
         <div class="col-xl-8 mx-auto">
             <div class="card">
                 <div class="card-body">
-                    <form action="{{ route('attendance.devices.update', $device) }}" method="POST">
+                    <form id="device-update-form" action="{{ route('attendance.devices.update', $device) }}" method="POST">
                         @csrf
                         @method('PUT')
 
@@ -116,26 +116,28 @@
                             </div>
                         </div>
 
-                        <div class="d-flex justify-content-between">
-                            <a href="{{ route('attendance.devices.index') }}" class="btn btn-secondary">
-                                 Cancel
-                            </a>
-                            <div>
-                                <form action="{{ route('attendance.devices.destroy', $device) }}"
-                                      method="POST" style="display:inline;"
-                                      onsubmit="return confirm('Are you sure you want to delete this device?');">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button type="submit" class="btn btn-danger">
-                                        Delete
-                                    </button>
-                                </form>
-                                <button type="submit" class="btn btn-primary">
-                                    Update Device
-                                </button>
-                            </div>
-                        </div>
                     </form>
+
+                    <div class="d-flex justify-content-between align-items-center">
+                        <a href="{{ route('attendance.devices.index') }}" class="btn btn-secondary">
+                             Cancel
+                        </a>
+                        <div class="d-flex gap-2">
+                            <form action="{{ route('attendance.devices.destroy', $device) }}"
+                                  method="POST"
+                                  class="m-0"
+                                  onsubmit="return confirm('Are you sure you want to delete this device?');">
+                                @csrf
+                                @method('DELETE')
+                                <button type="submit" class="btn btn-danger">
+                                    Delete
+                                </button>
+                            </form>
+                            <button type="submit" form="device-update-form" class="btn btn-primary">
+                                Update Device
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
