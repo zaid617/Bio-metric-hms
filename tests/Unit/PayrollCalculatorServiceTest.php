@@ -87,7 +87,9 @@ class PayrollCalculatorServiceTest extends TestCase
             $adjustments
         );
 
-        $this->assertEqualsWithDelta(12550.00, (float) $result['final_salary'], 0.001);
+        $this->assertEqualsWithDelta(12000.00, (float) $result['final_salary'], 0.001);
+        $this->assertEqualsWithDelta(1000.00, (float) $result['absent_deduction'], 0.001);
+        $this->assertEqualsWithDelta(800.00, (float) $result['late_deduction'], 0.001);
         $this->assertEqualsWithDelta(300.00, (float) $result['tax'], 0.001);
         $this->assertEqualsWithDelta(150.00, (float) $result['other_deduction'], 0.001);
 

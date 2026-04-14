@@ -78,11 +78,20 @@ class PayrollCalculatorService
             $sumByCode($earningAdjustments, [PayrollEarningType::ADDITIONAL_SALARY])
         );
 
-        $dailyRate = $totalWorkingDays > 0
-            ? ($baseSalary / $totalWorkingDays)
-            : 0.0;
-        $absentDeduction = $this->money($absentDays * $dailyRate);
-        $lateDeduction = $this->money(floor($totalLateCount / 3) * ($dailyRate / 2));
+        $absentPerDay = 500.0;
+        $latePerDay = 200.0;
+
+        try {
+            $absentPerDay = (float) config('payroll.deductions.absent_per_day', config('payroll.absent_per_day', 500));
+            $latePerDay = (float) config('payroll.deductions.late_per_day', config('payroll.late_per_day', 200));
+        } catch (\Throwable) {
+            // Keep defaults for unit contexts where Laravel config container is not bootstrapped.
+        }
+
+        $absentPerDay = $this->money($absentPerDay);
+        $latePerDay = $this->money($latePerDay);
+        $absentDeduction = $this->money($absentDays * $absentPerDay);
+        $lateDeduction = $this->money($totalLateCount * $latePerDay);
 
         $tax = $this->money($sumByCode($deductionAdjustments, [PayrollDeductionType::TAX]));
         $providentFund = $this->money($sumByCode($deductionAdjustments, [PayrollDeductionType::PROVIDENT_FUND]));
@@ -161,12 +170,12 @@ class PayrollCalculatorService
             [
                 'type' => PayrollDeductionType::ABSENT_DEDUCTION,
                 'amount' => $absentDeduction,
-                'notes' => 'Absent deduction = absent days × (basic / working days)',
+                'notes' => 'Absent deduction = absent days × absent deduction/day setting',
             ],
             [
                 'type' => PayrollDeductionType::LATE_DEDUCTION,
                 'amount' => $lateDeduction,
-                'notes' => 'Late deduction = floor(late count / 3) × (basic / working days / 2)',
+                'notes' => 'Late deduction = late count × late deduction/day setting',
             ],
         ];
 
