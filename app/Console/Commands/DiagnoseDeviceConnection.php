@@ -106,10 +106,17 @@ class DiagnoseDeviceConnection extends Command
         } else {
             $this->error("✗ FAIL: {$portResult['message']}");
             $this->warn("Troubleshooting Tips:");
-            $this->warn("  • Check Windows Firewall settings");
-            $this->warn("    Run: netsh advfirewall firewall show rule name=all | findstr 4370");
-            $this->warn("  • Add firewall rule:");
-            $this->warn("    netsh advfirewall firewall add rule name=\"ZKTeco UDP\" protocol=UDP dir=out localport=4370 action=allow");
+            if ($this->isWindows()) {
+                $this->warn("  • Check Windows Firewall settings");
+                $this->warn("    Run: netsh advfirewall firewall show rule name=all | findstr 4370");
+                $this->warn("  • Add firewall rule:");
+                $this->warn("    netsh advfirewall firewall add rule name=\"ZKTeco UDP\" protocol=UDP dir=out localport=4370 action=allow");
+            } else {
+                $this->warn("  • Check EC2 Security Group outbound UDP {$device->port}");
+                $this->warn("  • Check Network ACL rules for UDP request/response traffic");
+                $this->warn("  • Check server firewall (ufw/iptables/nftables)");
+                $this->warn("  • Verify upstream router/NAT allows UDP {$device->port} return packets");
+            }
             $this->warn("  • Check network firewall/router settings");
             $this->warn("  • Verify device firewall settings (if any)");
             $this->warn("  • Contact network administrator for cross-network UDP access");
@@ -168,9 +175,16 @@ class DiagnoseDeviceConnection extends Command
                 $this->error("Primary Issue: Firewall blocking UDP port 4370");
                 $this->warn("The device is reachable, but UDP traffic is blocked.");
                 $this->warn("Actions to take:");
-                $this->warn("  1. Add Windows Firewall rule (see Test 2 tips above)");
-                $this->warn("  2. Check corporate/network firewall settings");
-                $this->warn("  3. Ask network admin to allow UDP 4370 between networks");
+                if ($this->isWindows()) {
+                    $this->warn("  1. Add Windows Firewall rule (see Test 2 tips above)");
+                    $this->warn("  2. Check corporate/network firewall settings");
+                    $this->warn("  3. Ask network admin to allow UDP 4370 between networks");
+                } else {
+                    $this->warn("  1. Allow outbound UDP 4370 in EC2 Security Group");
+                    $this->warn("  2. Allow UDP return path in Network ACL");
+                    $this->warn("  3. Allow UDP 4370 on instance firewall (ufw/iptables)");
+                    $this->warn("  4. Ask network admin to allow AWS source IP to reach device");
+                }
             } else {
                 $this->error("Primary Issue: Device not responding");
                 $this->warn("Network is OK, but device isn't responding.");
@@ -190,21 +204,71 @@ class DiagnoseDeviceConnection extends Command
         return $result['success'] ? 0 : 1;
     }
 
+    private function isWindows(): bool
+    {
+        return PHP_OS_FAMILY === 'Windows';
+    }
+
+    private function buildPingCommand(string $ip): string
+    {
+        $escapedIp = escapeshellarg($ip);
+
+        if ($this->isWindows()) {
+            return "ping -n 1 -w 3000 {$escapedIp}";
+        }
+
+        return "ping -c 1 -W 3 {$escapedIp}";
+    }
+
+    private function buildRouteCommand(string $ip): ?string
+    {
+        $escapedIp = escapeshellarg($ip);
+
+        if ($this->isWindows()) {
+            return "tracert -h 5 -w 1000 {$escapedIp}";
+        }
+
+        $routeCommands = [
+            'traceroute -m 5 -w 1 ' . $escapedIp,
+            'tracepath ' . $escapedIp,
+        ];
+
+        foreach ($routeCommands as $command) {
+            $binary = strtok($command, ' ');
+            $probeOutput = [];
+            $probeStatus = 1;
+            exec("command -v {$binary} >/dev/null 2>&1", $probeOutput, $probeStatus);
+
+            if ($probeStatus === 0) {
+                return $command;
+            }
+        }
+
+        return null;
+    }
+
     private function testPing(string $ip): array
     {
         try {
             $output = [];
             $returnVar = 0;
 
-            // Windows ping command with timeout of 3 seconds
-            exec("ping -n 1 -w 3000 {$ip}", $output, $returnVar);
+            exec($this->buildPingCommand($ip) . ' 2>&1', $output, $returnVar);
 
             $success = ($returnVar === 0);
+            $details = implode("\n", $output);
+            $message = $success
+                ? 'Device is reachable on the network'
+                : 'Device is not reachable (ping timeout, network unreachable, or ping unavailable)';
+
+            if (!$success && stripos($details, 'not found') !== false) {
+                $message = 'Ping command is unavailable on this server.';
+            }
 
             return [
                 'success' => $success,
-                'message' => $success ? 'Device is reachable on the network' : 'Device is not reachable (ping timeout or network unreachable)',
-                'details' => implode("\n", $output)
+                'message' => $message,
+                'details' => $details,
             ];
         } catch (\Exception $e) {
             return [
@@ -218,6 +282,14 @@ class DiagnoseDeviceConnection extends Command
     private function testUdpPort(string $ip, int $port): array
     {
         try {
+            if (!function_exists('socket_create')) {
+                return [
+                    'success' => false,
+                    'message' => 'PHP sockets extension is not enabled',
+                    'details' => 'socket_create() is unavailable on this server.'
+                ];
+            }
+
             $socket = @socket_create(AF_INET, SOCK_DGRAM, SOL_UDP);
 
             if (!$socket) {
@@ -235,15 +307,19 @@ class DiagnoseDeviceConnection extends Command
             $testData = "TEST";
             $sent = @socket_sendto($socket, $testData, strlen($testData), 0, $ip, $port);
 
-            socket_close($socket);
-
             if ($sent === false) {
+                $errorCode = socket_last_error($socket);
+                $errorMessage = socket_strerror($errorCode);
+                socket_close($socket);
+
                 return [
                     'success' => false,
                     'message' => 'Failed to send data to UDP port (likely blocked by firewall)',
-                    'details' => socket_strerror(socket_last_error())
+                    'details' => $errorMessage,
                 ];
             }
+
+            socket_close($socket);
 
             return [
                 'success' => true,
@@ -263,8 +339,14 @@ class DiagnoseDeviceConnection extends Command
     private function testRoute(string $ip): void
     {
         try {
+            $command = $this->buildRouteCommand($ip);
+            if (!$command) {
+                $this->warn('Route test skipped: traceroute tools are not installed on this server.');
+                return;
+            }
+
             $output = [];
-            exec("tracert -h 5 -w 1000 {$ip}", $output);
+            exec($command . ' 2>&1', $output);
 
             $this->info("Route tracing to {$ip} (first 5 hops):");
             foreach (array_slice($output, 0, 10) as $line) {

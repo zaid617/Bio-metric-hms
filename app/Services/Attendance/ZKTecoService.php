@@ -16,6 +16,7 @@ class ZKTecoService
 
     public function __construct()
     {
+        $this->timeout = max(1, (int) config('zkteco.connection_timeout', 30));
         $this->configureVendorLogger();
     }
 
@@ -65,7 +66,18 @@ class ZKTecoService
     public function connect(AttendanceDevice $device): bool
     {
         try {
+            if (!function_exists('socket_create')) {
+                throw new \RuntimeException('PHP sockets extension is not enabled. Enable php-sockets on the server.');
+            }
+
             $this->zk = new ZKTeco($device->ip_address, $device->port);
+
+            // Override package default socket timeout so environment config is honored.
+            if (isset($this->zk->_zkclient)) {
+                $socketTimeout = ['sec' => $this->timeout, 'usec' => 0];
+                @socket_set_option($this->zk->_zkclient, SOL_SOCKET, SO_RCVTIMEO, $socketTimeout);
+                @socket_set_option($this->zk->_zkclient, SOL_SOCKET, SO_SNDTIMEO, $socketTimeout);
+            }
 
             Log::info("Attempting to connect to device: {$device->device_name} ({$device->ip_address}:{$device->port})");
 
@@ -87,6 +99,10 @@ class ZKTecoService
 
             return false;
         } catch (Exception $e) {
+            Log::error("Connection error to device {$device->device_name}: " . $e->getMessage());
+            $device->update(['connection_status' => 'offline']);
+            return false;
+        } catch (\Throwable $e) {
             Log::error("Connection error to device {$device->device_name}: " . $e->getMessage());
             $device->update(['connection_status' => 'offline']);
             return false;
@@ -116,6 +132,21 @@ class ZKTecoService
         $diagnostics = [];
 
         try {
+            if (!function_exists('socket_create')) {
+                return [
+                    'success' => false,
+                    'message' => 'PHP sockets extension is not enabled on this server. Install/enable php-sockets first.',
+                    'device_info' => null,
+                    'diagnostics' => [
+                        'runtime' => [
+                            'success' => false,
+                            'message' => 'Missing sockets extension',
+                            'details' => 'socket_create() is unavailable.',
+                        ],
+                    ],
+                ];
+            }
+
             // Test 1: Check if IP is reachable (ping)
             Log::info("Testing network connectivity to {$device->ip_address}");
             $diagnostics['ping_test'] = $this->testPing($device->ip_address);
@@ -174,19 +205,25 @@ class ZKTecoService
     private function testPing(string $ip): array
     {
         try {
-            // For Windows, use fping or Test-Connection
             $output = [];
             $returnVar = 0;
 
-            // Windows ping command with timeout of 3 seconds
-            exec("ping -n 1 -w 3000 {$ip}", $output, $returnVar);
+            exec($this->buildPingCommand($ip) . ' 2>&1', $output, $returnVar);
 
             $success = ($returnVar === 0);
+            $details = implode("\n", $output);
+            $message = $success
+                ? 'Device is reachable on the network'
+                : 'Device is not reachable (ping failed or command unavailable on this server)';
+
+            if (!$success && stripos($details, 'not found') !== false) {
+                $message = 'Ping command is unavailable on this server. Connection tests will rely on UDP/device checks.';
+            }
 
             return [
                 'success' => $success,
-                'message' => $success ? 'Device is reachable on the network' : 'Device is not reachable (ping failed)',
-                'details' => implode("\n", $output)
+                'message' => $message,
+                'details' => $details,
             ];
         } catch (Exception $e) {
             return [
@@ -203,6 +240,14 @@ class ZKTecoService
     private function testUdpPort(string $ip, int $port): array
     {
         try {
+            if (!function_exists('socket_create')) {
+                return [
+                    'success' => false,
+                    'message' => 'PHP sockets extension is not enabled',
+                    'details' => 'socket_create() is unavailable on this server.'
+                ];
+            }
+
             // Create a UDP socket connection test
             $socket = @socket_create(AF_INET, SOCK_DGRAM, SOL_UDP);
 
@@ -215,7 +260,7 @@ class ZKTecoService
             }
 
             // Set timeout for socket operations
-            $timeout = ['sec' => 5, 'usec' => 0];
+            $timeout = ['sec' => min($this->timeout, 10), 'usec' => 0];
             socket_set_option($socket, SOL_SOCKET, SO_RCVTIMEO, $timeout);
             socket_set_option($socket, SOL_SOCKET, SO_SNDTIMEO, $timeout);
 
@@ -223,15 +268,19 @@ class ZKTecoService
             $testData = "TEST";
             $sent = @socket_sendto($socket, $testData, strlen($testData), 0, $ip, $port);
 
-            socket_close($socket);
-
             if ($sent === false) {
+                $errorCode = socket_last_error($socket);
+                $errorMessage = socket_strerror($errorCode);
+                socket_close($socket);
+
                 return [
                     'success' => false,
                     'message' => 'Failed to send data to UDP port (may be blocked by firewall)',
-                    'details' => socket_strerror(socket_last_error())
+                    'details' => $errorMessage,
                 ];
             }
+
+            socket_close($socket);
 
             return [
                 'success' => true,
@@ -246,6 +295,20 @@ class ZKTecoService
                 'details' => ''
             ];
         }
+    }
+
+    /**
+     * Build OS-appropriate ping command.
+     */
+    private function buildPingCommand(string $ip): string
+    {
+        $escapedIp = escapeshellarg($ip);
+
+        if (PHP_OS_FAMILY === 'Windows') {
+            return "ping -n 1 -w 3000 {$escapedIp}";
+        }
+
+        return "ping -c 1 -W 3 {$escapedIp}";
     }
 
     /**
