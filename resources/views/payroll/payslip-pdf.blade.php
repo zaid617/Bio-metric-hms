@@ -16,8 +16,20 @@
 
         .header {
             border-bottom: 2px solid #111827;
-            padding-bottom: 10px;
             margin-bottom: 12px;
+        }
+
+        .logo-wrap {
+            width: 100%;
+            text-align: center;
+            margin-bottom: 8px;
+        }
+
+        .logo-img {
+            width: 300px;
+            max-width: 100%;
+            height: auto;
+            display: inline-block;
         }
 
         .title {
@@ -240,6 +252,9 @@
     }
 @endphp
 
+<div class="logo-wrap">
+    <img class="logo-img" src="{{ public_path('assets/logo.webp') }}" alt="Body Experts">
+</div>
 <div class="header">
     <h1 class="title">Salary Payslip</h1>
     <p class="sub">Pay Period: {{ $periodLabel }}</p>

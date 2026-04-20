@@ -97,7 +97,7 @@ class AttendanceRecordController extends Controller
                 $checkIn = Carbon::parse($record->attendance_date . ' ' . $validated['check_in']);
                 $deadline = (clone $shiftRule['shift_start_at'])->addMinutes($shiftRule['grace_minutes']);
                 $validated['is_late'] = $checkIn->gt($deadline);
-                $validated['late_minutes'] = $checkIn->gt($shiftRule['shift_start_at'])
+                $validated['late_minutes'] = $validated['is_late']
                     ? $shiftRule['shift_start_at']->diffInMinutes($checkIn)
                     : 0;
 
@@ -117,8 +117,8 @@ class AttendanceRecordController extends Controller
 
                 $workingMinutes = $checkIn->diffInMinutes($checkOut);
                 $validated['total_working_minutes'] = $workingMinutes;
-                $validated['overtime_minutes'] = $checkOut->gt($shiftRule['shift_end_at'])
-                    ? $shiftRule['shift_end_at']->diffInMinutes($checkOut)
+                $validated['overtime_minutes'] = $workingMinutes > $shiftRule['shift_start_at']->diffInMinutes($shiftRule['shift_end_at'])
+                    ? $workingMinutes - $shiftRule['shift_start_at']->diffInMinutes($shiftRule['shift_end_at'])
                     : 0;
                 $validated['is_checkout_missing'] = false;
             } elseif (!empty($validated['check_in']) && empty($validated['check_out'])) {
@@ -142,7 +142,12 @@ class AttendanceRecordController extends Controller
      */
     public function markMissingCheckout(AttendanceRecord $record)
     {
-        $record->update(['is_checkout_missing' => true]);
+        $record->update([
+            'is_checkout_missing' => true,
+            'check_out' => null,
+            'total_working_minutes' => null,
+            'overtime_minutes' => 0,
+        ]);
 
         return response()->json([
             'success' => true,
@@ -187,11 +192,11 @@ class AttendanceRecordController extends Controller
 
                 $record->update([
                     'total_working_minutes' => $workingMinutes,
-                    'overtime_minutes' => $checkOut->gt($shiftRule['shift_end_at'])
-                        ? $shiftRule['shift_end_at']->diffInMinutes($checkOut)
+                    'overtime_minutes' => $workingMinutes > $shiftRule['shift_start_at']->diffInMinutes($shiftRule['shift_end_at'])
+                        ? $workingMinutes - $shiftRule['shift_start_at']->diffInMinutes($shiftRule['shift_end_at'])
                         : 0,
                     'is_late' => $isLate,
-                    'late_minutes' => $checkIn->gt($shiftRule['shift_start_at'])
+                    'late_minutes' => $isLate
                         ? $shiftRule['shift_start_at']->diffInMinutes($checkIn)
                         : 0,
                     'status' => $status,

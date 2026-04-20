@@ -74,7 +74,6 @@
                     ['label'=>'Present','value'=> $payroll->present_days ?? 0,'icon'=>'check_circle','color'=>'success'],
                     ['label'=>'Absent','value'=> $payroll->absent_days ?? 0,'icon'=>'cancel','color'=>'danger'],
                     ['label'=>'Late','value'=> $payroll->late_days ?? 0,'icon'=>'schedule','color'=>'warning'],
-                    ['label'=>'Late Minutes','value'=> ($payroll->total_late_minutes ?? 0).' min','icon'=>'alarm','color'=>'danger'],
                     ['label'=>'Work Hours','value'=> number_format($payroll->total_working_hours ?? 0,1).'h','icon'=>'timer','color'=>'info'],
                     ['label'=>'OT (Record Only)','value'=> number_format($payroll->total_overtime_hours ?? $payroll->overtime_hours ?? 0,1).'h','icon'=>'more_time','color'=>'secondary'],
                 ] as $att)

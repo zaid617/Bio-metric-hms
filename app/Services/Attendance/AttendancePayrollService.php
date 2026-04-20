@@ -112,11 +112,16 @@ class AttendancePayrollService
         try {
             DB::beginTransaction();
 
+            $previousAdjustment = (float) ($payroll->admin_adjustment_amount ?? 0);
+            $delta = $adjustmentAmount - $previousAdjustment;
+
+            $baseSalary = (float) ($payroll->final_salary ?? $payroll->final_settlement ?? 0);
+
             $payroll->update([
                 'admin_adjustment_amount' => $adjustmentAmount,
                 'admin_adjustment_note' => $note,
-                'final_salary' => (($payroll->final_salary ?? $payroll->final_settlement) + $adjustmentAmount),
-                'final_settlement' => (($payroll->final_salary ?? $payroll->final_settlement) + $adjustmentAmount),
+                'final_salary' => $baseSalary + $delta,
+                'final_settlement' => $baseSalary + $delta,
             ]);
 
             DB::commit();
@@ -148,9 +153,10 @@ class AttendancePayrollService
                     $deductions,
                     'Manual payroll deduction'
                 );
-            } else {
-                $this->payrollService->regeneratePayroll($payroll);
             }
+
+            // When amount is zero the legacy adjustment was already deleted above.
+            // Do NOT regenerate - that would wipe other manual adjustments.
 
             Log::info("Updated deductions for payroll {$payroll->id}: {$deductions}");
         } catch (Exception $e) {
@@ -178,9 +184,10 @@ class AttendancePayrollService
                     $bonus,
                     'Manual payroll award'
                 );
-            } else {
-                $this->payrollService->regeneratePayroll($payroll);
             }
+
+            // When amount is zero the legacy adjustment was already deleted above.
+            // Do NOT regenerate - that would wipe other manual adjustments.
 
             Log::info("Updated bonus for payroll {$payroll->id}: {$bonus}");
         } catch (Exception $e) {

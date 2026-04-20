@@ -141,6 +141,7 @@ class AttendanceSyncService
             'status' => $status,
             'records_fetched' => $recordsFetched,
             'records_new' => $recordsNew,
+            // Note: records_duplicate stores updated-count for user syncs (column reuse)
             'records_duplicate' => $recordsUpdated,
             'error_message' => $errorMessage,
             'started_at' => $startedAt,
@@ -629,8 +630,9 @@ class AttendanceSyncService
             }
 
             $record->total_working_minutes = $checkIn->diffInMinutes($checkOut);
-            $record->overtime_minutes = $checkOut->gt($shiftEndAt)
-                ? $shiftEndAt->diffInMinutes($checkOut)
+            $requiredMinutes = $shiftRule['shift_start_at']->diffInMinutes($shiftRule['shift_end_at']);
+            $record->overtime_minutes = $record->total_working_minutes > $requiredMinutes
+                ? $record->total_working_minutes - $requiredMinutes
                 : 0;
             $record->is_checkout_missing = false;
         } else {
@@ -639,7 +641,7 @@ class AttendanceSyncService
 
         $deadline = (clone $shiftStartAt)->addMinutes($graceMinutes);
         $record->is_late = $checkIn->gt($deadline);
-        $record->late_minutes = $checkIn->gt($shiftStartAt)
+        $record->late_minutes = $record->is_late
             ? $shiftStartAt->diffInMinutes($checkIn)
             : 0;
         $record->status = $record->is_late ? 'late' : 'present';
