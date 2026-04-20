@@ -36,7 +36,7 @@
                             <select name="patient_id" id="patient_id" class="form-select" required>
                                 <option value="">Select Patient</option>
                                 @foreach($patients as $patient)
-                                    <option value="{{ $patient->id }}" 
+                                    <option value="{{ $patient->id }}"
                                         {{ request('patient_id') == $patient->id ? 'selected' : '' }}>
                                         {{ $patient->mr }} | {{ $patient->name }}
                                     </option>
@@ -73,7 +73,7 @@
                         <!-- Consultation Fee -->
                         <div class="col-md-3">
                             <label for="fee" class="form-label">Consultation Fee</label>
-                            <input type="number" name="fee" id="fee" class="form-control" value="{{ old('fee') ?? 0 }}" readonly>
+                            <input type="number" name="fee" id="fee" class="form-control" value="{{ old('fee') ?? 0 }}">
                         </div>
 
                         <!-- Paid Amount -->

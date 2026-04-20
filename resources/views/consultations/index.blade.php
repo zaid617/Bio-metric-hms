@@ -46,7 +46,7 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @forelse($consultations as $consultation)
+                            @foreach($consultations as $consultation)
                             <tr>
                                 <td>{{ $consultation->patient_name ?? 'N/A' }}</td>
                                 <td>{{ \Carbon\Carbon::parse($consultation->created_at)->format('d-m-Y') }}</td>
@@ -81,15 +81,15 @@
                                             <span class="visually-hidden">Toggle Dropdown</span>
                                         </button>
                                         <div class="dropdown-menu dropdown-menu-end p-2" style="min-width:180px;">
-                                            
+
                                             {{-- View button --}}
                                             <a href="{{ url('/consultations/' . $consultation->id) }}"
                                                 class="btn btn-info btn-sm mb-1 w-100">View</a>
-                                            
+
                                             {{-- History button --}}
                                             <a href="{{ route('consultations.history', $consultation->patient_id) }}"
                                                 class="btn btn-dark btn-sm mb-1 w-100">History</a>
-                                            
+
                                             {{-- Print button --}}
                                             <a href="{{ route('consultations.print', $consultation->id) }}"
                                                 class="btn btn-secondary btn-sm mb-1 w-100">Print</a>
@@ -104,7 +104,7 @@
                                             @if(auth()->user()->hasRole('admin'))
                                             <a href="{{ url('/consultations/' . $consultation->id . '/edit') }}"
                                                 class="btn btn-warning btn-sm mb-1 w-100">Edit</a>
-                                            
+
                                             <form action="{{ url('/consultations/' . $consultation->id) }}" method="POST" onsubmit="return confirm('Are you sure you want to delete this consultation?');">
                                                 @csrf
                                                 @method('DELETE')
@@ -116,11 +116,7 @@
                                     </div>
                                 </td>
                             </tr>
-                            @empty
-                            <tr>
-                                <td colspan="{{ auth()->user()->hasRole('doctor') ? 5 : 8 }}" class="text-center">No consultations found.</td>
-                            </tr>
-                            @endforelse
+                            @endforeach
                         </tbody>
                     </table>
                 </div>
@@ -151,6 +147,9 @@ $(document).ready(function () {
         pageLength: 10,
         lengthMenu: [5,10,25,50,100],
         ordering: true,
+        language: {
+            emptyTable: 'No consultations found.'
+        },
         columnDefs: [{ orderable: false, targets: -1 }] // last column (Actions) not orderable
     });
 });
