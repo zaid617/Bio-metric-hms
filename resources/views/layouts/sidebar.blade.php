@@ -18,15 +18,26 @@
 
  <!--navigation-->
 
-         @role('admin','web')
+        @php
+            $sidebarUser = auth()->user();
+            $isViewOnlyAdmin = $sidebarUser?->hasRole('view-only-admin') ?? false;
+            $dashboardRoute = $isViewOnlyAdmin ? route('view-only-admin.dashboard') : route('admin.dashboard');
+            $appointmentsIndexRoute = $isViewOnlyAdmin ? route('view-only-admin.appointments.index') : route('admin.appointments.index');
+            $appointmentsCreateRoute = $isViewOnlyAdmin ? route('view-only-admin.appointments.create') : route('admin.appointments.create');
+        @endphp
+
+         @hasanyrole('admin|view-only-admin')
+          @can('view_dashboard')
           <li>
-            <a href="{{ url('admin/dashboard') }}">
+            <a href="{{ $dashboardRoute }}">
               <div class="parent-icon"><i class="material-icons-outlined">home</i>
               </div>
               <div class="menu-title">Dashboard</div>
             </a>
           </li>
+          @endcan
 
+          @canany(['view patients', 'create patients', 'edit patients', 'delete patients'])
           <li>
             <a class="has-arrow" href="javascript:;">
               <div class="parent-icon"><i class="material-icons-outlined">person</i>
@@ -34,14 +45,20 @@
               <div class="menu-title">Patients</div>
             </a>
             <ul>
+              @can('view patients')
               <li><a href="{{ url('/patients') }}"><i class="material-icons-outlined">list</i>All Patients</a>
               </li>
+              @endcan
+              @can('create patients')
               <li><a href="{{ url('/patients/create') }}"><i class="material-icons-outlined">add</i>Add New Patient</a>
               </li>
+              @endcan
 
             </ul>
           </li>
+          @endcanany
 
+          @can('manage_appointments')
           <li>
             <a class="has-arrow" href="javascript:;">
                 <div class="parent-icon">
@@ -62,8 +79,10 @@
                 </li>
             </ul>
             </li>
+            @endcan
 
              <!-- Checkups Menu -->
+             @canany(['view appointments', 'create appointments'])
              <li>
                 <a class="has-arrow" href="javascript:;">
                     <div class="parent-icon">
@@ -72,20 +91,26 @@
                     <div class="menu-title">Appointments</div>
                 </a>
                 <ul>
+                    @can('view appointments')
                     <li>
-                    <a href="{{ url('admin/appointments') }}">
+                    <a href="{{ $appointmentsIndexRoute }}">
                         <i class="material-icons-outlined">fact_check</i> All Appointments
                     </a>
                     </li>
+                    @endcan
+                    @can('create appointments')
                     <li>
-                    <a href="{{ url('admin/appointments/create') }}">
+                    <a href="{{ $appointmentsCreateRoute }}">
                         <i class="material-icons-outlined">add_circle</i>  Book Appointment
                     </a>
                     </li>
+                    @endcan
                 </ul>
             </li>
+            @endcanany
 
             <!-- Doctor Consultation Checkups -->
+            @can('view consultation')
             <li>
                 <a class="has-arrow" href="javascript:;">
                     <div class="parent-icon">
@@ -106,8 +131,10 @@
                     </li>
                 </ul>
             </li>
+            @endcan
 
              <!-- Enrollments -->
+            @can('view enrollment')
             <li>
                 <a class="has-arrow" href="javascript:;">
                     <div class="parent-icon">
@@ -129,9 +156,10 @@
                     <li>
                 </ul>
             </li>
+            @endcan
 
             <!--  Sessions -->
-
+            @can('manage_sessions')
             <li>
                 <a class="has-arrow" href="javascript:;">
                     <div class="parent-icon">
@@ -152,32 +180,32 @@
                     </li>
                 </ul>
             </li>
+            @endcan
 
             {{-- Feedback --}}
-
+            @can('view feedback')
             <li class="{{ request()->is('feedback*') ? 'mm-active' : '' }}">
                 <a class="has-arrow" href="javascript:;">
                     <div class="parent-icon"><i class="material-icons-outlined">feedback</i></div>
                     <div class="menu-title">Feedback</div>
                 </a>
                 <ul class="{{ request()->is('feedback*') ? 'mm-show' : '' }}">
-    <li class="{{ request()->is('feedback/doctor-list') ? 'mm-active' : '' }}">
-        <a href="{{ url('/feedback/doctor-list') }}">
-            <i class="material-icons-outlined">fact_check</i>Doctor Feedback
-        </a>
-    </li>
-    <li class="{{ request()->is('feedback/patient-list') ? 'mm-active' : '' }}">
-        <a href="{{ url('/feedback/patient-list') }}">
-            <i class="material-icons-outlined">history</i>Patient Feedback
-        </a>
-    </li>
-</ul>
-    </li>
-
-
-
+                    <li class="{{ request()->is('feedback/doctor-list') ? 'mm-active' : '' }}">
+                        <a href="{{ url('/feedback/doctor-list') }}">
+                            <i class="material-icons-outlined">fact_check</i>Doctor Feedback
+                        </a>
+                    </li>
+                    <li class="{{ request()->is('feedback/patient-list') ? 'mm-active' : '' }}">
+                        <a href="{{ url('/feedback/patient-list') }}">
+                            <i class="material-icons-outlined">history</i>Patient Feedback
+                        </a>
+                    </li>
+                </ul>
+            </li>
+            @endcan
 
             <!-- Payments Menu -->
+            @canany(['view payments', 'view returns'])
             <li>
                 <a class="has-arrow" href="javascript:;">
                     <div class="parent-icon">
@@ -186,6 +214,7 @@
                     <div class="menu-title">Payments</div>
                 </a>
                 <ul>
+                    @can('view payments')
                     <li>
                         <a href="{{ url('/payments/outstanding-invoices') }}">
                             <i class="material-icons-outlined">receipt_long</i> Outstanding Invoices
@@ -201,18 +230,20 @@
                             <i class="material-icons-outlined">payments</i> Payment Receivable
                         </a>
                     </li>
+                    @endcan
+                    @can('view returns')
                     <li>
                         <a href="{{ url('/payments/return-payments') }}">
                             <i class="material-icons-outlined">undo</i> Payment Returns
                         </a>
                     </li>
+                    @endcan
                 </ul>
             </li>
-
-
-
+            @endcanany
 
             <!-- Accounts Menu -->
+            @can('view_reports')
             <li>
                 <a class="has-arrow" href="javascript:;">
                     <div class="parent-icon">
@@ -238,8 +269,10 @@
                     </li>
                 </ul>
             </li>
+            @endcan
 
             <!-- Attendance Management -->
+            @canany(['view attendance devices', 'view attendance records', 'view payroll'])
             <li>
                 <a class="has-arrow" href="javascript:;">
                     <div class="parent-icon">
@@ -248,30 +281,33 @@
                     <div class="menu-title">Attendance</div>
                 </a>
                 <ul>
+                    @can('view attendance devices')
                     <li>
                     <a href="{{ route('attendance.devices.index') }}">
                         <i class="material-icons-outlined">devices</i> Devices
                     </a>
                     </li>
+                    @endcan
+                    @can('view attendance records')
                     <li>
                     <a href="{{ route('attendance.records.index') }}">
                         <i class="material-icons-outlined">fact_check</i> Attendance Records
                     </a>
                     </li>
+                    @endcan
+                    @can('view payroll')
                     <li>
                     <a href="{{ route('attendance.payroll.index') }}">
                         <i class="material-icons-outlined">payments</i> Payroll
                     </a>
                     </li>
-                    {{-- <li>
-                    <a href="{{ route('attendance.reports.daily') }}">
-                        <i class="material-icons-outlined">assessment</i> Reports
-                    </a>
-                    </li> --}}
+                    @endcan
                 </ul>
             </li>
+            @endcanany
 
             <!-- Expenses Management -->
+            @canany(['manage_payments', 'view_reports'])
             <li>
                 <a class="has-arrow" href="javascript:;">
                     <div class="parent-icon">
@@ -280,6 +316,7 @@
                     <div class="menu-title">Expenses</div>
                 </a>
                 <ul>
+                    @can('manage_payments')
                     <li>
                     <a href="{{ url('/expense-types') }}">
                         <i class="material-icons-outlined">category</i> Expense Types
@@ -290,15 +327,20 @@
                         <i class="material-icons-outlined">add_circle</i> Create Expense
                     </a>
                     </li>
+                    @endcan
+                    @can('view_reports')
                     <li>
                     <a href="{{ url('/expenses') }}">
                         <i class="material-icons-outlined">visibility</i> View Expenses
                     </a>
                     </li>
+                    @endcan
                 </ul>
             </li>
+            @endcanany
 
              <!-- General Settings Menu -->
+             @canany(['manage_appointments', 'manage_payments'])
              <li>
                 <a class="has-arrow" href="javascript:;">
                     <div class="parent-icon">
@@ -307,16 +349,21 @@
                     <div class="menu-title">General Settings</div>
                 </a>
                 <ul>
+                    @can('manage_appointments')
                     <li>
                     <a href="{{ url('/branches') }}">
                         <i class="material-icons-outlined">store</i> Branches
                     </a>
                     </li>
+                    @endcan
+                    @can('manage_payments')
                     <li>
                     <a href="{{ url('/banks') }}">
                         <i class="material-icons-outlined">account_balance_wallet</i> Banks
                     </a>
                     </li>
+                    @endcan
+                    @can('manage_appointments')
                     <li>
                     <a href="{{ url('/settings/general') }}">
                         <i class="material-icons-outlined">tune</i> Branch Fee Settings
@@ -327,11 +374,14 @@
                         <i class="material-icons-outlined">payments</i> Payroll Settings
                     </a>
                     </li>
+                    @endcan
                 </ul>
             </li>
+            @endcanany
 
 
    <!-- Users Menu -->
+@if($sidebarUser && !$isViewOnlyAdmin && ($sidebarUser->hasRole('admin') || $sidebarUser->can('manage_appointments')))
 <li>
     <a class="has-arrow" href="javascript:;" aria-expanded="false">
         <div class="parent-icon">
@@ -341,20 +391,26 @@
     </a>
     <ul class="mm-collapse">
 
+        @role('admin')
         <li>
             <a href="{{ url('roles-permissions') }}">
                 <i class="material-icons-outlined">account_balance_wallet</i> Roles Permissions
             </a>
         </li>
+        @endrole
+        @can('manage_appointments')
         <li>
             <a href="{{ url('/users') }}">
                 <i class="material-icons-outlined">group</i> Add Users
             </a>
         </li>
+        @endcan
     </ul>
 </li>
-               {{--Reporting--}}
+@endif
 
+               {{--Reporting--}}
+@can('view_reports')
 <li>
     <a class="has-arrow" href="javascript:;">
         <div class="parent-icon">
@@ -380,46 +436,51 @@
         </li>
     </ul>
 </li>
+@endcan
 
 
 
             {{--session Table--}}
+            @can('view payments')
             <li>
                 <a href="{{ url('/payments/outstandings') }}">
                 <div class="parent-icon"><i class="material-icons-outlined">widgets</i></div>
                 <div class="menu-title">Payments Outstandings</div>
                 </a>
             </li>
+            @endcan
 
             {{--Salary Records--}}
+            @can('view_reports')
             <li>
                 <a href="{{ url('/salaries') }}">
                 <div class="parent-icon"><i class="material-icons-outlined">widgets</i></div>
                 <div class="menu-title">Salary Records</div>
                 </a>
             </li>
+            @endcan
 
              {{--Payments Transactions--}}
+            @can('manage_payments')
             <li>
                 <a href="{{ url('/transfer') }}">
                 <div class="parent-icon"><i class="material-icons-outlined">widgets</i></div>
                 <div class="menu-title">Payments Transactions</div>
                 </a>
             </li>
+            @endcan
 
     {{-- Doctor Availability Menu --}}
+@can('manage_appointments')
 <li class="menu-label">Doctor Availability</li>
 
 @php
-    // Admin → saare doctors
-    if(auth()->user()->hasRole('admin')){
+    if($sidebarUser && $sidebarUser->hasAnyRole(['admin', 'view-only-admin'])){
         $doctors = \App\Models\Doctor::all();
     } else {
-        // Doctor login → sirf apna record
-        $doctors = auth()->user()->doctor ? collect([auth()->user()->doctor]) : collect();
+        $doctors = $sidebarUser && $sidebarUser->doctor ? collect([$sidebarUser->doctor]) : collect();
     }
 
-    // Check if current route is doctor availability
     $activeDoctor = request()->route('doctor') ?? null;
 @endphp
 
@@ -440,10 +501,11 @@
         @endforeach
     </ul>
 </li>
+@endcan
 
 
 
-          @endrole
+          @endhasanyrole
 {{-- ==================Docter Menu==================== --}}
           @auth('doctor')
           <li>

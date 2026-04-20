@@ -48,7 +48,15 @@
                     <select class="form-select form-select-lg" name="role" required>
                         <option value="" disabled selected>Select Role</option>
                         @foreach($roles as $role)
-                            <option value="{{ $role->name }}">{{ ucfirst($role->name) }}</option>
+                            <option value="{{ $role->name }}">
+                                @if($role->name === 'admin')
+                                    Super Admin
+                                @elseif($role->name === 'view-only-admin')
+                                    Admin
+                                @else
+                                    {{ ucfirst($role->name) }}
+                                @endif
+                            </option>
                         @endforeach
                     </select>
                 </div>

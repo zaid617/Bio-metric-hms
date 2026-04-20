@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Route;
 use Spatie\Permission\Models\Role;
 
 class LoginController extends Controller
@@ -51,22 +52,22 @@ class LoginController extends Controller
             }
 
             // Role-based redirects
-            switch ($role) {
-                case 'doctor':
-                    return redirect()->route('doctor.dashboard');
-                case 'admin':
-                    return redirect()->route('admin.dashboard');
-                case 'receptionist':
-                    return redirect()->route('receptionist.dashboard');
-                case 'manager':
-                    return redirect()->route('manager.dashboard');
-                case 'accountant':
-                    return redirect()->route('accountant.dashboard');
-                case 'pharmacist':
-                    return redirect()->route('pharmacist.dashboard');
-                default:
-                    return redirect()->route('dashboard');
+            $redirectRoute = match ($role) {
+                'doctor' => 'doctor.dashboard',
+                'admin' => 'admin.dashboard',
+                'view-only-admin' => 'view-only-admin.dashboard',
+                'receptionist' => 'receptionist.dashboard',
+                'manager' => 'manager.dashboard',
+                'accountant' => 'accountant.dashboard',
+                'pharmacist' => 'pharmacist.dashboard',
+                default => 'home',
+            };
+
+            if (!Route::has($redirectRoute)) {
+                $redirectRoute = 'home';
             }
+
+            return redirect()->route($redirectRoute);
         }
 
         // Invalid credentials

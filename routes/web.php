@@ -72,6 +72,28 @@ Route::prefix('admin')
 
     });
 
+// ✅ View-Only Admin Routes
+Route::prefix('view-only-admin')
+    ->middleware(['auth:web', 'role:view-only-admin'])
+    ->name('view-only-admin.')
+    ->group(function () {
+        Route::get('dashboard', [AdminController::class, 'dashboard'])
+            ->middleware('check_user_permission:view_dashboard')
+            ->name('dashboard');
+
+        Route::get('appointments', [CheckupController::class, 'index'])
+            ->middleware('check_user_permission:view appointments')
+            ->name('appointments.index');
+
+        Route::get('appointments/create', [CheckupController::class, 'create'])
+            ->middleware('check_user_permission:create appointments')
+            ->name('appointments.create');
+
+        Route::post('appointments/store', [CheckupController::class, 'store'])
+            ->middleware('check_user_permission:create appointments')
+            ->name('appointments.store');
+    });
+
 // ✅ Manager Dashboard Routes
 Route::prefix('manager')
     ->middleware(['auth:web', 'role:manager'])
@@ -207,7 +229,7 @@ Route::prefix('receptionist')
     });
 
 // ✅ Shared Routes (for admin, manager, receptionist)
-Route::middleware(['auth:web', 'role:admin|manager|receptionist'])
+Route::middleware(['auth:web', 'role:admin|manager|receptionist|view-only-admin'])
     ->group(function () {
 
         // ================= PATIENTS =================

@@ -66,7 +66,7 @@
         }
     @endphp
 
-    @if($role === 'admin')
+    @if(in_array($role, ['admin', 'view-only-admin'], true))
         @include('layouts.sidebar', ['role' => $role])
     @elseif($role === 'manager')
         @include('layouts.manager-sidebar', ['role' => $role])
