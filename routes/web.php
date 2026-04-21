@@ -246,6 +246,10 @@ Route::middleware(['auth:web', 'role:admin|manager|receptionist|view-only-admin'
                 ->middleware('check_user_permission:create patients')
                 ->name('patients.store');
 
+            Route::get('/search-referrers', [PatientController::class, 'searchReferrers'])
+                ->middleware('check_user_permission:view patients')
+                ->name('patients.search-referrers');
+
             Route::get('/{id}/edit', [PatientController::class, 'edit'])
                 ->middleware('check_user_permission:edit patients')
                 ->name('patients.edit');
@@ -324,6 +328,10 @@ Route::middleware(['auth:web', 'role:admin|manager|receptionist|view-only-admin'
             Route::post('/', [CheckupController::class, 'store'])
                 ->middleware('check_user_permission:view consultation')
                 ->name('consultations.store');
+
+            Route::get('/search-referrers', [CheckupController::class, 'searchReferrers'])
+                ->middleware('check_user_permission:view consultation')
+                ->name('consultations.search-referrers');
 
             Route::get('/{id}/edit', [CheckupController::class, 'edit'])
                 ->middleware('check_user_permission:view consultation')

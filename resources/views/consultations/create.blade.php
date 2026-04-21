@@ -13,6 +13,13 @@
 @section('content')
     <x-page-title title="Consultations" subtitle="Add New Consultation" />
 
+    @php
+        $referredByType = old('referred_by_type');
+        $referredByName = old('referred_by_name');
+        $referredById = old('referred_by_id');
+        $referredBySourceValue = old('referred_by_source', $referredBySource ?? null);
+    @endphp
+
     @if ($errors->any())
         <div class="alert alert-danger">
             <ul class="mb-0">
@@ -55,19 +62,57 @@
                             </select>
                         </div>
 
+                        <div class="col-md-12">
+                            <label for="referred_by_type" class="form-label">Referred By</label>
+                            <select name="referred_by_type" id="referred_by_type" class="form-select">
+                                <option value="">Select Type</option>
+                                <option value="body_expert_doctor" {{ $referredByType === 'body_expert_doctor' ? 'selected' : '' }}>Body Expert Doctor</option>
+                                <option value="body_expert_patient" {{ $referredByType === 'body_expert_patient' ? 'selected' : '' }}>Body Expert Patient</option>
+                                <option value="external_doctor" {{ $referredByType === 'external_doctor' ? 'selected' : '' }}>External Doctor</option>
+                                <option value="external_patient" {{ $referredByType === 'external_patient' ? 'selected' : '' }}>External Patient</option>
+                                <option value="social_media" {{ $referredByType === 'social_media' ? 'selected' : '' }}>Social Media</option>
+                            </select>
+                            @error('referred_by_type')
+                                <small class="text-danger">{{ $message }}</small>
+                            @enderror
+                            @error('referred_by_source')
+                                <small class="text-danger">{{ $message }}</small>
+                            @enderror
+                        </div>
 
-                        <!-- Referred By Dropdown -->
-<div class="col-md-12">
-    <label for="referred_by" class="form-label">Referred By</label>
-    <select name="referred_by" id="referred_by" class="form-select" required>
-        <option value="">Select Referring Doctor</option>
-        @foreach($doctors as $doctor)
-            <option value="{{ $doctor->id }}" {{ old('referred_by') == $doctor->id ? 'selected' : '' }}>
-                {{ $doctor->name }}
-            </option>
-        @endforeach
-    </select>
-</div>
+                        <input type="hidden" name="referred_by_source" id="referred_by_source" value="{{ $referredBySourceValue }}">
+                        <input type="hidden" name="referred_by_id" id="referred_by_id" value="{{ $referredById }}">
+
+                        <div class="col-md-12 d-none" id="internal-referrer-wrapper">
+                            <label for="internal_referrer_select" class="form-label" id="internal-referrer-label">Select Referrer</label>
+                            <select id="internal_referrer_select" class="form-select"></select>
+                            @error('referred_by_id')
+                                <small class="text-danger">{{ $message }}</small>
+                            @enderror
+                        </div>
+
+                        <div class="col-md-12 d-none" id="external-referrer-wrapper">
+                            <label for="referred_by_name" class="form-label" id="external-referrer-label">Referrer Name</label>
+                            <input type="text" name="referred_by_name" id="referred_by_name" class="form-control" value="{{ $referredByName }}">
+                            @error('referred_by_name')
+                                <small class="text-danger">{{ $message }}</small>
+                            @enderror
+                        </div>
+
+                        <div class="col-md-12 d-none" id="social-media-wrapper">
+                            <label for="social_media_option" class="form-label">Social Media Platform</label>
+                            <select id="social_media_option" class="form-select">
+                                <option value="">Select Platform</option>
+                                <option value="facebook" {{ $referredByType === 'social_media' && strtolower((string) $referredByName) === 'facebook' ? 'selected' : '' }}>Facebook</option>
+                                <option value="twitter" {{ $referredByType === 'social_media' && strtolower((string) $referredByName) === 'twitter' ? 'selected' : '' }}>Twitter</option>
+                                <option value="youtube" {{ $referredByType === 'social_media' && strtolower((string) $referredByName) === 'youtube' ? 'selected' : '' }}>YouTube</option>
+                                <option value="instagram" {{ $referredByType === 'social_media' && strtolower((string) $referredByName) === 'instagram' ? 'selected' : '' }}>Instagram</option>
+                                <option value="other" {{ $referredByType === 'social_media' && strtolower((string) $referredByName) === 'other' ? 'selected' : '' }}>Other</option>
+                            </select>
+                            @error('referred_by_name')
+                                <small class="text-danger">{{ $message }}</small>
+                            @enderror
+                        </div>
 
 
                         <!-- Consultation Fee -->
@@ -119,20 +164,246 @@
     <script src="{{ URL::asset('build/js/main.js') }}"></script>
 
     <script>
-        $(document).ready(function() {
-            // Initialize Select2
-            $('#patient_id, #doctor_id, #payment_method,#referred_by').select2({
+        $(function () {
+            const externalOptionValue = '__external__';
+            const routeSearchReferrers = "{{ route('consultations.search-referrers') }}";
+            const socialMediaPlatforms = ['facebook', 'twitter', 'youtube', 'instagram', 'other'];
+
+            const referredByTypeSelect = document.getElementById('referred_by_type');
+            const referredBySourceInput = document.getElementById('referred_by_source');
+            const referredByIdInput = document.getElementById('referred_by_id');
+            const externalReferrerWrapper = document.getElementById('external-referrer-wrapper');
+            const externalReferrerLabel = document.getElementById('external-referrer-label');
+            const internalReferrerWrapper = document.getElementById('internal-referrer-wrapper');
+            const internalReferrerLabel = document.getElementById('internal-referrer-label');
+            const socialMediaWrapper = document.getElementById('social-media-wrapper');
+            const socialMediaSelect = document.getElementById('social_media_option');
+            const referredByNameInput = document.getElementById('referred_by_name');
+            const consultationForm = document.querySelector('form[action="{{ route('consultations.store') }}"]');
+
+            const initialType = @json($referredByType);
+            const initialSource = @json($referredBySourceValue);
+            const initialReferrer = @json($initialReferrer);
+            const initialName = @json($referredByName);
+
+            const $internalReferrerSelect = $('#internal_referrer_select');
+
+            const isBodyExpertType = (type) => {
+                return type === 'body_expert_doctor' || type === 'body_expert_patient';
+            };
+
+            const hasSocialPlatform = (value) => {
+                return socialMediaPlatforms.includes(String(value || '').toLowerCase());
+            };
+
+            const internalLabelByType = (type) => {
+                return type === 'body_expert_patient' ? 'Select Body Expert Patient' : 'Select Body Expert Doctor';
+            };
+
+            const externalLabelByType = (type) => {
+                if (type === 'body_expert_patient' || type === 'external_patient') {
+                    return 'Patient Name';
+                }
+
+                return 'Doctor Name';
+            };
+
+            const formatResultText = (item, type) => {
+                if (type === 'body_expert_patient') {
+                    return item.mr_number ? `${item.name} (MR#: ${item.mr_number})` : item.name;
+                }
+
+                return item.name;
+            };
+
+            $('#patient_id, #doctor_id, #payment_method').select2({
                 theme: 'bootstrap-5',
                 width: '100%',
                 placeholder: 'Select an option',
                 allowClear: true
             });
 
+            $internalReferrerSelect.select2({
+                theme: 'bootstrap-5',
+                width: '100%',
+                placeholder: 'Search and select',
+                allowClear: true,
+                ajax: {
+                    url: routeSearchReferrers,
+                    dataType: 'json',
+                    delay: 250,
+                    data: function (params) {
+                        return {
+                            type: referredByTypeSelect.value,
+                            q: params.term || ''
+                        };
+                    },
+                    processResults: function (response) {
+                        const currentType = referredByTypeSelect.value;
+                        const results = (response.data || []).map(function (item) {
+                            return {
+                                id: item.id,
+                                text: formatResultText(item, currentType)
+                            };
+                        });
+
+                        results.push({ id: externalOptionValue, text: 'External / Not in system' });
+
+                        return { results: results };
+                    }
+                }
+            });
+
+            const toggleReferralFields = () => {
+                const type = referredByTypeSelect.value;
+                const bodyExpertType = isBodyExpertType(type);
+
+                if (type === 'social_media') {
+                    internalReferrerWrapper.classList.add('d-none');
+                    externalReferrerWrapper.classList.add('d-none');
+                    socialMediaWrapper.classList.remove('d-none');
+
+                    referredBySourceInput.value = '';
+                    referredByIdInput.value = '';
+
+                    if (!socialMediaSelect.value && hasSocialPlatform(referredByNameInput.value)) {
+                        socialMediaSelect.value = String(referredByNameInput.value).toLowerCase();
+                    }
+
+                    referredByNameInput.value = socialMediaSelect.value || '';
+                    return;
+                }
+
+                socialMediaWrapper.classList.add('d-none');
+                socialMediaSelect.value = '';
+
+                internalReferrerWrapper.classList.toggle('d-none', !bodyExpertType);
+                if (bodyExpertType) {
+                    internalReferrerLabel.textContent = internalLabelByType(type);
+                }
+
+                let showExternalName = false;
+
+                if (type === 'external_doctor' || type === 'external_patient') {
+                    referredBySourceInput.value = 'external';
+                    referredByIdInput.value = '';
+                    showExternalName = true;
+                } else if (type === '') {
+                    referredBySourceInput.value = '';
+                    referredByIdInput.value = '';
+                    referredByNameInput.value = '';
+                    showExternalName = false;
+                } else if (bodyExpertType) {
+                    if (!referredBySourceInput.value) {
+                        referredBySourceInput.value = 'internal';
+                    }
+
+                    showExternalName = referredBySourceInput.value === 'external';
+                    if (!showExternalName) {
+                        referredByNameInput.value = '';
+                    }
+                }
+
+                externalReferrerWrapper.classList.toggle('d-none', !showExternalName);
+                if (showExternalName) {
+                    externalReferrerLabel.textContent = externalLabelByType(type);
+                }
+            };
+
+            socialMediaSelect.addEventListener('change', function () {
+                referredByNameInput.value = this.value || '';
+            });
+
+            $internalReferrerSelect.on('select2:select', function (event) {
+                const selectedValue = String(event.params.data.id);
+
+                if (selectedValue === externalOptionValue) {
+                    referredByIdInput.value = '';
+                    referredBySourceInput.value = 'external';
+                } else {
+                    referredByIdInput.value = selectedValue;
+                    referredBySourceInput.value = 'internal';
+                    referredByNameInput.value = '';
+                }
+
+                toggleReferralFields();
+            });
+
+            $internalReferrerSelect.on('select2:clear', function () {
+                referredByIdInput.value = '';
+                referredBySourceInput.value = '';
+                toggleReferralFields();
+            });
+
+            referredByTypeSelect.addEventListener('change', function () {
+                const type = this.value;
+                referredByIdInput.value = '';
+                $internalReferrerSelect.val(null).trigger('change');
+
+                if (type === 'external_doctor' || type === 'external_patient') {
+                    referredBySourceInput.value = 'external';
+                    referredByNameInput.value = '';
+                } else if (isBodyExpertType(type)) {
+                    referredBySourceInput.value = 'internal';
+                    referredByNameInput.value = '';
+                } else if (type === 'social_media') {
+                    referredBySourceInput.value = '';
+                    referredByIdInput.value = '';
+                } else {
+                    referredBySourceInput.value = '';
+                    referredByNameInput.value = '';
+                }
+
+                toggleReferralFields();
+            });
+
+            if (isBodyExpertType(initialType) && initialSource === 'internal' && initialReferrer && initialReferrer.id) {
+                const option = new Option(initialReferrer.text, initialReferrer.id, true, true);
+                $internalReferrerSelect.append(option).trigger('change');
+                referredByIdInput.value = String(initialReferrer.id);
+                referredBySourceInput.value = 'internal';
+            }
+
+            if (isBodyExpertType(initialType) && initialSource === 'external') {
+                const option = new Option('External / Not in system', externalOptionValue, true, true);
+                $internalReferrerSelect.append(option).trigger('change');
+                referredByIdInput.value = '';
+                referredBySourceInput.value = 'external';
+            }
+
+            if (initialType === 'social_media') {
+                const normalizedInitialName = hasSocialPlatform(initialName) ? String(initialName).toLowerCase() : '';
+                socialMediaSelect.value = normalizedInitialName;
+                referredByNameInput.value = normalizedInitialName;
+            }
+
+            toggleReferralFields();
+
+            consultationForm.addEventListener('submit', function () {
+                const type = referredByTypeSelect.value;
+
+                if (!isBodyExpertType(type)) {
+                    referredByIdInput.value = '';
+                }
+
+                if (type === 'social_media') {
+                    referredBySourceInput.value = '';
+                    referredByIdInput.value = '';
+                    referredByNameInput.value = socialMediaSelect.value || '';
+                    return;
+                }
+
+                if (type === '') {
+                    referredBySourceInput.value = '';
+                    referredByNameInput.value = '';
+                }
+            });
+
             // Fetch fee when patient changes
-            $('#patient_id').on('change', function() {
-                var patientId = $(this).val();
+            $('#patient_id').on('change', function () {
+                const patientId = $(this).val();
                 if (patientId) {
-                    $.get('/patients/' + patientId + '/checkup-fee', function(data) {
+                    $.get('/patients/' + patientId + '/checkup-fee', function (data) {
                         $('#fee').val(data.fee);
                     });
                 } else {

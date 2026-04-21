@@ -23,6 +23,9 @@ class Patient extends Model
     'branch_id',
     'type_select',
     'sub_select',
+    'referred_by_type',
+    'referred_by_id',
+    'referred_by_name',
 
 ];
 
