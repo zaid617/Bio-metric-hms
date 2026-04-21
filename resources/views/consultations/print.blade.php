@@ -261,6 +261,20 @@
                     </div>
                 </div>
 
+                @php
+                    $referredByDisplay = null;
+                    if (!empty($checkup->referred_by_type)) {
+                        if ($checkup->referred_by_type === 'social_media') {
+                            $referredByDisplay = ucfirst($checkup->checkup_ref_name ?? '');
+                        } elseif (!empty($checkup->referred_by_id) && !empty($checkup->doctor_ref_name)) {
+                            $prefix = $checkup->referred_by_type === 'body_expert_patient' ? '' : 'Dr. ';
+                            $referredByDisplay = $prefix . $checkup->doctor_ref_name . ' (BodyExperts)';
+                        } elseif (!empty($checkup->checkup_ref_name)) {
+                            $referredByDisplay = $checkup->checkup_ref_name;
+                        }
+                    }
+                @endphp
+
                 <!-- Patient Information -->
                 <div class="patient-info">
                     <div class="row">
@@ -281,9 +295,14 @@
                                 <span class="info-label">Invoice#:</span>
                                 <span>{{ $checkup->id ?? 'N/A' }}</span>
                             </div>
+                            @if($referredByDisplay)
+                            <div class="info-row">
+                                <span class="info-label">Referred By:</span>
+                                <span>{{ $referredByDisplay }}</span>
+                            </div>
+                            @endif
                         </div>
                         <div class="col-md-6">
-                          
                             <div class="info-row">
                                 <span class="info-label">Age/Gender:</span>
                                 <span>{{ $checkup->patient_age ?? 'N/A' }}y / {{ $checkup->gender ?? 'N/A' }}</span>
@@ -300,6 +319,15 @@
                     </div>
                 </div>
 
+                @php
+                    $fee = $checkup->fee ?? 0;
+                    $discountPct = $checkup->discount ?? 0;
+                    $discountAmount = $fee * ($discountPct / 100);
+                    $netTotal = $fee - $discountAmount;
+                    $paidAmount = $checkup->paid_amount ?? 0;
+                    $pendingAmount = max(0, $netTotal - $paidAmount);
+                @endphp
+
                 <!-- Service Details -->
                 <div class="table-responsive">
                     <table class="table table-invoice table-sm">
@@ -311,10 +339,14 @@
                         </thead>
                         <tbody>
                             <tr>
-                                <td>Dr {{ $checkup->doctor_name ?? 'N/A' }} Consultation Charges</td>
-                                <td class="text-center">{{ number_format($checkup->fee ?? 'N/A' )}}</td>
+                                <td>
+                                    Dr {{ $checkup->doctor_name ?? 'N/A' }} Consultation Charges
+                                    @if(!empty($checkup->description))
+                                        <br><small class="text-muted">{{ $checkup->description }}</small>
+                                    @endif
+                                </td>
+                                <td class="text-center">{{ number_format($fee) }}</td>
                             </tr>
-
                         </tbody>
                     </table>
                 </div>
@@ -328,33 +360,45 @@
                                     <strong>Subtotal:</strong>
                                 </div>
                                 <div class="col-6 text-end">
-                                    Rs. {{ $checkup->fee ?? 'N/A' }}
+                                    Rs. {{ number_format($fee) }}
                                 </div>
                             </div>
+                            @if($discountPct > 0)
                             <div class="row mb-2">
                                 <div class="col-6 text-end">
-                                    <strong>Tax (%):</strong>
+                                    <strong>Discount ({{ $discountPct }}%):</strong>
                                 </div>
                                 <div class="col-6 text-end">
-                                    Rs. 0.00
+                                    - Rs. {{ number_format($discountAmount) }}
                                 </div>
                             </div>
-                            <div class="row mb-2">
-                                <div class="col-6 text-end">
-                                    <strong>Discount:</strong>
-                                </div>
-                                <div class="col-6 text-end">
-                                   {{ number_format( $checkup->fee -$checkup->paid_amount ?? 'N/A' )}}
-                                </div>
-                            </div>
+                            @endif
                             <div class="row pt-2 border-top">
                                 <div class="col-6 text-end">
                                     <h5 class="mb-0"><strong>Total:</strong></h5>
                                 </div>
                                 <div class="col-6 text-end">
-                                    <h5 class="mb-0">Rs. {{ number_format($checkup->paid_amount ?? 'N/A' )}}</h5>
+                                    <h5 class="mb-0">Rs. {{ number_format($netTotal) }}</h5>
                                 </div>
                             </div>
+                            @if($pendingAmount > 0)
+                            <div class="row mt-2">
+                                <div class="col-6 text-end">
+                                    <strong>Paid:</strong>
+                                </div>
+                                <div class="col-6 text-end">
+                                    Rs. {{ number_format($paidAmount) }}
+                                </div>
+                            </div>
+                            <div class="row mt-1">
+                                <div class="col-6 text-end">
+                                    <strong class="text-danger">Pending:</strong>
+                                </div>
+                                <div class="col-6 text-end text-danger">
+                                    <strong>Rs. {{ number_format($pendingAmount) }}</strong>
+                                </div>
+                            </div>
+                            @endif
                         </div>
                     </div>
                 </div>

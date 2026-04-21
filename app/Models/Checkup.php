@@ -22,6 +22,8 @@ class Checkup extends Model
         'paid_amount',
         'payment_method',
         'checkup_status',
+        'description',
+        'discount',
     ];
 
     // Relations

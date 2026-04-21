@@ -115,10 +115,22 @@
                         </div>
 
 
+                        <!-- Description -->
+                        <div class="col-md-12">
+                            <label for="description" class="form-label">Description</label>
+                            <input type="text" name="description" id="description" class="form-control" value="{{ old('description') }}" placeholder="e.g. Follow-up, Initial consultation...">
+                        </div>
+
                         <!-- Consultation Fee -->
                         <div class="col-md-3">
                             <label for="fee" class="form-label">Consultation Fee</label>
                             <input type="number" name="fee" id="fee" class="form-control" value="{{ old('fee') ?? 0 }}">
+                        </div>
+
+                        <!-- Discount -->
+                        <div class="col-md-2">
+                            <label for="discount" class="form-label">Discount (%)</label>
+                            <input type="number" name="discount" id="discount" class="form-control" value="{{ old('discount') ?? 0 }}" min="0" max="100" step="0.01">
                         </div>
 
                         <!-- Paid Amount -->
@@ -128,7 +140,7 @@
                         </div>
 
                         <!-- Payment Method -->
-                        <div class="col-md-6">
+                        <div class="col-md-4">
                             <label for="payment_method" class="form-label">Payment Method</label>
                             <select name="payment_method" id="payment_method" class="form-select">
                                 <option value="">Select Payment Method</option>
@@ -399,17 +411,28 @@
                 }
             });
 
+            const recalcPaidAmount = () => {
+                const fee = parseFloat($('#fee').val()) || 0;
+                const discount = parseFloat($('#discount').val()) || 0;
+                const discountAmount = fee * (discount / 100);
+                $('#paid_amount').val((fee - discountAmount).toFixed(2));
+            };
+
             // Fetch fee when patient changes
             $('#patient_id').on('change', function () {
                 const patientId = $(this).val();
                 if (patientId) {
                     $.get('/patients/' + patientId + '/checkup-fee', function (data) {
                         $('#fee').val(data.fee);
+                        recalcPaidAmount();
                     });
                 } else {
                     $('#fee').val(0);
+                    recalcPaidAmount();
                 }
             });
+
+            $('#fee, #discount').on('input change', recalcPaidAmount);
 
             // Trigger change on page load to auto-load fee if patient_id is in query
             $('#patient_id').trigger('change');

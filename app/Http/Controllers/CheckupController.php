@@ -162,6 +162,8 @@ class CheckupController extends Controller
                 'fee'            => 'required|numeric|min:0',
                 'paid_amount'    => 'nullable|numeric|min:0',
                 'payment_method' => 'nullable|string',
+                'description'    => 'nullable|string|max:500',
+                'discount'       => 'nullable|numeric|min:0|max:100',
                 'referred_by_type' => ['nullable', Rule::in([
                     'body_expert_doctor',
                     'body_expert_patient',
@@ -200,6 +202,8 @@ class CheckupController extends Controller
                 'referred_by_type' => $referredByData['referred_by_type'] ?? null,
                 'referred_by_id' => $referredByData['referred_by_id'] ?? null,
                 'referred_by_name' => $referredByData['referred_by_name'] ?? null,
+                'description'    => $validatedData['description'] ?? null,
+                'discount'       => $validatedData['discount'] ?? 0,
                 'status'         => 'completed',
             ]);
 
@@ -366,13 +370,14 @@ class CheckupController extends Controller
             ->leftJoin('branches', 'checkups.branch_id', '=', 'branches.id')
             ->select(
                 'checkups.*',
+                'checkups.referred_by_name as checkup_ref_name',
                 'patients.name as patient_name',
                 'patients.phone as patient_phone',
                 'patients.gender',
                 'patients.age as patient_age',
                 'patients.mr as patient_mr',
                 DB::raw("CONCAT(doctors.first_name, ' ', doctors.last_name) as doctor_name"),
-                DB::raw("CONCAT(ref.first_name, ' ', ref.last_name) as referred_by_name"),
+                DB::raw("CONCAT(ref.first_name, ' ', ref.last_name) as doctor_ref_name"),
                 'branches.name as branch_name'
             )
             ->where('checkups.id', $id)
@@ -400,13 +405,14 @@ class CheckupController extends Controller
             ->leftJoin('branches', 'checkups.branch_id', '=', 'branches.id')
             ->select(
                 'checkups.*',
+                'checkups.referred_by_name as checkup_ref_name',
                 'patients.name as patient_name',
                 'patients.phone as patient_phone',
                 'patients.gender',
                 'patients.age as patient_age',
                 'patients.mr as patient_mr',
                 DB::raw("CONCAT(doctors.first_name, ' ', doctors.last_name) as doctor_name"),
-                DB::raw("CONCAT(ref.first_name, ' ', ref.last_name) as referred_by_name"),
+                DB::raw("CONCAT(ref.first_name, ' ', ref.last_name) as doctor_ref_name"),
                 'branches.name as branch_name'
             )
             ->where('checkups.id', $id)
