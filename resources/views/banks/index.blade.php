@@ -43,7 +43,7 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                @forelse($banks as $bank)
+                                @foreach($banks as $bank)
                                     <tr>
                                         <td>{{ $bank->id }}</td>
                                         <td>{{ $bank->bank_name }}</td>
@@ -68,11 +68,7 @@
                                             </div>
                                         </td>
                                     </tr>
-                                @empty
-                                    <tr>
-                                        <td colspan="6" class="text-center">No banks found.</td>
-                                    </tr>
-                                @endforelse
+                                @endforeach
                             </tbody>
                         </table>
                     </div>
@@ -107,8 +103,9 @@
                 pageLength: 10,
                 lengthMenu: [5, 10, 25, 50, 100],
                 ordering: true,
+                language: { emptyTable: 'No banks found.' },
                 columnDefs: [
-                    { orderable: false, targets: 5 } // Actions column
+                    { orderable: false, targets: 5 }
                 ]
             });
         });

@@ -150,7 +150,7 @@ $(document).ready(function () {
         language: {
             emptyTable: 'No consultations found.'
         },
-        columnDefs: [{ orderable: false, targets: -1 }] // last column (Actions) not orderable
+        columnDefs: [{ orderable: false, targets: -1 }]
     });
 });
 </script>

@@ -176,6 +176,8 @@ $(document).ready(function() {
         pageLength: 5,
         lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "All"]],
         autoWidth: false,
+        language: { emptyTable: 'No sessions found.' },
+        columnDefs: [{ orderable: false, targets: 13 }],
         dom: "<'row mb-3'<'col-md-4'l><'col-md-4 text-center'B><'col-md-4'f>>" +
              "<'row'<'col-sm-12'tr>>" +
              "<'row mt-2'<'col-md-5'i><'col-md-7'p>>",

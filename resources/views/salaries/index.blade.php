@@ -31,7 +31,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @forelse($salaries as $salary)
+                        @foreach($salaries as $salary)
                         <tr>
                             <td>{{ $salary->employee_name }}</td>
                             <td>{{ $salary->month }}</td>
@@ -63,11 +63,7 @@
                                 <strong>Net:</strong> ₨ {{ number_format((float) $salary->net_salary, 2) }}
                             </td>
                         </tr>
-                        @empty
-                        <tr>
-                            <td colspan="6" class="text-center">No salary records found.</td>
-                        </tr>
-                        @endforelse
+                        @endforeach
                     </tbody>
                     <tfoot>
                         <tr>
@@ -143,6 +139,7 @@
                     search: "",
                     searchPlaceholder: "Search salary records...",
                     lengthMenu: "_MENU_ records per page",
+                    emptyTable: "No salary records found.",
                 },
                 columnDefs: [
                     {

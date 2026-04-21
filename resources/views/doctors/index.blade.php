@@ -46,7 +46,7 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                @forelse($doctors as $doctor)
+                                @foreach($doctors as $doctor)
                                     <tr>
                                         <td>{{ $doctor->id }}</td>
                                         {{-- Prefix + Full Name --}}
@@ -64,6 +64,7 @@
                                             <span class="badge bg-{{ $doctor->shift == 'morning' ? 'info' : 'warning' }}">
                                                 {{ ucfirst($doctor->shift) }}
                                             </span>
+                                        </td>
                                         <td class="text-center">
                                             <div class="btn-group">
                                                 <button type="button" class="btn btn-outline-primary">Actions</button>
@@ -84,11 +85,7 @@
                                             </div>
                                         </td>
                                     </tr>
-                                @empty
-                                    <tr>
-                                        <td colspan="8" class="text-center">No doctors found.</td>
-                                    </tr>
-                                @endforelse
+                                @endforeach
                             </tbody>
                         </table>
                     </div>
@@ -123,8 +120,9 @@
                 pageLength: 10,
                 lengthMenu: [5, 10, 25, 50, 100],
                 ordering: true,
+                language: { emptyTable: 'No doctors found.' },
                 columnDefs: [
-                    { orderable: false, targets: 7 } // Actions column
+                    { orderable: false, targets: 8 }
                 ]
             });
         });

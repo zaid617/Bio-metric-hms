@@ -49,7 +49,7 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                @forelse($branches as $branch)
+                                @foreach($branches as $branch)
                                     <tr>
                                         <td>{{ $branch->id }}</td>
                                         <td>{{ $branch->name }}</td>
@@ -79,11 +79,7 @@
                                             </div>
                                         </td>
                                     </tr>
-                                @empty
-                                    <tr>
-                                        <td colspan="8" class="text-center">No branches found.</td>
-                                    </tr>
-                                @endforelse
+                                @endforeach
                             </tbody>
                         </table>
                     </div>
@@ -116,8 +112,9 @@
                 pageLength: 10,
                 lengthMenu: [5, 10, 25, 50, 100],
                 ordering: true,
+                language: { emptyTable: 'No branches found.' },
                 columnDefs: [
-                    { orderable: false, targets: 7 } // Actions column
+                    { orderable: false, targets: 7 }
                 ]
             });
         });

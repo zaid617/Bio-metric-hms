@@ -47,7 +47,7 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                @forelse($users as $user)
+                                @foreach($users as $user)
                                     <tr>
                                         <td>{{ $user->id }}</td>
                                         <td>{{ $user->name ?? 'N/A' }}</td>
@@ -78,11 +78,7 @@
                                             </div>
                                         </td>
                                     </tr>
-                                @empty
-                                    <tr>
-                                        <td colspan="6" class="text-center">No users found.</td>
-                                    </tr>
-                                @endforelse
+                                @endforeach
                             </tbody>
                         </table>
                     </div>
@@ -116,8 +112,9 @@
                 pageLength: 10,
                 lengthMenu: [5, 10, 25, 50, 100],
                 ordering: true,
+                language: { emptyTable: 'No users found.' },
                 columnDefs: [
-                    { orderable: false, targets: 5 } // Actions column
+                    { orderable: false, targets: 5 }
                 ]
             });
         });

@@ -51,7 +51,7 @@
                         </thead>
 
                         <tbody>
-                            @forelse($patients as $patient)
+                            @foreach($patients as $patient)
                                 <tr>
                                     <td>{{ $patient->id }}</td>
                                     <td>{{ ($patient->prefix ? $patient->prefix.' ' : '') . $patient->name }}</td>
@@ -124,13 +124,7 @@
                                         </div>
                                     </td>
                                 </tr>
-                            @empty
-                                <tr>
-                                    <td colspan="9" class="text-center">
-                                        No patients found.
-                                    </td>
-                                </tr>
-                            @endforelse
+                            @endforeach
                         </tbody>
                     </table>
                 </div>
@@ -166,8 +160,9 @@
                 pageLength: 10,
                 lengthMenu: [5, 10, 25, 50, 100],
                 ordering: true,
+                language: { emptyTable: 'No patients found.' },
                 columnDefs: [
-                    { orderable: false, targets: 8 } // Actions column
+                    { orderable: false, targets: 8 }
                 ]
             });
         });

@@ -89,66 +89,68 @@
                                         </div>
                                     </td>
                                 </tr>
-
-                                {{-- Session Details Modal --}}
-                                <div class="modal fade" id="sessionModal{{ $session->id }}" tabindex="-1" aria-hidden="true">
-                                    <div class="modal-dialog modal-lg">
-                                        <div class="modal-content">
-                                            <div class="modal-header">
-                                                <h5 class="modal-title">Session Details (ID: {{ $session->id }})</h5>
-                                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                                            </div>
-                                            <div class="modal-body">
-                                                <h6 class="text-success">✅ Completed Sessions</h6>
-                                                <ul>
-                                                    @forelse ($session->sessionTimes->where('is_completed', true) as $entry)
-                                                        <li>{{ \Carbon\Carbon::parse($entry->session_datetime)->format('d M Y - h:i A') }}
-                                                            - <strong>Doctor:</strong> {{ $entry->doctor?->first_name . ' ' . $entry->doctor?->last_name ?? 'N/A' }},
-                                                            <strong>Work:</strong> {{ $entry->work_done ?? 'N/A' }}
-                                                        </li>
-                                                    @empty
-                                                        <li><em>No completed sessions yet</em></li>
-                                                    @endforelse
-                                                </ul>
-
-                                                <h6 class="text-primary mt-3">🕒 Upcoming Sessions</h6>
-                                                <ul>
-                                                    @forelse ($session->sessionTimes->where('is_completed', false) as $entry)
-                                                        <li>
-                                                            {{ \Carbon\Carbon::parse($entry->session_datetime)->format('d M Y - h:i A') }}
-                                                            <form action="{{ route('sessions.complete', $entry->id) }}" method="POST" class="d-inline">
-                                                                @csrf
-                                                                <select name="doctor_id" class="form-control form-control-sm d-inline w-auto" required>
-                                                                    @foreach ($doctors as $doctor)
-                                                                        <option value="{{ $doctor->id }}" {{ ($entry->completed_by_doctor_id ?? $session->checkup?->doctor?->id) == $doctor->id ? 'selected' : '' }}>
-                                                                            {{ $doctor->first_name }} {{ $doctor->last_name }}
-                                                                        </option>
-                                                                    @endforeach
-                                                                </select>
-                                                                <input type="text" name="work_done" placeholder="Session Description" class="form-control form-control-sm d-inline w-auto" value="{{ $entry->work_done ?? '' }}">
-                                                                <button type="submit" class="btn btn-success btn-sm">✔ Complete</button>
-                                                            </form>
-
-                                                            <form action="{{ route('sessions.destroy', $entry->id) }}" method="POST" class="d-inline">
-                                                                @csrf
-                                                                @method('DELETE')
-                                                                <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Delete this session?')">❌</button>
-                                                            </form>
-                                                        </li>
-                                                    @empty
-                                                        <li><em>No upcoming sessions</em></li>
-                                                    @endforelse
-                                                </ul>
-                                            </div>
-                                            <div class="modal-footer">
-                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
                             @endforeach
                         </tbody>
                     </table>
+
+                    {{-- Session Details Modals (moved outside table to prevent DOM corruption) --}}
+                    @foreach ($enrollments as $session)
+                        <div class="modal fade" id="sessionModal{{ $session->id }}" tabindex="-1" aria-hidden="true">
+                            <div class="modal-dialog modal-lg">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title">Session Details (ID: {{ $session->id }})</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <h6 class="text-success">✅ Completed Sessions</h6>
+                                        <ul>
+                                            @forelse ($session->sessionTimes->where('is_completed', true) as $entry)
+                                                <li>{{ \Carbon\Carbon::parse($entry->session_datetime)->format('d M Y - h:i A') }}
+                                                    - <strong>Doctor:</strong> {{ $entry->doctor?->first_name . ' ' . $entry->doctor?->last_name ?? 'N/A' }},
+                                                    <strong>Work:</strong> {{ $entry->work_done ?? 'N/A' }}
+                                                </li>
+                                            @empty
+                                                <li><em>No completed sessions yet</em></li>
+                                            @endforelse
+                                        </ul>
+
+                                        <h6 class="text-primary mt-3">🕒 Upcoming Sessions</h6>
+                                        <ul>
+                                            @forelse ($session->sessionTimes->where('is_completed', false) as $entry)
+                                                <li>
+                                                    {{ \Carbon\Carbon::parse($entry->session_datetime)->format('d M Y - h:i A') }}
+                                                    <form action="{{ route('sessions.complete', $entry->id) }}" method="POST" class="d-inline">
+                                                        @csrf
+                                                        <select name="doctor_id" class="form-control form-control-sm d-inline w-auto" required>
+                                                            @foreach ($doctors as $doctor)
+                                                                <option value="{{ $doctor->id }}" {{ ($entry->completed_by_doctor_id ?? $session->checkup?->doctor?->id) == $doctor->id ? 'selected' : '' }}>
+                                                                    {{ $doctor->first_name }} {{ $doctor->last_name }}
+                                                                </option>
+                                                            @endforeach
+                                                        </select>
+                                                        <input type="text" name="work_done" placeholder="Session Description" class="form-control form-control-sm d-inline w-auto" value="{{ $entry->work_done ?? '' }}">
+                                                        <button type="submit" class="btn btn-success btn-sm">✔ Complete</button>
+                                                    </form>
+
+                                                    <form action="{{ route('sessions.destroy', $entry->id) }}" method="POST" class="d-inline">
+                                                        @csrf
+                                                        @method('DELETE')
+                                                        <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Delete this session?')">❌</button>
+                                                    </form>
+                                                </li>
+                                            @empty
+                                                <li><em>No upcoming sessions</em></li>
+                                            @endforelse
+                                        </ul>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    @endforeach
                 </div>
             </div>
         </div>
@@ -183,6 +185,7 @@ $(document).ready(function () {
         pageLength: 10,
         lengthMenu: [5,10,25,50,100],
         ordering: true,
+        language: { emptyTable: 'No sessions found.' },
         columnDefs: [{ orderable: false, targets: 10 }],
         dom: "<'row mb-3'<'col-md-4'l><'col-md-4 text-end'B><'col-md-4'f>>" +
              "<'row'<'col-sm-12'tr>>" +

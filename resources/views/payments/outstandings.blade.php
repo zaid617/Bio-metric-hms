@@ -39,7 +39,7 @@
                             @php
                                 $counter = 1;
                             @endphp
-                            @forelse($outstandings as $session)
+                            @foreach($outstandings as $session)
                                 <tr>
                                     <td>{{ $counter++ }}</td>
                                     <td>{{ format_date($session->created_at) }}</td>
@@ -62,11 +62,7 @@
                                         <a href="{{ route('invoice.ledger', $session->id) }}" class="btn btn-sm btn-primary">View</a>
                                     </td>
                                 </tr>
-                            @empty
-                                <tr>
-                                    <td colspan="10" class="text-center">No outstanding payments found.</td>
-                                </tr>
-                            @endforelse
+                            @endforeach
                         </tbody>
                     </table>
                 </div>
@@ -103,6 +99,7 @@
                     search: "",
                     searchPlaceholder: "Search payments...",
                     lengthMenu: "_MENU_ records per page",
+                    emptyTable: "No outstanding payments found.",
                 },
                 createdRow: function(row, data, dataIndex) {
                     $(row).find('td').css('vertical-align', 'middle');

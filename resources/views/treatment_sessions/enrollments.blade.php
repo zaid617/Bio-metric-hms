@@ -147,9 +147,10 @@
                 // Remove fixed widths and let columns auto adjust
                 autoWidth: false,
                 scrollX: true,
+                language: { emptyTable: 'No sessions found.' },
                 columnDefs: [
                     {
-                        targets: [8, 9],
+                        targets: [8, 9, 10],
                         orderable: false,
                         searchable: false
                     }
