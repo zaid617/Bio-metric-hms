@@ -38,6 +38,8 @@
                                 @if(!auth()->user()->hasRole('doctor'))
                                 <th>Fee</th>
                                 <th>Paid Amount</th>
+                                <th>Discount %</th>
+                                <th>Referred By</th>
                                 <th>Payment Method</th>
                                 @endif
 
@@ -54,8 +56,10 @@
 
                                 {{-- Show only for non-doctor --}}
                                 @if(!auth()->user()->hasRole('doctor'))
-                                <td>Rs. {{ number_format($consultation->fee) }}</td>
-                                <td>Rs. {{ number_format($consultation->paid_amount) }}</td>
+                                <td>{{ number_format($consultation->fee) }}</td>
+                                <td>{{ number_format($consultation->paid_amount) }}</td>
+                                <td>{{ number_format($consultation->discount) }}</td>
+                                <td>{{ $consultation->referred_by ?? 'N/A' }}</td>
                                 <td>{{ bank_get_name($consultation->payment_method) ?? 'N/A' }}</td>
                                 @endif
 

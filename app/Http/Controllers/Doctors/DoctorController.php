@@ -18,9 +18,8 @@ class DoctorController extends Controller
         $user = auth()->user();
 
         $query = Doctor::with('branch');
-
         // Admin → show all doctors
-        if ($user->role !== 'admin') {
+        if (!$user->hasRole('admin')) {
 
             // User has branch → show only that branch doctors
             if (!is_null($user->branch_id)) {
@@ -176,7 +175,7 @@ class DoctorController extends Controller
 
 
             ]);
-            
+
             $validated['shift'] = strtolower($validated['shift']);
 
             // Handle uploads
