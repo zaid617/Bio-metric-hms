@@ -176,14 +176,23 @@
 
                 {{-- Referral Display --}}
                 @if($patient->type_select && $patient->sub_select)
-                    <p class="card-detail"><span class="card-label">Referred By:</span> 
+                    <p class="card-detail"><span class="card-label">Referred By:</span>
                         {{ ucfirst($patient->type_select) }} - {{ $patient->sub_select }}
                     </p>
                 @elseif($patient->type_select)
-                    <p class="card-detail"><span class="card-label">Referred By:</span> 
+                    <p class="card-detail"><span class="card-label">Referred By:</span>
                         {{ ucfirst($patient->type_select) }}
                     </p>
                 @endif
+            </div>
+        </div>
+
+        <div class="px-3 pb-2">
+            <div class="border rounded p-2 bg-light">
+                <div class="card-detail"><span class="card-label">Consultation Total:</span> Rs {{ number_format($financialSummary['total_fee'] ?? 0, 2) }}</div>
+                <div class="card-detail"><span class="card-label">Discount Total:</span> Rs {{ number_format($financialSummary['total_discount'] ?? 0, 2) }}</div>
+                <div class="card-detail"><span class="card-label">Paid Total:</span> Rs {{ number_format($financialSummary['total_paid'] ?? 0, 2) }}</div>
+                <div class="card-detail"><span class="card-label">Pending Total:</span> Rs {{ number_format($financialSummary['total_pending'] ?? 0, 2) }}</div>
             </div>
         </div>
 

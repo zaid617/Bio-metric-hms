@@ -8,7 +8,6 @@ use App\Models\Transaction;
 use App\Models\Bank;
 use App\Models\Patient;
 use Illuminate\Support\Facades\DB;
-use App\Models\Appointment;
 use App\Models\Checkup;
 
 
@@ -67,7 +66,7 @@ class PaymentOutstandingController extends Controller
     //checkupLedger
     public function checkupInvoiceLedger($checkup_id)
 {
-    $checkup = Appointment::with('patient')->findOrFail($checkup_id);
+    $checkup = Checkup::with('patient')->findOrFail($checkup_id);
     $banks = Bank::all();
 
     return view('payments.invoice_ledger', [
@@ -224,7 +223,7 @@ public function invoiceLedgerr($session_id)
         $request->validate([
             'session_id' => 'required|exists:treatment_sessions,id',
             'amount' => 'required|numeric|min:1',
-            'remark' => 'nullable|string|max:255', 
+            'remark' => 'nullable|string|max:255',
             'payment_method' => 'nullable|integer', // Cash=0 or Bank ID
         ]);
 
@@ -281,22 +280,49 @@ public function invoiceLedgerr($session_id)
  */
 public function invoiceLedgerCheckup($checkup_id)
 {
-    $checkup = Checkup::with(['patient', 'doctor'])
-        ->findOrFail($checkup_id);
+    $checkup = DB::table('checkups')
+        ->join('patients', 'checkups.patient_id', '=', 'patients.id')
+        ->join('doctors', 'checkups.doctor_id', '=', 'doctors.id')
+        ->leftJoin('branches', 'checkups.branch_id', '=', 'branches.id')
+        ->select(
+            'checkups.*',
+            'patients.name as patient_name',
+            'patients.phone as patient_phone',
+            'patients.gender',
+            'patients.age as patient_age',
+            'patients.mr as patient_mr',
+            DB::raw("CONCAT(doctors.first_name, ' ', doctors.last_name) as doctor_name"),
+            'branches.name as branch_name',
+            DB::raw("COALESCE(checkups.consultation_type, 'Appointment') as consultation_type_display")
+        )
+        ->where('checkups.id', $checkup_id)
+        ->first();
+
+    if (!$checkup) {
+        abort(404, 'Checkup not found.');
+    }
 
     $transactions = Transaction::where('invoice_id', $checkup_id)
-        ->whereIn('payment_type', [2,3]) // 2 = payment, 3 = refund
+        ->whereIn('payment_type', [1, 3]) // 1 = checkup payment, 3 = refund
         ->get();
 
-    $total_amount = $checkup->fee;
-    $paid_amount = $transactions->where('type', '+')->sum('amount');
+    $total_amount = (float) ($checkup->fee ?? 0);
+    $discount_percent = (float) ($checkup->discount ?? 0);
+    $discount_amount = $total_amount * ($discount_percent / 100);
+    $net_amount = max(0, $total_amount - $discount_amount);
+    $paid_amount = (float) ($checkup->paid_amount ?? 0);
+    $pending_amount = \App\Models\Checkup::calculatePendingAmount($total_amount, $discount_percent, $paid_amount);
+    $checkup->pending_amount_resolved = $pending_amount;
     $banks = Bank::all();
 
-    return view('payments.checkup_invoice', compact(
+    return view('consultations.print_custom', compact(
         'checkup',
         'transactions',
         'total_amount',
+        'discount_amount',
+        'net_amount',
         'paid_amount',
+        'pending_amount',
         'banks'
     ));
 }
@@ -318,6 +344,10 @@ public function returnCheckupPayment(Request $request)
 
         $checkup = Checkup::findOrFail($request->checkup_id);
 
+        if ((float) $request->amount > (float) ($checkup->paid_amount ?? 0)) {
+            return redirect()->back()->with('error', 'Refund amount exceeds the paid amount.');
+        }
+
 
         $bankId = $request->payment_method;
 
@@ -335,8 +365,13 @@ public function returnCheckupPayment(Request $request)
             entry_by: auth()->id()
         );
 
-        // Update only paid_amount
-        $checkup->paid_amount -= $request->amount;
+        // Update paid and pending amounts
+        $checkup->paid_amount = max(0, (float) ($checkup->paid_amount ?? 0) - (float) $request->amount);
+        $checkup->pending_amount = \App\Models\Checkup::calculatePendingAmount(
+            (float) ($checkup->fee ?? 0),
+            (float) ($checkup->discount ?? 0),
+            (float) ($checkup->paid_amount ?? 0)
+        );
         $checkup->save();
 
         DB::commit();

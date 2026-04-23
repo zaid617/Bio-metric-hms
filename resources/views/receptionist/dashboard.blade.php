@@ -103,6 +103,7 @@
                     <div class="dashboard-value">{{ $todayAppointmentsCount }}</div>
                     <div class="dashboard-text">Today Appointments</div>
                     <div class="dashboard-small-text">Fees: ₨{{ number_format($todayAppointmentsFee,2) }} 🇵🇰</div>
+                    <div class="dashboard-small-text text-danger">Pending: ₨{{ number_format($todayAppointmentsPending ?? 0,2) }}</div>
                 </div>
             </div>
         </div>

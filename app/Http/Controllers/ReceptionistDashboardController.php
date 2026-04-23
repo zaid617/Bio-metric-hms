@@ -28,6 +28,9 @@ class ReceptionistDashboardController extends Controller
 
         $todayAppointmentsCount = $todayAppointmentsQuery->count();
         $todayAppointmentsFee   = $todayAppointmentsQuery->sum('fee');
+        $todayAppointmentsPending = (clone $todayAppointmentsQuery)
+            ->selectRaw('SUM(CASE WHEN pending_amount IS NOT NULL THEN pending_amount ELSE CASE WHEN (COALESCE(fee,0)-(COALESCE(fee,0)*(COALESCE(discount,0)/100))-COALESCE(paid_amount,0)) > 0 THEN (COALESCE(fee,0)-(COALESCE(fee,0)*(COALESCE(discount,0)/100))-COALESCE(paid_amount,0)) ELSE 0 END END) as total_pending')
+            ->value('total_pending') ?? 0;
 
         // ─────────── Today Sessions ───────────
       $today = \Carbon\Carbon::today();
@@ -75,6 +78,7 @@ $todaySessionsFee   = $todaySessionsQuery->sum('session_fee');
         return view('receptionist.dashboard', compact(
             'todayAppointmentsCount',
             'todayAppointmentsFee',
+            'todayAppointmentsPending',
             'todaySessionsCount',
             'todaySessionsFee',
             'todayPendingSatisfactorySessions',

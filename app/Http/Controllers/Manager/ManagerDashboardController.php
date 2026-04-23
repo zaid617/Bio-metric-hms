@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Manager;
 
 use App\Http\Controllers\Controller;
 use App\Models\Branch;
+use App\Models\Checkup;
 use App\Models\Doctor;
 use App\Models\Patient;
 use App\Models\Transaction;
@@ -57,6 +58,10 @@ $totalPaymentsAll = Transaction::where('branch_id', $branch->id)
     ->where('payment_method', 'Cash') // Only cash
     ->sum('amount');
 
+        $consultationPendingTotal = Checkup::where('branch_id', $branch->id)
+            ->selectRaw('SUM(CASE WHEN pending_amount IS NOT NULL THEN pending_amount ELSE CASE WHEN (COALESCE(fee,0)-(COALESCE(fee,0)*(COALESCE(discount,0)/100))-COALESCE(paid_amount,0)) > 0 THEN (COALESCE(fee,0)-(COALESCE(fee,0)*(COALESCE(discount,0)/100))-COALESCE(paid_amount,0)) ELSE 0 END END) as total_pending')
+            ->value('total_pending') ?? 0;
+
         // ────────────── Branch Stats Array ──────────────
         $branchStats = [
             'branch_name'             => $branch->name,
@@ -68,6 +73,7 @@ $totalPaymentsAll = Transaction::where('branch_id', $branch->id)
             'sessionPaymentsToday'    => $sessionPaymentsToday,
             'totalPaymentsToday'      => $totalPaymentsToday,
             'totalPaymentsAll'        => $totalPaymentsAll,
+            'consultationPendingTotal' => $consultationPendingTotal,
         ];
 
         return view('manager.dashboard', compact('branchStats'));

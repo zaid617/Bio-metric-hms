@@ -18,6 +18,7 @@
         $referredByName = old('referred_by_name');
         $referredById = old('referred_by_id');
         $referredBySourceValue = old('referred_by_source', $referredBySource ?? null);
+        $consultationType = old('consultation_type', 'Appointment');
     @endphp
 
     @if ($errors->any())
@@ -60,6 +61,18 @@
                                     <option value="{{ $doctor->id }}">{{ $doctor->name }}</option>
                                 @endforeach
                             </select>
+                        </div>
+
+                        <div class="col-md-12">
+                            <label for="consultation_type" class="form-label">Consultation Type</label>
+                            <select name="consultation_type" id="consultation_type" class="form-select" required>
+                                @foreach(($consultationTypes ?? ['Appointment', 'Enrollment']) as $type)
+                                    <option value="{{ $type }}" {{ $consultationType === $type ? 'selected' : '' }}>{{ $type }}</option>
+                                @endforeach
+                            </select>
+                            @error('consultation_type')
+                                <small class="text-danger">{{ $message }}</small>
+                            @enderror
                         </div>
 
                         <div class="col-md-12">
@@ -123,7 +136,7 @@
 
                         <!-- Consultation Fee -->
                         <div class="col-md-3">
-                            <label for="fee" class="form-label">Consultation Fee</label>
+                            <label for="fee" class="form-label">Fee</label>
                             <input type="number" name="fee" id="fee" class="form-control" value="{{ old('fee') ?? 0 }}">
                         </div>
 
@@ -131,12 +144,24 @@
                         <div class="col-md-2">
                             <label for="discount" class="form-label">Discount (%)</label>
                             <input type="number" name="discount" id="discount" class="form-control" value="{{ old('discount') ?? 0 }}" min="0" max="100" step="0.01">
+                            @error('discount')
+                                <small class="text-danger">{{ $message }}</small>
+                            @enderror
                         </div>
 
                         <!-- Paid Amount -->
                         <div class="col-md-3">
                             <label for="paid_amount" class="form-label">Paid Amount</label>
-                            <input type="number" name="paid_amount" id="paid_amount" class="form-control" value="{{ old('paid_amount') ?? 0 }}" step="0.01">
+                            <input type="number" name="paid_amount" id="paid_amount" class="form-control" value="{{ old('paid_amount') ?? 0 }}" min="0" step="0.01">
+                            @error('paid_amount')
+                                <small class="text-danger">{{ $message }}</small>
+                            @enderror
+                        </div>
+
+                        <!-- Pending Amount Preview -->
+                        <div class="col-md-4">
+                            <label for="pending_amount_preview" class="form-label">Pending Amount</label>
+                            <input type="number" id="pending_amount_preview" class="form-control" value="0" step="0.01" readonly>
                         </div>
 
                         <!-- Payment Method -->
@@ -146,7 +171,7 @@
                                 <option value="">Select Payment Method</option>
                                 <option value="0" {{ old('payment_method')=='0' ? 'selected' : '' }}>Cash</option>
                                 @foreach ($banks as $bank)
-                                    <option value="{{ $bank->id }}" {{ old('payment_method')=='bank'.$bank->id ? 'selected' : '' }}>
+                                    <option value="{{ $bank->id }}" {{ old('payment_method')==$bank->id ? 'selected' : '' }}>
                                         Bank {{ $bank->bank_name }} | ({{ $bank->account_no }}) | {{ $bank->account_title }}
                                     </option>
                                 @endforeach
@@ -411,11 +436,14 @@
                 }
             });
 
-            const recalcPaidAmount = () => {
+            const recalcPendingAmount = () => {
                 const fee = parseFloat($('#fee').val()) || 0;
                 const discount = parseFloat($('#discount').val()) || 0;
+                const paidAmount = parseFloat($('#paid_amount').val()) || 0;
                 const discountAmount = fee * (discount / 100);
-                $('#paid_amount').val((fee - discountAmount).toFixed(2));
+                const maxPayable = Math.max(0, fee - discountAmount);
+                const pendingAmount = Math.max(0, maxPayable - paidAmount);
+                $('#pending_amount_preview').val(pendingAmount.toFixed(2));
             };
 
             // Fetch fee when patient changes
@@ -424,18 +452,38 @@
                 if (patientId) {
                     $.get('/patients/' + patientId + '/checkup-fee', function (data) {
                         $('#fee').val(data.fee);
-                        recalcPaidAmount();
+                        recalcPendingAmount();
                     });
                 } else {
                     $('#fee').val(0);
-                    recalcPaidAmount();
+                    recalcPendingAmount();
                 }
             });
 
-            $('#fee, #discount').on('input change', recalcPaidAmount);
+            $('#fee, #discount, #paid_amount').on('input change', recalcPendingAmount);
+
+            consultationForm.addEventListener('submit', function (event) {
+                const fee = parseFloat($('#fee').val()) || 0;
+                const discount = parseFloat($('#discount').val()) || 0;
+                const paidAmount = parseFloat($('#paid_amount').val()) || 0;
+                const discountAmount = fee * (discount / 100);
+                const maxPayable = Math.max(0, fee - discountAmount);
+
+                if (discount > 100) {
+                    event.preventDefault();
+                    alert('Discount cannot exceed 100%.');
+                    return;
+                }
+
+                if (paidAmount > maxPayable) {
+                    event.preventDefault();
+                    alert('Paid Amount cannot exceed Total after Discount.');
+                }
+            });
 
             // Trigger change on page load to auto-load fee if patient_id is in query
             $('#patient_id').trigger('change');
+            recalcPendingAmount();
         });
     </script>
 @endpush

@@ -87,6 +87,15 @@
                                 </div>
                             </div>
                         </div>
+                        <div class="col-6 col-md-3">
+                            <div class="d-flex align-items-center p-3 stat-card-custom border border-warning rounded">
+                                <i class="fas fa-file-invoice-dollar fa-2x text-warning me-3"></i>
+                                <div>
+                                    <h6 class="mb-0">{{ number_format($branchStats['consultationPendingTotal'] ?? 0) }}</h6>
+                                    <small>Consultation Pending</small>
+                                </div>
+                            </div>
+                        </div>
                     </div> <!-- row -->
                 </div> <!-- card-body -->
             </div> <!-- card -->
@@ -100,6 +109,7 @@
         $overallCheckups = $branchStats['totalConsultationsToday'] ?? 0;
         $overallSessions = $branchStats['totalSessionsToday'] ?? 0;
         $overallPayments = ($branchStats['checkupPaymentsToday'] ?? 0) + ($branchStats['sessionPaymentsToday'] ?? 0);
+        $overallConsultationPending = $branchStats['consultationPendingTotal'] ?? 0;
     @endphp
 
     <div class="row g-4 mt-3">
@@ -144,6 +154,13 @@
                                 <i class="fas fa-coins fa-2x text-dark mb-2"></i>
                                 <h6 class="mb-0">{{ number_format($overallPayments, 0) }}</h6>
                                 <small>Total Payments</small>
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <div class="p-3 bg-light rounded shadow-sm">
+                                <i class="fas fa-file-invoice-dollar fa-2x text-warning mb-2"></i>
+                                <h6 class="mb-0">{{ number_format($overallConsultationPending, 0) }}</h6>
+                                <small>Consultation Pending</small>
                             </div>
                         </div>
                     </div> <!-- row -->

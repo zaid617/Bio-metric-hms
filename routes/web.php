@@ -341,6 +341,10 @@ Route::middleware(['auth:web', 'role:admin|manager|receptionist|view-only-admin'
                 ->middleware('check_user_permission:view consultation')
                 ->name('consultations.update');
 
+            Route::patch('/{id}/paid-amount', [CheckupController::class, 'updatePaidAmount'])
+                ->middleware('check_user_permission:view consultation')
+                ->name('consultations.update-paid-amount');
+
             Route::delete('/{id}', [CheckupController::class, 'destroy'])
                 ->middleware('check_user_permission:view consultation')
                 ->name('consultations.destroy');

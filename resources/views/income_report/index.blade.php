@@ -39,6 +39,20 @@
     </form>
 
     <!-- 📋 Income Table -->
+    <div class="card mb-3">
+        <div class="card-header bg-light">
+            <strong>Consultation Financial Summary</strong>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-3"><strong>Total:</strong> {{ number_format((float) ($consultationFinancialSummary->total_amount ?? 0), 2) }}</div>
+                <div class="col-md-3"><strong>Discount:</strong> {{ number_format((float) ($consultationFinancialSummary->total_discount ?? 0), 2) }}</div>
+                <div class="col-md-3"><strong>Paid:</strong> {{ number_format((float) ($consultationFinancialSummary->total_paid ?? 0), 2) }}</div>
+                <div class="col-md-3"><strong>Pending:</strong> {{ number_format((float) ($consultationFinancialSummary->total_pending ?? 0), 2) }}</div>
+            </div>
+        </div>
+    </div>
+
     <table class="table table-bordered table-striped mt-3">
         <thead class="table-dark">
             <tr>

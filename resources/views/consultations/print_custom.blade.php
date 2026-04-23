@@ -89,18 +89,27 @@
             </div>
 
             <!-- PATIENT INFO -->
+            @php
+                $fee = (float) ($checkup->fee ?? 0);
+                $discountPercent = (float) ($checkup->discount ?? 0);
+                $discountAmount = $fee * ($discountPercent / 100);
+                $paidAmount = (float) ($checkup->paid_amount ?? 0);
+                $netTotal = max(0, $fee - $discountAmount);
+                $pendingAmount = (float) ($checkup->pending_amount_resolved ?? $checkup->pending_amount ?? max(0, $netTotal - $paidAmount));
+            @endphp
             <div class="patient-info">
                 <div class="row">
                     <div class="col-md-6">
                         <div class="info-row"><span class="info-label">Name:</span> <span>{{ $checkup->patient_name ?? '-' }}</span></div>
                         <div class="info-row"><span class="info-label">Date:</span> <span>{{ \Carbon\Carbon::parse($checkup->created_at)->format('d-m-Y') }}</span></div>
-                        <div class="info-row"><span class="info-label">MR#:</span> <span>{{ $checkup->mr ?? '-' }}</span></div>
+                        <div class="info-row"><span class="info-label">MR#:</span> <span>{{ $checkup->patient_mr ?? $checkup->mr ?? '-' }}</span></div>
                         <div class="info-row"><span class="info-label">Invoice#:</span> <span>{{ $checkup->id }}</span></div>
                     </div>
                     <div class="col-md-6">
                         <div class="info-row"><span class="info-label">Phone:</span> <span>{{ $checkup->patient_phone ?? '-' }}</span></div>
-                        <div class="info-row"><span class="info-label">Age/Gender:</span> <span>{{ $checkup->age ?? '-' }}y / {{ $checkup->gender ?? '-' }}</span></div>
+                        <div class="info-row"><span class="info-label">Age/Gender:</span> <span>{{ $checkup->patient_age ?? $checkup->age ?? '-' }}y / {{ $checkup->gender ?? '-' }}</span></div>
                         <div class="info-row"><span class="info-label">Payment Mode:</span> <span>{{ bank_get_name($checkup->payment_method) ?? 'Cash' }}</span></div>
+                        <div class="info-row"><span class="info-label">Type:</span> <span>{{ $checkup->consultation_type_display ?? ($checkup->consultation_type ?? 'Appointment') }}</span></div>
                         <div class="info-row"><span class="info-label">Printed By:</span> <span>{{ auth()->user()->name ?? '-' }}</span></div>
                     </div>
                 </div>
@@ -129,12 +138,24 @@
                 <div class="row justify-content-end">
                     <div class="col-md-6">
                         <div class="row mb-2">
+                            <div class="col-6 text-end"><strong>Discount ({{ number_format($discountPercent,2) }}%):</strong></div>
+                            <div class="col-6 text-end">Rs. {{ number_format($discountAmount,2) }}</div>
+                        </div>
+                        <div class="row mb-2">
+                            <div class="col-6 text-end"><strong>Net Total:</strong></div>
+                            <div class="col-6 text-end">Rs. {{ number_format($netTotal,2) }}</div>
+                        </div>
+                        <div class="row mb-2">
                             <div class="col-6 text-end"><strong>Total Paid:</strong></div>
-                            <div class="col-6 text-end">Rs. {{ number_format($checkup->paid_amount ?? 0,2) }}</div>
+                            <div class="col-6 text-end">Rs. {{ number_format($paidAmount,2) }}</div>
+                        </div>
+                        <div class="row mb-2">
+                            <div class="col-6 text-end"><strong>Pending:</strong></div>
+                            <div class="col-6 text-end">Rs. {{ number_format($pendingAmount,2) }}</div>
                         </div>
                         <div class="row border-top pt-2">
                             <div class="col-6 text-end"><h5><strong>Total Fee:</strong></h5></div>
-                            <div class="col-6 text-end"><h5>Rs. {{ number_format($checkup->fee ?? 0,2) }}</h5></div>
+                            <div class="col-6 text-end"><h5>Rs. {{ number_format($fee,2) }}</h5></div>
                         </div>
                     </div>
                 </div>

@@ -312,6 +312,10 @@
                                 <span>{{ bank_get_name($checkup->payment_method) ?? 'N/A' }}</span>
                             </div>
                             <div class="info-row">
+                                <span class="info-label">Consultation Type:</span>
+                                <span>{{ $checkup->consultation_type_display ?? ($checkup->consultation_type ?? 'Appointment') }}</span>
+                            </div>
+                            <div class="info-row">
                                 <span class="info-label">Printed By:</span>
                                 <span>{{ auth()->user()->name ?? 'N/A' }}</span>
                             </div>
@@ -321,11 +325,11 @@
 
                 @php
                     $fee = $checkup->fee ?? 0;
-                    $discountPct = $checkup->discount ?? 0;
-                    $discountAmount = $fee * ($discountPct / 100);
-                    $netTotal = $fee - $discountAmount;
+                    $discountPercent = (float) ($checkup->discount ?? 0);
+                    $discountAmount = $fee * ($discountPercent / 100);
+                    $netTotal = max(0, $fee - $discountAmount);
                     $paidAmount = $checkup->paid_amount ?? 0;
-                    $pendingAmount = max(0, $netTotal - $paidAmount);
+                    $pendingAmount = $checkup->pending_amount_resolved ?? $checkup->pending_amount ?? max(0, $netTotal - $paidAmount);
                 @endphp
 
                 <!-- Service Details -->
@@ -363,13 +367,13 @@
                                     Rs. {{ number_format($fee) }}
                                 </div>
                             </div>
-                            @if($discountPct > 0)
+                            @if($discountPercent > 0)
                             <div class="row mb-2">
                                 <div class="col-6 text-end">
-                                    <strong>Discount ({{ $discountPct }}%):</strong>
+                                    <strong>Discount ({{ number_format($discountPercent, 2) }}%):</strong>
                                 </div>
                                 <div class="col-6 text-end">
-                                    - Rs. {{ number_format($discountAmount) }}
+                                    - Rs. {{ number_format($discountAmount, 2) }}
                                 </div>
                             </div>
                             @endif
@@ -378,16 +382,15 @@
                                     <h5 class="mb-0"><strong>Total:</strong></h5>
                                 </div>
                                 <div class="col-6 text-end">
-                                    <h5 class="mb-0">Rs. {{ number_format($netTotal) }}</h5>
+                                    <h5 class="mb-0">Rs. {{ number_format($netTotal, 2) }}</h5>
                                 </div>
                             </div>
-                            @if($pendingAmount > 0)
                             <div class="row mt-2">
                                 <div class="col-6 text-end">
                                     <strong>Paid:</strong>
                                 </div>
                                 <div class="col-6 text-end">
-                                    Rs. {{ number_format($paidAmount) }}
+                                    Rs. {{ number_format($paidAmount, 2) }}
                                 </div>
                             </div>
                             <div class="row mt-1">
@@ -395,10 +398,9 @@
                                     <strong class="text-danger">Pending:</strong>
                                 </div>
                                 <div class="col-6 text-end text-danger">
-                                    <strong>Rs. {{ number_format($pendingAmount) }}</strong>
+                                    <strong>Rs. {{ number_format($pendingAmount, 2) }}</strong>
                                 </div>
                             </div>
-                            @endif
                         </div>
                     </div>
                 </div>

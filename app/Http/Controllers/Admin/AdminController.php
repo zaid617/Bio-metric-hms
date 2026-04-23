@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Branch;
+use App\Models\Checkup;
 use App\Models\Doctor;
 use App\Models\Patient;
 use App\Models\Transaction;
@@ -49,6 +50,10 @@ class AdminController extends Controller
                 ->where('type', '+')
                 ->sum('amount');
 
+            $consultationPendingTotal = Checkup::where('branch_id', $branch->id)
+                ->selectRaw('SUM(CASE WHEN pending_amount IS NOT NULL THEN pending_amount ELSE CASE WHEN (COALESCE(fee,0)-(COALESCE(fee,0)*(COALESCE(discount,0)/100))-COALESCE(paid_amount,0)) > 0 THEN (COALESCE(fee,0)-(COALESCE(fee,0)*(COALESCE(discount,0)/100))-COALESCE(paid_amount,0)) ELSE 0 END END) as total_pending')
+                ->value('total_pending') ?? 0;
+
             return [
                 'branch_name'             => $branch->name,
                 'totalDoctors'            => $totalDoctors,
@@ -59,6 +64,7 @@ class AdminController extends Controller
                 'sessionPaymentsToday'    => $sessionPaymentsToday,
                 'totalPaymentsToday'      => $totalPaymentsToday,
                 'totalPaymentsAll'        => $totalPaymentsAll, // ✅ new field
+                'consultationPendingTotal' => $consultationPendingTotal,
             ];
         });
 

@@ -92,6 +92,17 @@
                                 </div>
                             </div>
                         </div>
+                        <div class="col-6">
+                            <div class="d-flex align-items-center p-3 stat-card-custom border border-warning">
+                                <i class="fas fa-file-invoice-dollar fa-2x text-warning me-3"></i>
+                                <div>
+                                    <h6 class="mb-0">
+                                        {{ number_format($branch['consultationPendingTotal'] ?? 0, 0) }}
+                                    </h6>
+                                    <small>Consultation Pending</small>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -109,6 +120,7 @@
         $overallCheckups = collect($branchStats)->sum('totalCheckups');
         $overallSessions = collect($branchStats)->sum('totalSessionsToday');
         $overallPayments = collect($branchStats)->sum(fn($b) => ($b['checkupPaymentsToday'] ?? 0) + ($b['sessionPaymentsToday'] ?? 0));
+        $overallConsultationPending = collect($branchStats)->sum('consultationPendingTotal');
     @endphp
 
     <!-- Overall Heading -->
@@ -167,6 +179,15 @@
                     <div>
                         <h6 class="mb-0">{{ number_format($overallPayments, 0) }}</h6>
                         <small>Total Payments</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-4">
+                <div class="d-flex align-items-center p-3 bg-light rounded shadow-sm">
+                    <i class="fas fa-file-invoice-dollar fa-2x text-warning me-3"></i>
+                    <div>
+                        <h6 class="mb-0">{{ number_format($overallConsultationPending, 0) }}</h6>
+                        <small>Consultation Pending</small>
                     </div>
                 </div>
             </div>

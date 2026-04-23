@@ -49,6 +49,16 @@ class IncomeReportController extends Controller
         // 🟢 Get results
         $incomes = $query->orderBy('transactions.created_at', 'desc')->get();
 
+        $consultationFinancialSummary = DB::table('checkups')
+            ->selectRaw('COALESCE(SUM(fee),0) as total_amount')
+            ->selectRaw('COALESCE(SUM(COALESCE(fee,0) * (COALESCE(discount,0) / 100)),0) as total_discount')
+            ->selectRaw('COALESCE(SUM(paid_amount),0) as total_paid')
+            ->selectRaw('COALESCE(SUM(CASE WHEN pending_amount IS NOT NULL THEN pending_amount ELSE CASE WHEN (COALESCE(fee,0)-(COALESCE(fee,0)*(COALESCE(discount,0)/100))-COALESCE(paid_amount,0)) > 0 THEN (COALESCE(fee,0)-(COALESCE(fee,0)*(COALESCE(discount,0)/100))-COALESCE(paid_amount,0)) ELSE 0 END END),0) as total_pending')
+            ->when(!empty($fromDate) && !empty($toDate), function ($reportQuery) use ($fromDate, $toDate) {
+                $reportQuery->whereBetween(DB::raw('DATE(COALESCE(checkup_date, created_at))'), [$fromDate, $toDate]);
+            })
+            ->first();
+
         // 🟢 Dropdown options
         $paymentTypes = [
             1 => 'Appointment',
@@ -62,7 +72,8 @@ class IncomeReportController extends Controller
             'paymentType',
             'fromDate',
             'toDate',
-            'searchUser'
+            'searchUser',
+            'consultationFinancialSummary'
         ));
     }
 }

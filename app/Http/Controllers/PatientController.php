@@ -283,7 +283,28 @@ class PatientController extends Controller
     {
         try {
             $patient = Patient::with('branch', 'checkups')->findOrFail($id);
-            return view('patients.show', compact('patient'));
+
+            $financialSummary = [
+                'total_fee' => 0.0,
+                'total_discount' => 0.0,
+                'total_paid' => 0.0,
+                'total_pending' => 0.0,
+            ];
+
+            foreach ($patient->checkups as $checkup) {
+                $fee = (float) ($checkup->fee ?? 0);
+                $discountPercent = (float) ($checkup->discount ?? 0);
+                $discountAmount = $fee * ($discountPercent / 100);
+                $paid = (float) ($checkup->paid_amount ?? 0);
+                $pending = \App\Models\Checkup::calculatePendingAmount($fee, $discountPercent, $paid);
+
+                $financialSummary['total_fee'] += $fee;
+                $financialSummary['total_discount'] += $discountAmount;
+                $financialSummary['total_paid'] += $paid;
+                $financialSummary['total_pending'] += $pending;
+            }
+
+            return view('patients.show', compact('patient', 'financialSummary'));
         } catch (\Exception $e) {
             Log::error('Patient show error: ' . $e->getMessage());
             return back()->with('error', 'Unable to load patient details.');

@@ -2,10 +2,10 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use App\Models\Checkup;
 use App\Models\Patient;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator as ValidationValidator;
@@ -13,17 +13,18 @@ use Illuminate\Validation\Validator as ValidationValidator;
 class CheckupController extends Controller
 {
     /**
-     * 1️⃣ Show all checkups (role-based)
+     * Show checkups with filters.
      */
-    public function index()
+    public function index(Request $request)
     {
         try {
             $user = auth()->user();
+            $pendingExpression = $this->pendingAmountExpression();
 
             $query = DB::table('checkups')
                 ->join('patients', 'checkups.patient_id', '=', 'patients.id')
                 ->join('doctors', 'checkups.doctor_id', '=', 'doctors.id')
-                 ->leftJoin('doctors as ref', 'checkups.referred_by', '=', 'ref.id')
+                ->leftJoin('doctors as ref', 'checkups.referred_by', '=', 'ref.id')
                 ->leftJoin('branches', 'checkups.branch_id', '=', 'branches.id')
                 ->select(
                     'checkups.*',
@@ -32,43 +33,104 @@ class CheckupController extends Controller
                     'patients.mr',
                     'patients.phone as patient_phone',
                     DB::raw("CONCAT(doctors.first_name, ' ', doctors.last_name) as doctor_name"),
-                    DB::raw("CONCAT(ref.first_name, ' ', ref.last_name) as referred_by_name"),
-                    'branches.name as branch_name'
+                    DB::raw("COALESCE(NULLIF(checkups.referred_by_name, ''), CONCAT(ref.first_name, ' ', ref.last_name)) as referred_by_name"),
+                    'branches.name as branch_name',
+                    DB::raw("COALESCE(checkups.consultation_type, 'Appointment') as consultation_type_display"),
+                    DB::raw("{$pendingExpression} as pending_amount_resolved")
                 );
 
-            // -------------------------
-            // Role-based Filtering
-            // -------------------------
             if ($user->hasRole('admin')) {
-                // Admin → saari checkups
+                // Admin sees all checkups.
             } elseif ($user->hasRole('doctor')) {
-                // Doctor → sirf apni checkups
                 $query->where('checkups.doctor_id', $user->id);
             } else {
-                // Receptionist / Other branch-based users → sirf apni branch ke checkups
                 $query->where('checkups.branch_id', $user->branch_id);
+            }
+
+            $consultationType = $request->input('consultation_type');
+            if ($consultationType && in_array($consultationType, $this->consultationTypeOptions(), true)) {
+                if ($consultationType === 'Appointment') {
+                    $query->where(function ($inner) {
+                        $inner->where('checkups.consultation_type', 'Appointment')
+                            ->orWhereNull('checkups.consultation_type');
+                    });
+                } else {
+                    $query->where('checkups.consultation_type', $consultationType);
+                }
+            }
+
+            if ($request->filled('doctor_id')) {
+                $query->where('checkups.doctor_id', (int) $request->doctor_id);
+            }
+
+            if ($request->filled('patient_search')) {
+                $keyword = trim((string) $request->patient_search);
+                $query->where(function ($inner) use ($keyword) {
+                    $inner->where('patients.name', 'like', "%{$keyword}%")
+                        ->orWhere('patients.mr', 'like', "%{$keyword}%")
+                        ->orWhere('patients.id', 'like', "%{$keyword}%");
+                });
+            }
+
+            if ($request->filled('date_from')) {
+                $query->whereRaw('DATE(COALESCE(checkups.checkup_date, checkups.created_at)) >= ?', [$request->date_from]);
+            }
+
+            if ($request->filled('date_to')) {
+                $query->whereRaw('DATE(COALESCE(checkups.checkup_date, checkups.created_at)) <= ?', [$request->date_to]);
+            }
+
+            if ($request->filled('payment_status')) {
+                $this->applyPaymentStatusFilter(
+                    $query,
+                    (string) $request->payment_status,
+                    $pendingExpression
+                );
             }
 
             $checkups = $query->orderBy('checkups.id', 'desc')->get();
 
-            return view('consultations.index', [
-                'checkups'      => $checkups,
-                'consultations' => $checkups,
-            ]);
+            $doctors = DB::table('doctors')
+                ->select('id', DB::raw("CONCAT(first_name, ' ', last_name) as name"))
+                ->when(!$user->hasRole('admin') && !empty($user->branch_id), function ($doctorQuery) use ($user) {
+                    $doctorQuery->where('branch_id', $user->branch_id);
+                })
+                ->orderBy('first_name')
+                ->orderBy('last_name')
+                ->get();
 
+            return view('consultations.index', [
+                'checkups' => $checkups,
+                'consultations' => $checkups,
+                'doctors' => $doctors,
+                'consultationTypes' => $this->consultationTypeOptions(),
+                'paymentStatusOptions' => [
+                    'fully_paid' => 'Fully Paid',
+                    'partially_paid' => 'Partially Paid',
+                    'unpaid' => 'Unpaid',
+                ],
+                'filters' => [
+                    'consultation_type' => $request->input('consultation_type', ''),
+                    'date_from' => $request->input('date_from', ''),
+                    'date_to' => $request->input('date_to', ''),
+                    'payment_status' => $request->input('payment_status', ''),
+                    'doctor_id' => $request->input('doctor_id', ''),
+                    'patient_search' => $request->input('patient_search', ''),
+                ],
+            ]);
         } catch (\Exception $e) {
             return redirect()->back()->with('error', '❌ Failed to load checkups: ' . $e->getMessage());
         }
     }
 
     /**
-     * 2️⃣ Show create form
+     * Show create form.
      */
     public function create(Request $request)
     {
         try {
             $patients = DB::table('patients')->select('id', 'name', 'mr', 'phone', 'branch_id')->get();
-            $doctors  = DB::table('doctors')
+            $doctors = DB::table('doctors')
                 ->select('id', DB::raw("CONCAT(first_name, ' ', last_name) as name"))
                 ->get();
             $banks = DB::table('banks')->get();
@@ -81,8 +143,13 @@ class CheckupController extends Controller
             $referredBySource = session()->getOldInput('referred_by_source')
                 ?: $this->resolveReferredBySource($oldType, $oldId, $oldName);
 
-            return view('consultations.create', compact('patients', 'doctors', 'banks', 'initialReferrer', 'referredBySource'));
-
+            return view('consultations.create', compact(
+                'patients',
+                'doctors',
+                'banks',
+                'initialReferrer',
+                'referredBySource'
+            ))->with('consultationTypes', $this->consultationTypeOptions());
         } catch (\Exception $e) {
             return redirect()->back()->with('error', '❌ Failed to load create form: ' . $e->getMessage());
         }
@@ -151,19 +218,20 @@ class CheckupController extends Controller
     }
 
     /**
-     * 3️⃣ Store new checkup
+     * Store new checkup.
      */
     public function store(Request $request)
     {
         try {
             $validator = Validator::make($request->all(), [
-                'patient_id'     => 'required|exists:patients,id',
-                'doctor_id'      => 'required|exists:doctors,id',
-                'fee'            => 'required|numeric|min:0',
-                'paid_amount'    => 'nullable|numeric|min:0',
+                'patient_id' => 'required|exists:patients,id',
+                'doctor_id' => 'required|exists:doctors,id',
+                'consultation_type' => ['required', Rule::in($this->consultationTypeOptions())],
+                'fee' => 'required|numeric|min:0',
+                'paid_amount' => 'nullable|numeric|min:0',
                 'payment_method' => 'nullable|string',
-                'description'    => 'nullable|string|max:500',
-                'discount'       => 'nullable|numeric|min:0|max:100',
+                'description' => 'nullable|string|max:500',
+                'discount' => 'nullable|numeric|min:0|max:100',
                 'referred_by_type' => ['nullable', Rule::in([
                     'body_expert_doctor',
                     'body_expert_patient',
@@ -178,6 +246,12 @@ class CheckupController extends Controller
 
             $validator->after(function (ValidationValidator $validator) use ($request) {
                 $this->validateReferredBySelection($request, $validator);
+                $this->validateFinancialInputs(
+                    (float) $request->input('fee', 0),
+                    (float) $request->input('discount', 0),
+                    (float) $request->input('paid_amount', 0),
+                    $validator
+                );
             });
 
             $validatedData = $validator->validate();
@@ -190,39 +264,48 @@ class CheckupController extends Controller
                 return back()->with('error', '❌ Patient not found.');
             }
 
-            // Create Checkup
+            $fee = (float) ($validatedData['fee'] ?? 0);
+            $discount = (float) ($validatedData['discount'] ?? 0);
+            $paidAmount = (float) ($validatedData['paid_amount'] ?? 0);
+            $pendingAmount = Checkup::calculatePendingAmount($fee, $discount, $paidAmount);
+            $paymentMethod = $validatedData['payment_method'] ?? null;
+            $bankId = $this->normalizeBankId($paymentMethod);
+
             $checkup = Checkup::create([
-                'patient_id'     => $validatedData['patient_id'],
-                'doctor_id'      => $validatedData['doctor_id'],
-                'branch_id'      => $patient->branch_id,
-                'fee'            => $validatedData['fee'] ?? 0,
-                'paid_amount'    => $validatedData['paid_amount'] ?? 0,
-                'payment_method' => $validatedData['payment_method'] ?? null,
+                'patient_id' => $validatedData['patient_id'],
+                'doctor_id' => $validatedData['doctor_id'],
+                'branch_id' => $patient->branch_id,
+                'consultation_type' => $validatedData['consultation_type'],
+                'fee' => $fee,
+                'paid_amount' => $paidAmount,
+                'pending_amount' => $pendingAmount,
+                'payment_method' => $paymentMethod,
                 'referred_by' => $this->mapLegacyDoctorReferral($referredByData),
                 'referred_by_type' => $referredByData['referred_by_type'] ?? null,
                 'referred_by_id' => $referredByData['referred_by_id'] ?? null,
                 'referred_by_name' => $referredByData['referred_by_name'] ?? null,
-                'description'    => $validatedData['description'] ?? null,
-                'discount'       => $validatedData['discount'] ?? 0,
-                'status'         => 'completed',
+                'description' => $validatedData['description'] ?? null,
+                'discount' => $discount,
+                'status' => 'completed',
             ]);
 
-            handleGeneralTransaction(
-                branch_id: $patient->branch_id,
-                bank_id: $validatedData['payment_method'] ?? null,
-                patient_id: $validatedData['patient_id'],
-                doctor_id: $validatedData['doctor_id'],
-                type: '+',
-                amount: $validatedData['paid_amount'] ?? 0,
-                note: 'Appointment / Consultation Fee',
-                invoice_id: $checkup->id,
-                payment_type: 1,
-                entry_by: auth()->id()
-            );
+            if ($paidAmount > 0) {
+                handleGeneralTransaction(
+                    branch_id: (int) $patient->branch_id,
+                    bank_id: $bankId,
+                    patient_id: (int) $validatedData['patient_id'],
+                    doctor_id: (int) $validatedData['doctor_id'],
+                    type: '+',
+                    amount: $paidAmount,
+                    note: 'Appointment / Consultation Fee',
+                    invoice_id: $checkup->id,
+                    payment_type: 1,
+                    entry_by: auth()->id()
+                );
+            }
 
             DB::commit();
             return redirect()->route('consultations.print', $checkup->id)->with('success', '✅ Checkup added successfully.');
-
         } catch (\Illuminate\Validation\ValidationException $e) {
             return back()->withErrors($e->validator)->withInput();
         } catch (\Exception $e) {
@@ -232,63 +315,172 @@ class CheckupController extends Controller
     }
 
     /**
-     * 4️⃣ Edit form
+     * Edit form.
      */
     public function edit($id)
     {
-        $checkup  = Checkup::findOrFail($id);
-        $patients = DB::table('patients')->select('id', 'name')->get();
-        $doctors  = DB::table('doctors')
+        $checkup = Checkup::findOrFail($id);
+        $patients = DB::table('patients')->select('id', 'name', 'mr')->get();
+        $doctors = DB::table('doctors')
             ->select('id', DB::raw("CONCAT(first_name, ' ', last_name) as name"))
             ->get();
+        $banks = DB::table('banks')->get();
 
         return view('consultations.edit', [
-            'checkup'       => $checkup,
-            'consultation'  => $checkup,
-            'patients'      => $patients,
-            'doctors'       => $doctors,
+            'checkup' => $checkup,
+            'consultation' => $checkup,
+            'patients' => $patients,
+            'doctors' => $doctors,
+            'banks' => $banks,
+            'consultationTypes' => $this->consultationTypeOptions(),
         ]);
     }
 
     /**
-     * 5️⃣ Update checkup
+     * Update full checkup.
      */
     public function update(Request $request, $id)
     {
-        $request->validate([
-            'patient_id'     => 'required|exists:patients,id',
-            'doctor_id'      => 'required|exists:doctors,id',
-            'fee'            => 'required|numeric|min:0',
-            'paid_amount'    => 'nullable|numeric|min:0',
+        $validator = Validator::make($request->all(), [
+            'patient_id' => 'required|exists:patients,id',
+            'doctor_id' => 'required|exists:doctors,id',
+            'consultation_type' => ['required', Rule::in($this->consultationTypeOptions())],
+            'fee' => 'required|numeric|min:0',
+            'discount' => 'nullable|numeric|min:0|max:100',
+            'paid_amount' => 'nullable|numeric|min:0',
             'payment_method' => 'nullable|string',
+            'description' => 'nullable|string|max:500',
         ]);
 
-        DB::table('checkups')->where('id', $id)->update([
-            'patient_id'     => $request->patient_id,
-            'doctor_id'      => $request->doctor_id,
-            'fee'            => $request->fee,
-            'paid_amount'    => $request->paid_amount ?? 0,
-            'payment_method' => $request->payment_method ?? null,
-            'updated_at'     => now(),
-        ]);
+        $validator->after(function (ValidationValidator $validator) use ($request) {
+            $this->validateFinancialInputs(
+                (float) $request->input('fee', 0),
+                (float) $request->input('discount', 0),
+                (float) $request->input('paid_amount', 0),
+                $validator
+            );
+        });
 
-        return redirect()->route('checkups.index')->with('success', '✅ Checkup updated successfully.');
+        $validatedData = $validator->validate();
+
+        try {
+            DB::beginTransaction();
+
+            $checkup = Checkup::findOrFail($id);
+            $oldPaidAmount = (float) ($checkup->paid_amount ?? 0);
+            $oldBankId = $this->normalizeBankId($checkup->payment_method);
+
+            $fee = (float) $validatedData['fee'];
+            $discount = (float) ($validatedData['discount'] ?? 0);
+            $newPaidAmount = (float) ($validatedData['paid_amount'] ?? 0);
+            $pendingAmount = Checkup::calculatePendingAmount($fee, $discount, $newPaidAmount);
+
+            $checkup->fill([
+                'patient_id' => $validatedData['patient_id'],
+                'doctor_id' => $validatedData['doctor_id'],
+                'consultation_type' => $validatedData['consultation_type'],
+                'fee' => $fee,
+                'discount' => $discount,
+                'paid_amount' => $newPaidAmount,
+                'pending_amount' => $pendingAmount,
+                'payment_method' => $validatedData['payment_method'] ?? null,
+                'description' => $validatedData['description'] ?? null,
+            ]);
+            $checkup->save();
+
+            $newBankId = $this->normalizeBankId($checkup->payment_method);
+            $this->logPaidAmountAdjustment(
+                $checkup,
+                $oldPaidAmount,
+                $newPaidAmount,
+                $oldBankId,
+                $newBankId,
+                'Consultation updated'
+            );
+
+            DB::commit();
+
+            return redirect()->route('consultations.index')->with('success', '✅ Checkup updated successfully.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect()->back()->with('error', '❌ Failed to update checkup: ' . $e->getMessage())->withInput();
+        }
     }
 
     /**
-     * 6️⃣ Delete checkup
+     * Update only paid amount from detail page.
+     */
+    public function updatePaidAmount(Request $request, $id)
+    {
+        $request->validate([
+            'paid_amount' => 'required|numeric|min:0',
+            'payment_method' => 'nullable|string',
+        ]);
+
+        try {
+            DB::beginTransaction();
+
+            $checkup = Checkup::findOrFail($id);
+
+            $fee = (float) ($checkup->fee ?? 0);
+            $discountPercent = (float) ($checkup->discount ?? 0);
+            $newPaidAmount = (float) $request->paid_amount;
+            $maxPayable = max(0, $fee - ($fee * ($discountPercent / 100)));
+
+            if ($newPaidAmount > $maxPayable) {
+                return redirect()->back()
+                    ->withErrors([
+                        'paid_amount' => 'Paid Amount cannot exceed Total after Discount (Rs. ' . number_format($maxPayable, 2) . ').',
+                    ])
+                    ->withInput();
+            }
+
+            $oldPaidAmount = (float) ($checkup->paid_amount ?? 0);
+            $oldBankId = $this->normalizeBankId($checkup->payment_method);
+
+            if ($request->filled('payment_method')) {
+                $checkup->payment_method = $request->payment_method;
+            }
+
+            $checkup->paid_amount = $newPaidAmount;
+            $checkup->pending_amount = Checkup::calculatePendingAmount($fee, $discountPercent, $newPaidAmount);
+            $checkup->save();
+
+            $newBankId = $this->normalizeBankId($checkup->payment_method);
+            $this->logPaidAmountAdjustment(
+                $checkup,
+                $oldPaidAmount,
+                $newPaidAmount,
+                $oldBankId,
+                $newBankId,
+                'Consultation paid amount updated'
+            );
+
+            DB::commit();
+
+            return redirect()->back()->with('success', '✅ Paid amount updated successfully.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect()->back()->with('error', '❌ Failed to update paid amount: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Delete checkup.
      */
     public function destroy($id)
     {
         DB::table('checkups')->where('id', $id)->delete();
-        return redirect()->route('checkups.index')->with('success', '🗑️ Checkup deleted successfully.');
+        return redirect()->route('consultations.index')->with('success', '🗑️ Checkup deleted successfully.');
     }
 
     /**
-     * 7️⃣ Show detail
+     * Show detail.
      */
     public function show($id)
     {
+        $pendingExpression = $this->pendingAmountExpression();
+
         $checkup = DB::table('checkups')
             ->join('patients', 'checkups.patient_id', '=', 'patients.id')
             ->join('doctors', 'checkups.doctor_id', '=', 'doctors.id')
@@ -299,21 +491,28 @@ class CheckupController extends Controller
                 'patients.phone as patient_phone',
                 'patients.gender',
                 DB::raw("CONCAT(doctors.first_name, ' ', doctors.last_name) as doctor_name"),
-                'branches.name as branch_name'
+                'branches.name as branch_name',
+                DB::raw("COALESCE(checkups.consultation_type, 'Appointment') as consultation_type_display"),
+                DB::raw("{$pendingExpression} as pending_amount_resolved")
             )
             ->where('checkups.id', $id)
             ->first();
 
-        if (!$checkup) abort(404);
+        if (!$checkup) {
+            abort(404);
+        }
+
+        $banks = DB::table('banks')->get();
 
         return view('consultations.show', [
-            'checkup'      => $checkup,
+            'checkup' => $checkup,
             'consultation' => $checkup,
+            'banks' => $banks,
         ]);
     }
 
     /**
-     * 8️⃣ Ajax: Get fee by branch
+     * Ajax: get fee by branch.
      */
     public function getCheckupFee($patientId)
     {
@@ -329,40 +528,47 @@ class CheckupController extends Controller
     }
 
     /**
-     * 🔟 Patient History
+     * Patient checkup history.
      */
     public function history($patient_id)
     {
         $patient = DB::table('patients')->where('id', $patient_id)->first();
-        if (!$patient) abort(404, 'Patient not found.');
+        if (!$patient) {
+            abort(404, 'Patient not found.');
+        }
 
-     $history = DB::table('checkups')
-    ->join('doctors', 'checkups.doctor_id', '=', 'doctors.id')
-    ->leftJoin('doctors as ref', 'checkups.referred_by', '=', 'ref.id') // <-- add this
-    ->leftJoin('branches', 'checkups.branch_id', '=', 'branches.id')
-    ->select(
-        'checkups.*',
-        DB::raw("CONCAT(doctors.first_name, ' ', doctors.last_name) as doctor_name"),
-        DB::raw("CONCAT(ref.first_name, ' ', ref.last_name) as referred_by_name"),
-        'branches.name as branch_name'
-    )
-    ->where('checkups.patient_id', $patient_id)
-    ->orderBy('checkups.id', 'desc')
-    ->get();
+        $pendingExpression = $this->pendingAmountExpression();
 
+        $history = DB::table('checkups')
+            ->join('doctors', 'checkups.doctor_id', '=', 'doctors.id')
+            ->leftJoin('doctors as ref', 'checkups.referred_by', '=', 'ref.id')
+            ->leftJoin('branches', 'checkups.branch_id', '=', 'branches.id')
+            ->select(
+                'checkups.*',
+                DB::raw("CONCAT(doctors.first_name, ' ', doctors.last_name) as doctor_name"),
+                DB::raw("COALESCE(NULLIF(checkups.referred_by_name, ''), CONCAT(ref.first_name, ' ', ref.last_name)) as referred_by_name"),
+                'branches.name as branch_name',
+                DB::raw("COALESCE(checkups.consultation_type, 'Appointment') as consultation_type_display"),
+                DB::raw("{$pendingExpression} as pending_amount_resolved")
+            )
+            ->where('checkups.patient_id', $patient_id)
+            ->orderBy('checkups.id', 'desc')
+            ->get();
 
         return view('consultations.history', [
-            'history'       => $history,
-            'patient'       => $patient,
+            'history' => $history,
+            'patient' => $patient,
             'consultations' => $history,
         ]);
     }
 
     /**
-     * 11️⃣ Print Checkup Slip
+     * Print checkup slip.
      */
     public function printSlip($id)
     {
+        $pendingExpression = $this->pendingAmountExpression();
+
         $checkup = DB::table('checkups')
             ->join('patients', 'checkups.patient_id', '=', 'patients.id')
             ->join('doctors', 'checkups.doctor_id', '=', 'doctors.id')
@@ -378,14 +584,18 @@ class CheckupController extends Controller
                 'patients.mr as patient_mr',
                 DB::raw("CONCAT(doctors.first_name, ' ', doctors.last_name) as doctor_name"),
                 DB::raw("CONCAT(ref.first_name, ' ', ref.last_name) as doctor_ref_name"),
-                'branches.name as branch_name'
+                'branches.name as branch_name',
+                DB::raw("COALESCE(checkups.consultation_type, 'Appointment') as consultation_type_display"),
+                DB::raw("{$pendingExpression} as pending_amount_resolved")
             )
             ->where('checkups.id', $id)
             ->first();
 
         $branches = DB::table('branches')->get();
 
-        if (!$checkup) abort(404, 'Checkup not found.');
+        if (!$checkup) {
+            abort(404, 'Checkup not found.');
+        }
 
         return view('consultations.print', [
             'checkup' => $checkup,
@@ -394,10 +604,12 @@ class CheckupController extends Controller
     }
 
     /**
-     * 12️⃣ Print Checkup Slip (Custom Blade)
+     * Print checkup slip (custom blade).
      */
     public function printSlipCustom($id)
     {
+        $pendingExpression = $this->pendingAmountExpression();
+
         $checkup = DB::table('checkups')
             ->join('patients', 'checkups.patient_id', '=', 'patients.id')
             ->join('doctors', 'checkups.doctor_id', '=', 'doctors.id')
@@ -413,19 +625,123 @@ class CheckupController extends Controller
                 'patients.mr as patient_mr',
                 DB::raw("CONCAT(doctors.first_name, ' ', doctors.last_name) as doctor_name"),
                 DB::raw("CONCAT(ref.first_name, ' ', ref.last_name) as doctor_ref_name"),
-                'branches.name as branch_name'
+                'branches.name as branch_name',
+                DB::raw("COALESCE(checkups.consultation_type, 'Appointment') as consultation_type_display"),
+                DB::raw("{$pendingExpression} as pending_amount_resolved")
             )
             ->where('checkups.id', $id)
             ->first();
 
         $branches = DB::table('branches')->get();
 
-        if (!$checkup) abort(404, 'Checkup not found.');
+        if (!$checkup) {
+            abort(404, 'Checkup not found.');
+        }
 
         return view('consultations.print_custom', [
             'checkup' => $checkup,
             'branches' => $branches,
         ]);
+    }
+
+    private function consultationTypeOptions(): array
+    {
+        return ['Appointment', 'Enrollment'];
+    }
+
+    private function pendingAmountExpression(): string
+    {
+        return "CASE WHEN checkups.pending_amount IS NOT NULL THEN checkups.pending_amount ELSE CASE WHEN (COALESCE(checkups.fee, 0) - (COALESCE(checkups.fee, 0) * (COALESCE(checkups.discount, 0) / 100)) - COALESCE(checkups.paid_amount, 0)) > 0 THEN (COALESCE(checkups.fee, 0) - (COALESCE(checkups.fee, 0) * (COALESCE(checkups.discount, 0) / 100)) - COALESCE(checkups.paid_amount, 0)) ELSE 0 END END";
+    }
+
+    private function applyPaymentStatusFilter($query, string $paymentStatus, string $pendingExpression): void
+    {
+        if ($paymentStatus === 'fully_paid') {
+            $query->whereRaw("({$pendingExpression}) <= 0");
+            return;
+        }
+
+        if ($paymentStatus === 'partially_paid') {
+            $query->whereRaw("({$pendingExpression}) > 0")
+                ->whereRaw('COALESCE(checkups.paid_amount, 0) > 0');
+            return;
+        }
+
+        if ($paymentStatus === 'unpaid') {
+            $query->whereRaw("({$pendingExpression}) > 0")
+                ->whereRaw('COALESCE(checkups.paid_amount, 0) <= 0');
+        }
+    }
+
+    private function validateFinancialInputs(
+        float $fee,
+        float $discount,
+        float $paidAmount,
+        ValidationValidator $validator
+    ): void {
+        if ($discount > 100) {
+            $validator->errors()->add('discount', 'Discount cannot exceed 100%.');
+        }
+
+        $maxPayable = max(0, $fee - ($fee * ($discount / 100)));
+        if ($paidAmount > $maxPayable) {
+            $validator->errors()->add('paid_amount', 'Paid Amount cannot exceed Total after Discount.');
+        }
+    }
+
+    private function normalizeBankId($paymentMethod): int
+    {
+        if ($paymentMethod === null || $paymentMethod === '') {
+            return 0;
+        }
+
+        if (is_numeric($paymentMethod)) {
+            return (int) $paymentMethod;
+        }
+
+        $digits = preg_replace('/[^0-9]/', '', (string) $paymentMethod);
+
+        return $digits === '' ? 0 : (int) $digits;
+    }
+
+    private function logPaidAmountAdjustment(
+        Checkup $checkup,
+        float $oldPaidAmount,
+        float $newPaidAmount,
+        int $oldBankId,
+        int $newBankId,
+        string $context
+    ): void {
+        $delta = round($newPaidAmount - $oldPaidAmount, 2);
+
+        if (abs($delta) < 0.01) {
+            return;
+        }
+
+        $amount = abs($delta);
+        $type = $delta > 0 ? '+' : '-';
+        $bankId = $delta > 0 ? $newBankId : $oldBankId;
+
+        $note = sprintf(
+            '%s (Checkup #%d): paid amount changed from %.2f to %.2f',
+            $context,
+            $checkup->id,
+            $oldPaidAmount,
+            $newPaidAmount
+        );
+
+        handleGeneralTransaction(
+            branch_id: (int) $checkup->branch_id,
+            bank_id: $bankId,
+            patient_id: (int) $checkup->patient_id,
+            doctor_id: (int) $checkup->doctor_id,
+            type: $type,
+            amount: $amount,
+            note: $note,
+            invoice_id: (int) $checkup->id,
+            payment_type: 1,
+            entry_by: auth()->id()
+        );
     }
 
     private function validateReferredBySelection(Request $request, ValidationValidator $validator): void
