@@ -12,6 +12,8 @@ class Checkup extends Model
     protected $fillable = [
         'patient_id',
         'doctor_id',
+        'created_by',
+        'updated_by',
         'referred_by',
         'referred_by_type',
         'referred_by_id',

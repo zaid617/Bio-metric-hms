@@ -24,6 +24,7 @@ class CheckupController extends Controller
             $query = DB::table('checkups')
                 ->join('patients', 'checkups.patient_id', '=', 'patients.id')
                 ->join('doctors', 'checkups.doctor_id', '=', 'doctors.id')
+                ->leftJoin('users as creator', 'checkups.created_by', '=', 'creator.id')
                 ->leftJoin('doctors as ref', 'checkups.referred_by', '=', 'ref.id')
                 ->leftJoin('branches', 'checkups.branch_id', '=', 'branches.id')
                 ->select(
@@ -33,6 +34,7 @@ class CheckupController extends Controller
                     'patients.mr',
                     'patients.phone as patient_phone',
                     DB::raw("CONCAT(doctors.first_name, ' ', doctors.last_name) as doctor_name"),
+                    'creator.name as created_by_name',
                     DB::raw("COALESCE(NULLIF(checkups.referred_by_name, ''), CONCAT(ref.first_name, ' ', ref.last_name)) as referred_by_name"),
                     'branches.name as branch_name',
                     DB::raw("COALESCE(checkups.consultation_type, 'Appointment') as consultation_type_display"),
@@ -274,6 +276,8 @@ class CheckupController extends Controller
             $checkup = Checkup::create([
                 'patient_id' => $validatedData['patient_id'],
                 'doctor_id' => $validatedData['doctor_id'],
+                'created_by' => auth()->id(),
+                'updated_by' => auth()->id(),
                 'branch_id' => $patient->branch_id,
                 'consultation_type' => $validatedData['consultation_type'],
                 'fee' => $fee,
@@ -378,6 +382,7 @@ class CheckupController extends Controller
             $checkup->fill([
                 'patient_id' => $validatedData['patient_id'],
                 'doctor_id' => $validatedData['doctor_id'],
+                'updated_by' => auth()->id(),
                 'consultation_type' => $validatedData['consultation_type'],
                 'fee' => $fee,
                 'discount' => $discount,
@@ -442,6 +447,7 @@ class CheckupController extends Controller
                 $checkup->payment_method = $request->payment_method;
             }
 
+            $checkup->updated_by = auth()->id();
             $checkup->paid_amount = $newPaidAmount;
             $checkup->pending_amount = Checkup::calculatePendingAmount($fee, $discountPercent, $newPaidAmount);
             $checkup->save();
