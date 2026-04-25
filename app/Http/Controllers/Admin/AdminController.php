@@ -55,6 +55,7 @@ class AdminController extends Controller
                 ->value('total_pending') ?? 0;
 
             return [
+                'branch_id'               => $branch->id,
                 'branch_name'             => $branch->name,
                 'totalDoctors'            => $totalDoctors,
                 'totalPatients'           => $totalPatients,

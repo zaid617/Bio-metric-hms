@@ -459,6 +459,14 @@ Route::middleware(['auth:web', 'role:admin|manager|receptionist|view-only-admin'
                 ->middleware('check_user_permission:view payments')
                 ->name('accounts.completed-invoices');
 
+            Route::get('/appointment-invoices', [PaymentOutstandingController::class, 'appointmentInvoices'])
+                ->middleware('check_user_permission:view payments')
+                ->name('payments.appointment-invoices');
+
+            Route::get('/receivable', [PaymentOutstandingController::class, 'receivable'])
+                ->middleware('check_user_permission:view payments')
+                ->name('payments.receivable');
+
             Route::get('/outstandings', [PaymentOutstandingController::class, 'index'])
                 ->middleware('check_user_permission:view payments')
                 ->name('payments.outstandings');

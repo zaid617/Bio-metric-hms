@@ -193,6 +193,11 @@
                         </a>
                     </li>
                     <li>
+                        <a href="{{ url('/payments/appointment-invoices') }}">
+                            <i class="material-icons-outlined">description</i> Appointment Invoices
+                        </a>
+                    </li>
+                    <li>
                         <a href="{{ url('/payments/receivable') }}">
                             <i class="material-icons-outlined">payments</i> Payment Receivable
                         </a>
@@ -209,7 +214,7 @@
                 </a>
             </li>
 
-            
+
             @endcan
 
         </ul>

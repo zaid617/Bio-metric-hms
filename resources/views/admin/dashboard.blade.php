@@ -70,18 +70,21 @@
                         </div>
                         <!-- Total Payments -->
                         <div class="col-6">
+                            <a href="{{ route('payments.appointment-invoices', ['branch_id' => $branch['branch_id'] ?? null, 'date_from' => now()->toDateString(), 'date_to' => now()->toDateString()]) }}" class="text-decoration-none text-reset d-block">
                             <div class="d-flex align-items-center p-3 stat-card-custom border border-danger">
                                 <i class="fas fa-coins fa-2x text-danger me-3"></i>
                                 <div>
                                     <h6 class="mb-0">
                                         {{ number_format($branch['totalPaymentsToday'] ?? 0) }}
                                     </h6>
-                                    <small>Total Payments</small>
+                                    <small>Today's Payments</small>
                                 </div>
                             </div>
+                            </a>
                         </div>
                         <!-- Total Payments -->
                         <div class="col-6">
+                            <a href="{{ route('payments.appointment-invoices', ['branch_id' => $branch['branch_id'] ?? null]) }}" class="text-decoration-none text-reset d-block">
                             <div class="d-flex align-items-center p-3 stat-card-custom border border-danger">
                                 <i class="fas fa-coins fa-2x text-danger me-3"></i>
                                 <div>
@@ -91,6 +94,7 @@
                                     <small>Total Payments</small>
                                 </div>
                             </div>
+                            </a>
                         </div>
                         <div class="col-6">
                             <div class="d-flex align-items-center p-3 stat-card-custom border border-warning">
@@ -173,21 +177,21 @@
                 </div>
             </div>
             <!-- Total Payments -->
-            <div class="col-6 col-md-4">
+            <div class="col-4 col-md-2 mb-3">
                 <div class="d-flex align-items-center p-3 bg-light rounded shadow-sm">
                     <i class="fas fa-coins fa-2x text-dark me-3"></i>
                     <div>
                         <h6 class="mb-0">{{ number_format($overallPayments, 0) }}</h6>
-                        <small>Total Payments</small>
+                        <small>Total</small>
                     </div>
                 </div>
             </div>
-            <div class="col-6 col-md-4">
+            <div class="col-4 col-md-2 mb-3">
                 <div class="d-flex align-items-center p-3 bg-light rounded shadow-sm">
                     <i class="fas fa-file-invoice-dollar fa-2x text-warning me-3"></i>
                     <div>
                         <h6 class="mb-0">{{ number_format($overallConsultationPending, 0) }}</h6>
-                        <small>Consultation Pending</small>
+                        <small>Pending</small>
                     </div>
                 </div>
             </div>

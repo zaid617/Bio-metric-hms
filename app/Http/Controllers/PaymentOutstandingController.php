@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use App\Models\TreatmentSession;
 use App\Models\Transaction;
 use App\Models\Bank;
+use App\Models\Branch;
 use App\Models\Patient;
 use Illuminate\Support\Facades\DB;
 use App\Models\Checkup;
@@ -13,29 +14,218 @@ use App\Models\Checkup;
 
 class PaymentOutstandingController extends Controller
 {
+    private function isSuperAdmin(): bool
+    {
+        $user = auth()->user();
+
+        return (bool) ($user && method_exists($user, 'hasRole') && $user->hasRole('admin'));
+    }
+
+    private function selectedBranchId(Request $request): ?int
+    {
+        $user = auth()->user();
+        $requestedBranchId = (int) $request->query('branch_id', 0);
+
+        if ($this->isSuperAdmin()) {
+            return $requestedBranchId > 0 ? $requestedBranchId : null;
+        }
+
+        return !empty($user?->branch_id) ? (int) $user->branch_id : null;
+    }
+
+    private function applySessionFilters($query, Request $request)
+    {
+        $selectedBranchId = $this->selectedBranchId($request);
+        $search = trim((string) $request->query('q', ''));
+        $dateFrom = $request->query('date_from');
+        $dateTo = $request->query('date_to');
+
+        if (!empty($selectedBranchId)) {
+            $query->where('branch_id', $selectedBranchId);
+        }
+
+        if (!empty($dateFrom)) {
+            $query->whereDate('created_at', '>=', $dateFrom);
+        }
+
+        if (!empty($dateTo)) {
+            $query->whereDate('created_at', '<=', $dateTo);
+        }
+
+        if ($search !== '') {
+            $query->where(function ($inner) use ($search) {
+                $inner->where('id', 'like', "%{$search}%")
+                    ->orWhereHas('patient', function ($patientQuery) use ($search) {
+                        $patientQuery->where('name', 'like', "%{$search}%")
+                            ->orWhere('mr', 'like', "%{$search}%");
+                    });
+            });
+        }
+
+        return $query;
+    }
+
+    private function applyCheckupFilters($query, Request $request)
+    {
+        $selectedBranchId = $this->selectedBranchId($request);
+        $search = trim((string) $request->query('q', ''));
+        $dateFrom = $request->query('date_from');
+        $dateTo = $request->query('date_to');
+        $status = strtolower((string) $request->query('status', 'all'));
+
+        $pendingSql = "CASE WHEN pending_amount IS NOT NULL THEN pending_amount ELSE CASE WHEN (COALESCE(fee,0)-(COALESCE(fee,0)*(COALESCE(discount,0)/100))-COALESCE(paid_amount,0)) > 0 THEN (COALESCE(fee,0)-(COALESCE(fee,0)*(COALESCE(discount,0)/100))-COALESCE(paid_amount,0)) ELSE 0 END END";
+
+        $query->where(function ($q) {
+            // Some records are saved as Enrollment/appointment variants.
+            $q->whereNull('consultation_type')
+                ->orWhereRaw("TRIM(COALESCE(consultation_type, '')) = ''")
+                ->orWhereRaw("LOWER(TRIM(consultation_type)) in ('appointment', 'enrollment')");
+        });
+
+        if (!empty($selectedBranchId)) {
+            $query->where('branch_id', $selectedBranchId);
+        }
+
+        if (!empty($dateFrom)) {
+            $query->whereDate('created_at', '>=', $dateFrom);
+        }
+
+        if (!empty($dateTo)) {
+            $query->whereDate('created_at', '<=', $dateTo);
+        }
+
+        if ($search !== '') {
+            $query->where(function ($inner) use ($search) {
+                $inner->where('id', 'like', "%{$search}%")
+                    ->orWhereHas('patient', function ($patientQuery) use ($search) {
+                        $patientQuery->where('name', 'like', "%{$search}%")
+                            ->orWhere('mr', 'like', "%{$search}%");
+                    });
+            });
+        }
+
+        if ($status === 'outstanding') {
+            $query->whereRaw("{$pendingSql} > 0");
+        } elseif ($status === 'paid') {
+            $query->whereRaw("{$pendingSql} <= 0");
+        }
+
+        return $query;
+    }
+
     /**
      * Show outstanding (unpaid) invoices.
      */
-    public function index()
+    public function index(Request $request)
     {
-        // Sirf un treatment sessions ko show kare jinke dues_amount > 0 hain
-        $outstandings = TreatmentSession::with('patient')
+        $outstandings = $this->applySessionFilters(TreatmentSession::with('patient'), $request)
             ->where('dues_amount', '>', 0)
+            ->orderByDesc('created_at')
             ->get();
 
-        return view('payments.outstandings', compact('outstandings'));
+        $isSuperAdmin = $this->isSuperAdmin();
+        $branches = $isSuperAdmin ? Branch::orderBy('name')->get(['id', 'name']) : collect();
+        $selectedBranchId = $this->selectedBranchId($request);
+        $filters = [
+            'q' => trim((string) $request->query('q', '')),
+            'date_from' => $request->query('date_from'),
+            'date_to' => $request->query('date_to'),
+        ];
+
+        return view('payments.outstandings', [
+            'outstandings' => $outstandings,
+            'isSuperAdmin' => $isSuperAdmin,
+            'branches' => $branches,
+            'selectedBranchId' => $selectedBranchId,
+            'filters' => $filters,
+            'subtitle' => 'Outstanding Payments',
+        ]);
     }
 
     /**
      * Show fully paid invoices.
      */
-    public function completedInvoices()
+    public function completedInvoices(Request $request)
     {
-        $outstandings = TreatmentSession::with('patient')
+        $outstandings = $this->applySessionFilters(TreatmentSession::with('patient'), $request)
             ->where('dues_amount', '=', 0)
+            ->orderByDesc('created_at')
             ->get();
 
-        return view('payments.outstandings', compact('outstandings'));
+        $isSuperAdmin = $this->isSuperAdmin();
+        $branches = $isSuperAdmin ? Branch::orderBy('name')->get(['id', 'name']) : collect();
+        $selectedBranchId = $this->selectedBranchId($request);
+        $filters = [
+            'q' => trim((string) $request->query('q', '')),
+            'date_from' => $request->query('date_from'),
+            'date_to' => $request->query('date_to'),
+        ];
+
+        return view('payments.outstandings', [
+            'outstandings' => $outstandings,
+            'isSuperAdmin' => $isSuperAdmin,
+            'branches' => $branches,
+            'selectedBranchId' => $selectedBranchId,
+            'filters' => $filters,
+            'subtitle' => 'Completed Invoices',
+        ]);
+    }
+
+    /**
+     * Show payment receivables (same dataset as outstanding invoices).
+     */
+    public function receivable(Request $request)
+    {
+        $outstandings = $this->applySessionFilters(TreatmentSession::with('patient'), $request)
+            ->where('dues_amount', '>', 0)
+            ->orderByDesc('created_at')
+            ->get();
+
+        $isSuperAdmin = $this->isSuperAdmin();
+        $branches = $isSuperAdmin ? Branch::orderBy('name')->get(['id', 'name']) : collect();
+        $selectedBranchId = $this->selectedBranchId($request);
+        $filters = [
+            'q' => trim((string) $request->query('q', '')),
+            'date_from' => $request->query('date_from'),
+            'date_to' => $request->query('date_to'),
+        ];
+
+        return view('payments.outstandings', [
+            'outstandings' => $outstandings,
+            'isSuperAdmin' => $isSuperAdmin,
+            'branches' => $branches,
+            'selectedBranchId' => $selectedBranchId,
+            'filters' => $filters,
+            'subtitle' => 'Payment Receivable',
+        ]);
+    }
+
+    /**
+     * Show appointment invoices (checkups).
+     */
+    public function appointmentInvoices(Request $request)
+    {
+        $appointmentInvoices = $this->applyCheckupFilters(Checkup::with(['patient', 'doctor', 'branch']), $request)
+            ->orderByDesc('created_at')
+            ->get();
+
+        $isSuperAdmin = $this->isSuperAdmin();
+        $branches = $isSuperAdmin ? Branch::orderBy('name')->get(['id', 'name']) : collect();
+        $selectedBranchId = $this->selectedBranchId($request);
+        $filters = [
+            'q' => trim((string) $request->query('q', '')),
+            'date_from' => $request->query('date_from'),
+            'date_to' => $request->query('date_to'),
+            'status' => strtolower((string) $request->query('status', 'all')),
+        ];
+
+        return view('payments.appointment_invoices', [
+            'appointmentInvoices' => $appointmentInvoices,
+            'isSuperAdmin' => $isSuperAdmin,
+            'branches' => $branches,
+            'selectedBranchId' => $selectedBranchId,
+            'filters' => $filters,
+        ]);
     }
 
     /**
@@ -134,14 +324,66 @@ class PaymentOutstandingController extends Controller
     /**
      * Show all returned payments (refunds).
      */
-    public function returnPayments()
+    public function returnPayments(Request $request)
     {
-        $returnedPayments = Transaction::where('payment_type', 3)
-            ->with(['patient', 'bank'])
+        $selectedBranchId = $this->selectedBranchId($request);
+        $isSuperAdmin = $this->isSuperAdmin();
+        $search = trim((string) $request->query('q', ''));
+        $dateFrom = $request->query('date_from');
+        $dateTo = $request->query('date_to');
+
+        $returnedPaymentsQuery = DB::table('transactions as t')
+            ->leftJoin('patients as p', 't.patient_id', '=', 'p.id')
+            ->leftJoin('branches as br', 't.branch_id', '=', 'br.id')
+            ->leftJoin('banks as bk', 't.bank_id', '=', 'bk.id')
+            ->where('t.payment_type', 3)
+            ->where('t.type', '-')
+            ->select([
+                't.id',
+                't.invoice_id',
+                't.amount',
+                't.created_at',
+                't.branch_id',
+                't.Remx',
+                'p.name as patient_name',
+                'p.mr as patient_mr',
+                'br.name as branch_name',
+                'bk.bank_name as bank_name',
+            ]);
+
+        if (!empty($selectedBranchId)) {
+            $returnedPaymentsQuery->where('t.branch_id', $selectedBranchId);
+        }
+
+        if (!empty($dateFrom)) {
+            $returnedPaymentsQuery->whereDate('t.created_at', '>=', $dateFrom);
+        }
+
+        if (!empty($dateTo)) {
+            $returnedPaymentsQuery->whereDate('t.created_at', '<=', $dateTo);
+        }
+
+        if ($search !== '') {
+            $returnedPaymentsQuery->where(function ($inner) use ($search) {
+                $inner->where('p.name', 'like', "%{$search}%")
+                    ->orWhere('p.mr', 'like', "%{$search}%")
+                    ->orWhere('t.invoice_id', 'like', "%{$search}%")
+                    ->orWhere('t.id', 'like', "%{$search}%");
+            });
+        }
+
+        $returnedPayments = $returnedPaymentsQuery
             ->orderBy('created_at', 'desc')
             ->get();
 
-        return view('payments.search_patient', compact('returnedPayments'));
+        $branches = $isSuperAdmin ? Branch::orderBy('name')->get(['id', 'name']) : collect();
+        $filters = [
+            'q' => $search,
+            'date_from' => $dateFrom,
+            'date_to' => $dateTo,
+        ];
+
+        return view('payments.search_patient', compact('returnedPayments', 'branches', 'selectedBranchId', 'isSuperAdmin', 'filters'));
     }
 
     /**

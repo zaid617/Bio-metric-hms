@@ -154,7 +154,7 @@
             </li>
 
             {{-- Feedback --}}
-          
+
             <li class="{{ request()->is('feedback*') ? 'mm-active' : '' }}">
                 <a class="has-arrow" href="javascript:;">
                     <div class="parent-icon"><i class="material-icons-outlined">feedback</i></div>
@@ -173,7 +173,7 @@
     </li>
 </ul>
     </li>
-   
+
 
 
 
@@ -194,6 +194,11 @@
                     <li>
                         <a href="{{ url('/payments/completed-invoices') }}">
                             <i class="material-icons-outlined">task_alt</i> Completed Invoices
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ url('/payments/appointment-invoices') }}">
+                            <i class="material-icons-outlined">description</i> Appointment Invoices
                         </a>
                     </li>
                     <li>
@@ -321,7 +326,7 @@
     </ul>
 </li>
 
-            
+
 
             {{--session Table--}}
             <li>
@@ -348,8 +353,8 @@
             </li>
 
 
-          
-           
+
+
           @endrole
 {{-- ==================Docter Menu==================== --}}
           @auth('doctor')

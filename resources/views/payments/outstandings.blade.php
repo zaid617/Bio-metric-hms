@@ -11,7 +11,43 @@
 @endpush
 
 @section('content')
-    <x-page-title title="Payments" subtitle="Outstanding Payments" />
+    <x-page-title title="Payments" subtitle="{{ $subtitle ?? 'Outstanding Payments' }}" />
+
+    <div class="card mb-3">
+        <div class="card-body">
+            <form method="GET" class="row g-2 align-items-end">
+                @if(!empty($isSuperAdmin))
+                    <div class="col-md-3">
+                        <label class="form-label">Branch</label>
+                        <select name="branch_id" class="form-select">
+                            <option value="">All Branches</option>
+                            @foreach(($branches ?? collect()) as $branch)
+                                <option value="{{ $branch->id }}" {{ (string)($selectedBranchId ?? '') === (string)$branch->id ? 'selected' : '' }}>
+                                    {{ $branch->name }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                @endif
+                <div class="col-md-2">
+                    <label class="form-label">From</label>
+                    <input type="date" name="date_from" class="form-control" value="{{ $filters['date_from'] ?? '' }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">To</label>
+                    <input type="date" name="date_to" class="form-control" value="{{ $filters['date_to'] ?? '' }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Search</label>
+                    <input type="text" name="q" class="form-control" value="{{ $filters['q'] ?? '' }}" placeholder="Invoice ID, patient, MR">
+                </div>
+                <div class="col-md-2 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary w-100">Filter</button>
+                    <a href="{{ url()->current() }}" class="btn btn-outline-secondary w-100">Reset</a>
+                </div>
+            </form>
+        </div>
+    </div>
 
     <div class="row">
         <div class="col-xl-12">
@@ -23,6 +59,9 @@
                                 <th>Sr</th>
                                 <th>Date</th>
                                 <th>Invoic ID</th>
+                                @if(!empty($isSuperAdmin))
+                                    <th>Branch</th>
+                                @endif
 
                                 <th>MR</th>
                                 <th>Patient Name</th>
@@ -44,6 +83,9 @@
                                     <td>{{ $counter++ }}</td>
                                     <td>{{ format_date($session->created_at) }}</td>
                                     <td>{{ $session->id }}</td>
+                                    @if(!empty($isSuperAdmin))
+                                        <td>{{ branch_get_name($session->branch_id) ?? 'N/A' }}</td>
+                                    @endif
                                     <td>{{ patient_get_mr($session->patient_id) ?? 'N/A' }}</td>
                                     <td>{{ patient_get_name($session->patient_id ) }}</td>
                                     <td>{{ doctor_get_name($session->doctor_id) }}</td>

@@ -12,6 +12,84 @@
 @section('content')
     <x-page-title title="Payment Return" subtitle="Search patients and manage payment refunds" />
 
+    <div class="card mb-3">
+        <div class="card-body">
+            <h6 class="mb-3">Returned Payments</h6>
+            <form method="GET" class="row g-2 align-items-end">
+                @if(!empty($isSuperAdmin))
+                    <div class="col-md-3">
+                        <label class="form-label">Branch</label>
+                        <select name="branch_id" class="form-select">
+                            <option value="">All Branches</option>
+                            @foreach(($branches ?? collect()) as $branch)
+                                <option value="{{ $branch->id }}" {{ (string)($selectedBranchId ?? '') === (string)$branch->id ? 'selected' : '' }}>
+                                    {{ $branch->name }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                @endif
+                <div class="col-md-2">
+                    <label class="form-label">From</label>
+                    <input type="date" name="date_from" class="form-control" value="{{ $filters['date_from'] ?? '' }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">To</label>
+                    <input type="date" name="date_to" class="form-control" value="{{ $filters['date_to'] ?? '' }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Search</label>
+                    <input type="text" name="q" class="form-control" value="{{ $filters['q'] ?? '' }}" placeholder="Patient, MR, invoice, transaction ID">
+                </div>
+                <div class="col-md-2 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary w-100">Filter</button>
+                    <a href="{{ url()->current() }}" class="btn btn-outline-secondary w-100">Reset</a>
+                </div>
+            </form>
+
+            <div class="table-responsive mt-3">
+                <table class="table table-bordered table-striped">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>ID</th>
+                            <th>Date</th>
+                            @if(!empty($isSuperAdmin))
+                                <th>Branch</th>
+                            @endif
+                            <th>Patient</th>
+                            <th>MR</th>
+                            <th>Invoice</th>
+                            <th>Method</th>
+                            <th>Remark</th>
+                            <th class="text-end">Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse(($returnedPayments ?? collect()) as $payment)
+                            <tr>
+                                <td>{{ $payment->id }}</td>
+                                <td>{{ format_datetime($payment->created_at) }}</td>
+                                @if(!empty($isSuperAdmin))
+                                    <td>{{ $payment->branch_name ?? 'N/A' }}</td>
+                                @endif
+                                <td>{{ $payment->patient_name ?? 'N/A' }}</td>
+                                <td>{{ $payment->patient_mr ?? 'N/A' }}</td>
+                                <td>#{{ $payment->invoice_id ?? 'N/A' }}</td>
+                                <td>{{ $payment->bank_name ?? 'Cash' }}</td>
+                                <td>{{ $payment->Remx ?? '-' }}</td>
+                                <td class="text-end text-danger">{{ number_format((float) ($payment->amount ?? 0), 2) }}</td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="{{ !empty($isSuperAdmin) ? 9 : 8 }}" class="text-center text-muted">No returned payments found.</td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
     <div class="row">
         <div class="col-xl-12">
             <div class="card">
@@ -93,8 +171,8 @@ $(document).ready(function() {
                                 <td>${p.phone ?? '-'}</td>
                                 <td>${p.age ?? '-'}</td>
                                 <td>
-                                    <button class="btn btn-sm btn-primary viewPayments" 
-                                            data-id="${p.id}" 
+                                    <button class="btn btn-sm btn-primary viewPayments"
+                                            data-id="${p.id}"
                                             data-name="${p.name}">
                                         View Payments
                                     </button>
