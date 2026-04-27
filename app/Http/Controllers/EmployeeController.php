@@ -12,12 +12,45 @@ class EmployeeController extends Controller
     public function index()
     {
         try {
-            $employees = DB::table('employees')
+            $query = DB::table('employees')
                 ->join('branches', 'employees.branch_id', '=', 'branches.id')
-                ->select('employees.*', 'branches.name as branch_name')
-                ->get();
+                ->select('employees.*', 'branches.name as branch_name');
 
-            return view('employees.index', compact('employees'));
+            // Apply Filters
+            if (request('branch')) {
+                $query->where('employees.branch_id', request('branch'));
+            }
+            if (request('department')) {
+                $query->where('employees.department', request('department'));
+            }
+            if (request('designation')) {
+                $query->where('employees.designation', request('designation'));
+            }
+            if (request('shift')) {
+                $query->where('employees.shift', request('shift'));
+            }
+
+            $employees = $query->get();
+
+            // Get filter options
+            $branches = DB::table('branches')->orderBy('name')->get();
+            $departments = DB::table('employees')
+                ->distinct()
+                ->pluck('department')
+                ->filter()
+                ->sort();
+            $designations = DB::table('employees')
+                ->distinct()
+                ->pluck('designation')
+                ->filter()
+                ->sort();
+            $shifts = DB::table('employees')
+                ->distinct()
+                ->pluck('shift')
+                ->filter()
+                ->sort();
+
+            return view('employees.index', compact('employees', 'branches', 'departments', 'designations', 'shifts'));
         } catch (\Exception $e) {
             \Log::error('Employee index error: ' . $e->getMessage());
             return back()->with('error', 'Unable to load employees list.');

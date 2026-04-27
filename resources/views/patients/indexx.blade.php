@@ -53,7 +53,7 @@
                         <tbody>
                             @foreach($patients as $patient)
                                 <tr>
-                                    <td>{{ $patient->id }}</td>
+                                    <td>{{ $patient->mr }}</td>
                                     <td>{{ ($patient->prefix ? $patient->prefix.' ' : '') . $patient->name }}</td>
                                     <td>{{ $patient->guardian_name }}</td>
                                     <td>{{ $patient->phone }}</td>

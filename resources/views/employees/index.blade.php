@@ -33,6 +33,77 @@
     </a>
 </div>
 
+<!-- Filters Card -->
+<div class="card border-0 shadow-sm mb-3">
+    <div class="card-body">
+        <h6 class="card-title text-uppercase fw-bold mb-3">
+            <i class="bi bi-funnel me-2"></i>Filters
+        </h6>
+        <form action="{{ route('employees.index') }}" method="GET" id="filterForm" class="row g-3">
+            <!-- Branch Filter -->
+            <div class="col-md-3">
+                <label for="branchFilter" class="form-label fw-semibold">Branch</label>
+                <select id="branchFilter" name="branch" class="form-select form-select-sm" onchange="document.getElementById('filterForm').submit();">
+                    <option value="">All Branches</option>
+                    @foreach ($branches as $branch)
+                        <option value="{{ $branch->id }}" {{ request('branch') == $branch->id ? 'selected' : '' }}>
+                            {{ $branch->name }}
+                        </option>
+                    @endforeach
+                </select>
+            </div>
+
+            <!-- Department Filter -->
+            <div class="col-md-3">
+                <label for="departmentFilter" class="form-label fw-semibold">Department</label>
+                <select id="departmentFilter" name="department" class="form-select form-select-sm" onchange="document.getElementById('filterForm').submit();">
+                    <option value="">All Departments</option>
+                    @foreach ($departments as $department)
+                        <option value="{{ $department }}" {{ request('department') == $department ? 'selected' : '' }}>
+                            {{ $department }}
+                        </option>
+                    @endforeach
+                </select>
+            </div>
+
+            <!-- Designation Filter -->
+            <div class="col-md-3">
+                <label for="designationFilter" class="form-label fw-semibold">Designation</label>
+                <select id="designationFilter" name="designation" class="form-select form-select-sm" onchange="document.getElementById('filterForm').submit();">
+                    <option value="">All Designations</option>
+                    @foreach ($designations as $designation)
+                        <option value="{{ $designation }}" {{ request('designation') == $designation ? 'selected' : '' }}>
+                            {{ $designation }}
+                        </option>
+                    @endforeach
+                </select>
+            </div>
+
+            <!-- Shift Filter -->
+            <div class="col-md-3">
+                <label for="shiftFilter" class="form-label fw-semibold">Shift</label>
+                <select id="shiftFilter" name="shift" class="form-select form-select-sm" onchange="document.getElementById('filterForm').submit();">
+                    <option value="">All Shifts</option>
+                    @foreach ($shifts as $shift)
+                        <option value="{{ $shift }}" {{ request('shift') == $shift ? 'selected' : '' }}>
+                            {{ $shift }}
+                        </option>
+                    @endforeach
+                </select>
+            </div>
+
+            <!-- Clear Filters Button -->
+            @if(request()->filled('branch') || request()->filled('department') || request()->filled('designation') || request()->filled('shift'))
+                <div class="col-12 d-flex gap-2">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="window.location.href='{{ route('employees.index') }}';">
+                        <i class="bi bi-arrow-clockwise me-1"></i>Clear Filters
+                    </button>
+                </div>
+            @endif
+        </form>
+    </div>
+</div>
+
 <div class="card border-0 shadow-sm">
     <div class="card-body">
         <div class="table-responsive">

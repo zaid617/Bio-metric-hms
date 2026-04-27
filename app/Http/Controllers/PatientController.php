@@ -30,8 +30,7 @@ class PatientController extends Controller
                 $query->where('id', $request->search_id);
             }
 
-            $patients = $query->get();
-
+            $patients = $query->latest()->get();
             return view('patients.indexx', compact('patients'));
         } catch (\Exception $e) {
             Log::error('Patient index error: ' . $e->getMessage());
