@@ -38,6 +38,18 @@
                 </div>
 
                 <div class="col-md-2">
+                    <label class="form-label">Created By</label>
+                    <select name="created_by" class="form-select">
+                        <option value="">All Users</option>
+                        @foreach(($creatorUsers ?? collect()) as $creatorUser)
+                            <option value="{{ $creatorUser->id }}" {{ (string)($filters['created_by'] ?? '') === (string)$creatorUser->id ? 'selected' : '' }}>
+                                {{ $creatorUser->name }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+
+                <div class="col-md-2">
                     <label class="form-label">From</label>
                     <input type="date" name="date_from" class="form-control" value="{{ $filters['date_from'] ?? '' }}">
                 </div>

@@ -8,6 +8,7 @@ use App\Models\Transaction;
 use App\Models\Bank;
 use App\Models\Branch;
 use App\Models\Patient;
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use App\Models\Checkup;
 
@@ -72,6 +73,7 @@ class PaymentOutstandingController extends Controller
         $dateFrom = $request->query('date_from');
         $dateTo = $request->query('date_to');
         $status = strtolower((string) $request->query('status', 'all'));
+        $createdBy = (int) $request->query('created_by', 0);
 
         $pendingSql = "CASE WHEN pending_amount IS NOT NULL THEN pending_amount ELSE CASE WHEN (COALESCE(fee,0)-(COALESCE(fee,0)*(COALESCE(discount,0)/100))-COALESCE(paid_amount,0)) > 0 THEN (COALESCE(fee,0)-(COALESCE(fee,0)*(COALESCE(discount,0)/100))-COALESCE(paid_amount,0)) ELSE 0 END END";
 
@@ -84,6 +86,10 @@ class PaymentOutstandingController extends Controller
 
         if (!empty($selectedBranchId)) {
             $query->where('branch_id', $selectedBranchId);
+        }
+
+        if ($createdBy > 0) {
+            $query->where('created_by', $createdBy);
         }
 
         if (!empty($dateFrom)) {
@@ -212,17 +218,26 @@ class PaymentOutstandingController extends Controller
         $isSuperAdmin = $this->isSuperAdmin();
         $branches = $isSuperAdmin ? Branch::orderBy('name')->get(['id', 'name']) : collect();
         $selectedBranchId = $this->selectedBranchId($request);
+        $creatorUsers = User::query()
+            ->select('id', 'name')
+            ->when(!empty($selectedBranchId), function ($userQuery) use ($selectedBranchId) {
+                $userQuery->where('branch_id', $selectedBranchId);
+            })
+            ->orderBy('name')
+            ->get();
         $filters = [
             'q' => trim((string) $request->query('q', '')),
             'date_from' => $request->query('date_from'),
             'date_to' => $request->query('date_to'),
             'status' => strtolower((string) $request->query('status', 'all')),
+            'created_by' => (string) $request->query('created_by', ''),
         ];
 
         return view('payments.appointment_invoices', [
             'appointmentInvoices' => $appointmentInvoices,
             'isSuperAdmin' => $isSuperAdmin,
             'branches' => $branches,
+            'creatorUsers' => $creatorUsers,
             'selectedBranchId' => $selectedBranchId,
             'filters' => $filters,
         ]);
