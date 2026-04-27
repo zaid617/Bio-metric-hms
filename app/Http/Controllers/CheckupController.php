@@ -25,6 +25,7 @@ class CheckupController extends Controller
                 ->join('patients', 'checkups.patient_id', '=', 'patients.id')
                 ->join('doctors', 'checkups.doctor_id', '=', 'doctors.id')
                 ->leftJoin('users as creator', 'checkups.created_by', '=', 'creator.id')
+                ->leftJoin('users as updater', 'checkups.updated_by', '=', 'updater.id')
                 ->leftJoin('doctors as ref', 'checkups.referred_by', '=', 'ref.id')
                 ->leftJoin('branches', 'checkups.branch_id', '=', 'branches.id')
                 ->select(
@@ -35,6 +36,7 @@ class CheckupController extends Controller
                     'patients.phone as patient_phone',
                     DB::raw("CONCAT(doctors.first_name, ' ', doctors.last_name) as doctor_name"),
                     'creator.name as created_by_name',
+                    'updater.name as updated_by_name',
                     DB::raw("COALESCE(NULLIF(checkups.referred_by_name, ''), CONCAT(ref.first_name, ' ', ref.last_name)) as referred_by_name"),
                     'branches.name as branch_name',
                     DB::raw("COALESCE(checkups.consultation_type, 'Appointment') as consultation_type_display"),

@@ -88,9 +88,11 @@
                             <tr>
                                 <th>Patient</th>
                                 <th>MR/ID</th>
-                                <th>Date</th>
                                 <th>Doctor</th>
                                 <th>Created By</th>
+                                <th>Created Date</th>
+                                <th>Updated Date</th>
+                                <th>Updated By</th>
                                 <th>Consultation Type</th>
 
                                 {{-- Show these columns only if user is NOT doctor --}}
@@ -116,9 +118,11 @@
                             <tr>
                                 <td>{{ $consultation->patient_name ?? 'N/A' }}</td>
                                 <td>{{ $consultation->mr ?? $consultation->patient_id ?? 'N/A' }}</td>
-                                <td>{{ \Carbon\Carbon::parse($displayDate)->format('d-m-Y') }}</td>
                                 <td>{{ $consultation->doctor_name }}</td>
                                 <td>{{ $consultation->created_by_name ?? 'N/A' }}</td>
+                                <td>{{ !empty($consultation->created_at) ? format_date($consultation->created_at) : 'N/A' }}</td>
+                                <td>{{ !empty($consultation->updated_at) ? format_date($consultation->updated_at) : 'N/A' }}</td>
+                                <td>{{ $consultation->updated_by_name ?? 'N/A' }}</td>
                                 <td>{{ $consultation->consultation_type_display ?? ($consultation->consultation_type ?? 'Appointment') }}</td>
 
                                 {{-- Show only for non-doctor --}}
