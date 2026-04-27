@@ -109,14 +109,26 @@
 
 <a href="
     @if($role == 'admin')
-        {{ route('admin.appointments.create', ['patient_id' => $patient->id]) }}
+        {{ route('admin.appointments.create', ['patient_id' => $patient->id, 'consultation_type' => 'Appointment']) }}
     @elseif($role == 'manager')
-        {{ route('manager.appointments.create', ['patient_id' => $patient->id]) }}
+        {{ route('manager.appointments.create', ['patient_id' => $patient->id, 'consultation_type' => 'Appointment']) }}
     @elseif($role == 'receptionist')
-        {{ route('receptionist.appointments.create', ['patient_id' => $patient->id]) }}
+        {{ route('receptionist.appointments.create', ['patient_id' => $patient->id, 'consultation_type' => 'Appointment']) }}
     @endif
 " class="btn btn-sm btn-primary mb-1 w-100">
     Make Appointment
+</a>
+
+<a href="
+    @if($role == 'admin')
+        {{ route('admin.appointments.create', ['patient_id' => $patient->id, 'consultation_type' => 'Enrollment']) }}
+    @elseif($role == 'manager')
+        {{ route('manager.appointments.create', ['patient_id' => $patient->id, 'consultation_type' => 'Enrollment']) }}
+    @elseif($role == 'receptionist')
+        {{ route('receptionist.appointments.create', ['patient_id' => $patient->id, 'consultation_type' => 'Enrollment']) }}
+    @endif
+" class="btn btn-sm btn-success mb-1 w-100">
+    Add Enrollment
 </a>
 
 

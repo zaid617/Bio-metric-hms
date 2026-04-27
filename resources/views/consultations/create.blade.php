@@ -18,7 +18,14 @@
         $referredByName = old('referred_by_name');
         $referredById = old('referred_by_id');
         $referredBySourceValue = old('referred_by_source', $referredBySource ?? null);
-        $consultationType = old('consultation_type', 'Appointment');
+        $requestedConsultationType = request('consultation_type');
+        $availableConsultationTypes = $consultationTypes ?? ['Appointment', 'Enrollment'];
+
+        if (!in_array($requestedConsultationType, $availableConsultationTypes, true)) {
+            $requestedConsultationType = 'Appointment';
+        }
+
+        $consultationType = old('consultation_type', $requestedConsultationType);
     @endphp
 
     @if ($errors->any())
