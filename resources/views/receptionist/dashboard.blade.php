@@ -187,6 +187,28 @@
             </div>
         </div>
 
+        <!-- Receptionist Today Payments -->
+        <div class="col-12 col-sm-6 col-md-3">
+            <div class="dashboard-card">
+                <i class="fas fa-hand-holding-dollar text-primary dashboard-icon"></i>
+                <div>
+                    <div class="dashboard-value">₨{{ number_format($todayReceptionistEarning ?? 0,2) }} 🇵🇰</div>
+                    <div class="dashboard-text">My Today Payments Received</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Receptionist Total Payments -->
+        <div class="col-12 col-sm-6 col-md-3">
+            <div class="dashboard-card">
+                <i class="fas fa-sack-dollar text-success dashboard-icon"></i>
+                <div>
+                    <div class="dashboard-value">₨{{ number_format($totalReceptionistEarning ?? 0,2) }} 🇵🇰</div>
+                    <div class="dashboard-text">My Total Payments Received</div>
+                </div>
+            </div>
+        </div>
+
     </div>
 </div>
 @endsection

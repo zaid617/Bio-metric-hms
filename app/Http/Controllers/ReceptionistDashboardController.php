@@ -13,14 +13,16 @@ class ReceptionistDashboardController extends Controller
 {
     public function index()
     {
-        // 🔹 Logged-in receptionist ka branch
-        $branch_id = auth()->user()->branch_id;
+        $user = auth()->user();
 
-        $branch = auth()->user()->branch?->name ?? 'N/A';
+        // 🔹 Logged-in receptionist ka branch
+        $branch_id = $user->branch_id;
+
+        $branch = $user->branch?->name ?? 'N/A';
 
 
         // 🔹 Today ka date (timezone-safe)
-        $today = now()->toDateString(); // "2025-11-08"
+        $today = Carbon::today();
 
         // ─────────── Today Appointments / Checkups ───────────
         $todayAppointmentsQuery = Checkup::where('branch_id', $branch_id)
@@ -33,14 +35,12 @@ class ReceptionistDashboardController extends Controller
             ->value('total_pending') ?? 0;
 
         // ─────────── Today Sessions ───────────
-      $today = \Carbon\Carbon::today();
+        $todaySessionsQuery = TreatmentSession::where('branch_id', $branch_id)
+            ->where('status', 2)
+            ->whereDate('created_at', $today);
 
-$todaySessionsQuery = TreatmentSession::where('branch_id', $branch_id)
-    ->where('status', 2) // sirf wo sessions jinka status = 1 hai
-    ->whereDate('created_at', $today); // aaj ki date ka filter
-
-$todaySessionsCount = $todaySessionsQuery->count();
-$todaySessionsFee   = $todaySessionsQuery->sum('session_fee');
+        $todaySessionsCount = $todaySessionsQuery->count();
+        $todaySessionsFee   = $todaySessionsQuery->sum('session_fee');
 
 
         // ─────────── Satisfactory Sessions (Pending / Completed) ───────────
@@ -74,6 +74,16 @@ $todaySessionsFee   = $todaySessionsQuery->sum('session_fee');
             ->where('type', '+')
             ->sum('amount');
 
+        // ─────────── Receptionist Earnings (Own Entries Only) ───────────
+        $receptionistEarningsQuery = Transaction::where('branch_id', $branch_id)
+            ->where('entry_by', $user->id)
+            ->where('type', '+');
+
+        $totalReceptionistEarning = (clone $receptionistEarningsQuery)->sum('amount');
+        $todayReceptionistEarning = (clone $receptionistEarningsQuery)
+            ->whereDate('created_at', $today)
+            ->sum('amount');
+
         // ─────────── Return to Blade ───────────
         return view('receptionist.dashboard', compact(
             'todayAppointmentsCount',
@@ -88,6 +98,8 @@ $todaySessionsFee   = $todaySessionsQuery->sum('session_fee');
             'pendingInvoicesCount',
             'pendingInvoicesTotal',
             'todayPayments',
+            'todayReceptionistEarning',
+            'totalReceptionistEarning',
             'today',
             'branch'
         ));
