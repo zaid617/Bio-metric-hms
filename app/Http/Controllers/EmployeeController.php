@@ -2,12 +2,18 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Employee;
 use App\Http\Requests\Employee\StoreEmployeeRequest;
 use App\Http\Requests\Employee\UpdateEmployeeRequest;
+use App\Services\Attendance\AttendanceSyncService;
 use Illuminate\Support\Facades\DB;
 
 class EmployeeController extends Controller
 {
+    public function __construct(private readonly AttendanceSyncService $attendanceSyncService)
+    {
+    }
+
     // INDEX - Employee List
     public function index()
     {
@@ -20,37 +26,34 @@ class EmployeeController extends Controller
             if (request('branch')) {
                 $query->where('employees.branch_id', request('branch'));
             }
-            if (request('department')) {
-                $query->where('employees.department', request('department'));
-            }
             if (request('designation')) {
                 $query->where('employees.designation', request('designation'));
             }
-            if (request('shift')) {
-                $query->where('employees.shift', request('shift'));
+            if (request('search')) {
+                $search = trim((string) request('search'));
+
+                $query->where(function ($searchQuery) use ($search) {
+                    $searchQuery->where('employees.prefix', 'like', '%' . $search . '%')
+                        ->orWhere('employees.name', 'like', '%' . $search . '%')
+                        ->orWhere('employees.designation', 'like', '%' . $search . '%')
+                        ->orWhere('employees.department', 'like', '%' . $search . '%')
+                        ->orWhere('employees.shift', 'like', '%' . $search . '%')
+                        ->orWhere('employees.phone', 'like', '%' . $search . '%')
+                        ->orWhere('branches.name', 'like', '%' . $search . '%');
+                });
             }
 
             $employees = $query->get();
 
             // Get filter options
             $branches = DB::table('branches')->orderBy('name')->get();
-            $departments = DB::table('employees')
-                ->distinct()
-                ->pluck('department')
-                ->filter()
-                ->sort();
             $designations = DB::table('employees')
                 ->distinct()
                 ->pluck('designation')
                 ->filter()
                 ->sort();
-            $shifts = DB::table('employees')
-                ->distinct()
-                ->pluck('shift')
-                ->filter()
-                ->sort();
 
-            return view('employees.index', compact('employees', 'branches', 'departments', 'designations', 'shifts'));
+            return view('employees.index', compact('employees', 'branches', 'designations'));
         } catch (\Exception $e) {
             \Log::error('Employee index error: ' . $e->getMessage());
             return back()->with('error', 'Unable to load employees list.');
@@ -162,6 +165,11 @@ class EmployeeController extends Controller
                     'updated_at' => now(),
                 ]);
             });
+
+            $employee = Employee::find($id);
+            if ($employee) {
+                $this->attendanceSyncService->recalculateEmployeeAttendanceRecords($employee);
+            }
 
             return redirect('employees')->with('success', 'Employee updated successfully!');
         } catch (\Exception $e) {

@@ -653,6 +653,40 @@ class AttendanceSyncService
     }
 
     /**
+     * Recalculate stored attendance rows for an employee after shift settings change.
+     */
+    public function recalculateEmployeeAttendanceRecords(Employee $employee): int
+    {
+        $records = AttendanceRecord::where('employee_id', $employee->id)
+            ->orderBy('attendance_date')
+            ->get();
+
+        $updatedCount = 0;
+
+        foreach ($records as $record) {
+            if ($record->is_manually_adjusted) {
+                continue;
+            }
+
+            $dateOnly = $record->attendance_date instanceof Carbon
+                ? $record->attendance_date->toDateString()
+                : date('Y-m-d', strtotime((string) $record->attendance_date));
+
+            $record->setRelation('employee', $employee);
+
+            $shiftRule = $this->resolveShiftRuleForRecord($record, Carbon::parse($dateOnly));
+            $this->applyWorkingTimeCalculation($record, $shiftRule);
+
+            if ($record->isDirty()) {
+                $record->save();
+                $updatedCount++;
+            }
+        }
+
+        return $updatedCount;
+    }
+
+    /**
      * Find a safe match for a device user from existing employees.
      */
     protected function findSafeEmployeeMatchForDeviceUser(AttendanceDevice $device, string $deviceUserId, ?string $deviceUserName = null): ?Employee
