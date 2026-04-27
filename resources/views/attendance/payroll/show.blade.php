@@ -73,6 +73,9 @@
                     ['label'=>'Working Days','value'=> $payroll->total_working_days ?? 0,'icon'=>'calendar_today','color'=>'primary'],
                     ['label'=>'Present','value'=> $payroll->present_days ?? 0,'icon'=>'check_circle','color'=>'success'],
                     ['label'=>'Absent','value'=> $payroll->absent_days ?? 0,'icon'=>'cancel','color'=>'danger'],
+                    ['label'=>'Leaves','value'=> (int) data_get($payroll->payslip_data, 'attendance.leave_days', $payroll->leave_days ?? 0),'icon'=>'event_available','color'=>'info'],
+                    ['label'=>'Paid Leave','value'=> (float) data_get($payroll->payslip_data, 'attendance.paid_leave_days', 0),'icon'=>'verified','color'=>'success'],
+                    ['label'=>'Unpaid Leave','value'=> (float) data_get($payroll->payslip_data, 'attendance.unpaid_leave_days', 0),'icon'=>'money_off','color'=>'danger'],
                     ['label'=>'Late','value'=> $payroll->late_days ?? 0,'icon'=>'schedule','color'=>'warning'],
                     ['label'=>'Work Hours','value'=> number_format($payroll->total_working_hours ?? 0,1).'h','icon'=>'timer','color'=>'info'],
                     ['label'=>'OT (Record Only)','value'=> number_format($payroll->total_overtime_hours ?? $payroll->overtime_hours ?? 0,1).'h','icon'=>'more_time','color'=>'secondary'],
@@ -214,6 +217,39 @@
                 @endif
             </div>
         </div>
+
+        @php
+            $leaveEntries = collect((array) data_get($payroll->payslip_data, 'leaves', []))
+                ->filter(fn ($row) => is_array($row) && (float) ($row['days'] ?? 0) > 0)
+                ->values();
+        @endphp
+        @if($leaveEntries->isNotEmpty())
+        <div class="card mb-3">
+            <div class="card-header bg-info bg-opacity-10">
+                <h6 class="mb-0 text-info">Applied Leaves</h6>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-sm mb-0">
+                    <thead class="table-light">
+                        <tr><th>Type</th><th>Days</th><th>Reason</th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach($leaveEntries as $leave)
+                            <tr>
+                                <td>
+                                    <span class="badge {{ ($leave['leave_type'] ?? '') === 'unpaid' ? 'bg-danger' : 'bg-success' }}">
+                                        {{ ucfirst((string) ($leave['leave_type'] ?? 'paid')) }}
+                                    </span>
+                                </td>
+                                <td>{{ number_format((float) ($leave['days'] ?? 0), 1) }}</td>
+                                <td class="small text-muted">{{ $leave['reason'] ?: '—' }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        @endif
 
         {{-- Linked Adjustments --}}
         @if($payroll->adjustments && $payroll->adjustments->count()>0)

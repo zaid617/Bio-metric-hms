@@ -253,6 +253,10 @@
             $bankMasked = str_repeat('*', max(0, strlen($digits) - 4)) . substr($digits, -4);
         }
     }
+
+    $leaveRows = collect((array) data_get($payroll->payslip_data, 'leaves', []))
+        ->filter(fn ($line) => is_array($line) && (float) ($line['days'] ?? 0) > 0)
+        ->values();
 @endphp
 
 <div class="logo-wrap">
@@ -297,7 +301,9 @@
             <th>Working Days</th>
             <th>Present</th>
             <th>Absent</th>
-            <th>Leaves</th>
+            <th>Total Leave</th>
+            <th>Paid Leave</th>
+            <th>Unpaid Leave</th>
             <th>Late Count</th>
         </tr>
         <tr>
@@ -305,10 +311,36 @@
             <td>{{ $attendance['present_days'] ?? 0 }}</td>
             <td>{{ $attendance['absent_days'] ?? 0 }}</td>
             <td>{{ $attendance['leave_days'] ?? 0 }}</td>
+            <td>{{ $attendance['paid_leave_days'] ?? 0 }}</td>
+            <td>{{ $attendance['unpaid_leave_days'] ?? 0 }}</td>
             <td>{{ $attendance['late_count'] ?? 0 }}</td>
         </tr>
     </table>
 </div>
+
+@if($leaveRows->isNotEmpty())
+<div class="card">
+    <p class="section-title">Applied Leaves</p>
+    <table class="money-table">
+        <thead>
+            <tr>
+                <th>Type</th>
+                <th>Days</th>
+                <th>Reason</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach($leaveRows as $line)
+                <tr>
+                    <td>{{ ucfirst((string) ($line['leave_type'] ?? 'paid')) }}</td>
+                    <td>{{ number_format((float) ($line['days'] ?? 0), 1) }}</td>
+                    <td>{{ trim((string) ($line['reason'] ?? '')) ?: '-' }}</td>
+                </tr>
+            @endforeach
+        </tbody>
+    </table>
+</div>
+@endif
 
 <div class="card">
     <p class="section-title">Allowances (Auto Added from Employee Profile)</p>

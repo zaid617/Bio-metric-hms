@@ -67,6 +67,49 @@ class PayrollCalculatorService
             ->where('adjustment_type', 'deduction')
             ->values();
 
+        $leaveAdjustments = $deductionAdjustments
+            ->filter(function ($adjustment) {
+                $code = strtoupper(trim((string) data_get($adjustment, 'code', '')));
+                return in_array($code, [PayrollDeductionType::PAID_LEAVE, PayrollDeductionType::UNPAID_LEAVE], true);
+            })
+            ->values();
+
+        $leaveEntries = $leaveAdjustments
+            ->map(function ($adjustment): array {
+                $code = strtoupper(trim((string) data_get($adjustment, 'code', PayrollDeductionType::PAID_LEAVE)));
+                $meta = data_get($adjustment, 'meta');
+                $days = (float) data_get($meta, 'days', 0);
+                $reason = trim((string) data_get($meta, 'reason', data_get($adjustment, 'notes', '')));
+
+                if ($days <= 0) {
+                    return [];
+                }
+
+                return [
+                    'leave_type' => $code === PayrollDeductionType::UNPAID_LEAVE ? 'unpaid' : 'paid',
+                    'days' => $this->money($days),
+                    'reason' => $reason,
+                ];
+            })
+            ->filter(fn (array $entry) => !empty($entry))
+            ->values();
+
+        $paidLeaveDays = $this->money((float) $leaveEntries
+            ->where('leave_type', 'paid')
+            ->sum('days'));
+        $unpaidLeaveDays = $this->money((float) $leaveEntries
+            ->where('leave_type', 'unpaid')
+            ->sum('days'));
+
+        $leaveDays = (int) round($leaveDays + $paidLeaveDays + $unpaidLeaveDays);
+
+        $deductionAdjustments = $deductionAdjustments
+            ->reject(function ($adjustment) {
+                $code = strtoupper(trim((string) data_get($adjustment, 'code', '')));
+                return in_array($code, [PayrollDeductionType::PAID_LEAVE, PayrollDeductionType::UNPAID_LEAVE], true);
+            })
+            ->values();
+
         $normalizeCode = static function ($value, string $fallback): string {
             $normalized = strtoupper(trim((string) $value));
             return $normalized !== '' ? $normalized : $fallback;
@@ -97,7 +140,9 @@ class PayrollCalculatorService
 
         $absentPerDay = $this->money($absentPerDay);
         $latePerDay = $this->money($latePerDay);
-        $absentDeduction = $this->money($absentDays * $absentPerDay);
+        $effectiveAbsentDays = max(0, $absentDays - (int) floor($paidLeaveDays + $unpaidLeaveDays));
+        $absentDeduction = $this->money($effectiveAbsentDays * $absentPerDay);
+        $unpaidLeaveDeduction = $this->money($unpaidLeaveDays * $absentPerDay);
         $lateDeduction = $this->money($totalLateCount * $latePerDay);
 
         $tax = $this->money($sumByCode($deductionAdjustments, [PayrollDeductionType::TAX]));
@@ -117,6 +162,8 @@ class PayrollCalculatorService
             PayrollDeductionType::ABSENT_DEDUCTION,
             PayrollDeductionType::LATE_COMING,
             PayrollDeductionType::LATE_DEDUCTION,
+            PayrollDeductionType::PAID_LEAVE,
+            PayrollDeductionType::UNPAID_LEAVE,
         ];
 
         $otherDeduction = $this->money(
@@ -199,6 +246,11 @@ class PayrollCalculatorService
                 'notes' => 'Absent deduction = absent days × absent deduction/day setting',
             ],
             [
+                'type' => PayrollDeductionType::UNPAID_LEAVE,
+                'amount' => $unpaidLeaveDeduction,
+                'notes' => 'Unpaid leave deduction = unpaid leave days × absent deduction/day setting',
+            ],
+            [
                 'type' => PayrollDeductionType::LATE_DEDUCTION,
                 'amount' => $lateDeduction,
                 'notes' => 'Late deduction = late count × late deduction/day setting',
@@ -233,8 +285,10 @@ class PayrollCalculatorService
             'year' => (int) $periodStart->year,
             'total_working_days' => $totalWorkingDays,
             'present_days' => $presentDays,
-            'absent_days' => $absentDays,
+            'absent_days' => $effectiveAbsentDays,
             'leave_days' => $leaveDays,
+            'paid_leave_days' => $paidLeaveDays,
+            'unpaid_leave_days' => $unpaidLeaveDays,
             'holiday_days' => $holidayDays,
             'weekend_days' => $weekendDays,
             'late_days' => $totalLateCount,
@@ -267,6 +321,7 @@ class PayrollCalculatorService
             'awards_total' => $awardsTotal,
             'deductions_total' => $deductionsTotal,
             'absent_deduction' => $absentDeduction,
+            'unpaid_leave_deduction' => $unpaidLeaveDeduction,
             'late_deduction' => $lateDeduction,
             'tax' => $tax,
             'provident_fund' => $providentFund,
@@ -276,6 +331,7 @@ class PayrollCalculatorService
             'other_deduction' => $otherDeduction,
             'final_salary' => $finalSalary,
             'warnings' => $warnings,
+            'leave_entries' => $leaveEntries->all(),
             'earnings' => $earnings,
             'awards' => $awards,
             'deductions' => $deductions,

@@ -114,4 +114,65 @@ class PayrollCalculatorServiceTest extends TestCase
                 && ($line['notes'] ?? '') === 'Late reporting')
         );
     }
+
+    public function test_paid_and_unpaid_leaves_update_attendance_and_deductions(): void
+    {
+        $service = new PayrollCalculatorService();
+
+        $employee = new Employee([
+            'basic_salary' => 10000,
+        ]);
+
+        $attendanceMetrics = [
+            'working_days' => 20,
+            'present_days' => 16,
+            'absent_days' => 4,
+            'leave_days' => 0,
+            'holiday_days' => 0,
+            'weekend_days' => 8,
+            'late_days' => 0,
+            'total_late_count' => 0,
+            'total_late_minutes' => 0,
+            'total_working_minutes' => 7680,
+            'overtime_minutes' => 0,
+        ];
+
+        $adjustments = new Collection([
+            [
+                'adjustment_type' => 'deduction',
+                'code' => PayrollDeductionType::PAID_LEAVE,
+                'amount' => 0,
+                'notes' => 'Medical leave approved',
+                'meta' => ['days' => 2, 'leave_type' => 'paid', 'reason' => 'Medical leave approved'],
+            ],
+            [
+                'adjustment_type' => 'deduction',
+                'code' => PayrollDeductionType::UNPAID_LEAVE,
+                'amount' => 0,
+                'notes' => 'Unapproved absence',
+                'meta' => ['days' => 1, 'leave_type' => 'unpaid', 'reason' => 'Unapproved absence'],
+            ],
+        ]);
+
+        $result = $service->calculate(
+            $employee,
+            Carbon::create(2026, 4, 1),
+            Carbon::create(2026, 4, 30),
+            $attendanceMetrics,
+            [],
+            $adjustments
+        );
+
+        $this->assertEqualsWithDelta(1, (float) $result['absent_days'], 0.001);
+        $this->assertEqualsWithDelta(3, (float) $result['leave_days'], 0.001);
+        $this->assertEqualsWithDelta(2, (float) $result['paid_leave_days'], 0.001);
+        $this->assertEqualsWithDelta(1, (float) $result['unpaid_leave_days'], 0.001);
+        $this->assertEqualsWithDelta(500, (float) $result['absent_deduction'], 0.001);
+        $this->assertEqualsWithDelta(500, (float) $result['unpaid_leave_deduction'], 0.001);
+        $this->assertEqualsWithDelta(1000, (float) $result['deductions_total'], 0.001);
+
+        $this->assertCount(2, $result['leave_entries']);
+        $this->assertSame('paid', $result['leave_entries'][0]['leave_type']);
+        $this->assertSame('unpaid', $result['leave_entries'][1]['leave_type']);
+    }
 }

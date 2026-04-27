@@ -83,7 +83,7 @@
                     @endif
 
                     <div class="alert alert-info py-2">
-                        Add one or more rows in each section below. All incentives, awards, and deductions will be saved together and payroll will recalculate once.
+                        Add one or more rows in each section below. Incentives, awards, deductions, and leaves will be saved together and payroll will recalculate once.
                     </div>
 
                     <div class="card mb-3 border-success border-opacity-25">
@@ -157,6 +157,34 @@
                                         </tr>
                                     </thead>
                                     <tbody data-rows="deduction"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card mb-3 border-info border-opacity-25">
+                        <div class="card-header bg-info bg-opacity-10 d-flex justify-content-between align-items-center">
+                            <h6 class="mb-0 text-info">Leaves</h6>
+                            <button type="button" class="btn btn-sm btn-outline-info" onclick="addLeaveRow()">
+                                <span class="material-icons-outlined" style="font-size:16px;vertical-align:middle">add</span>
+                                Add Leave
+                            </button>
+                        </div>
+                        <div class="px-3 pt-2 small text-muted">
+                            Paid leave adjusts attendance without deduction. Unpaid leave deducts amount using the absent-per-day payroll setting.
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-sm mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th style="width:22%">Leave Type</th>
+                                            <th style="width:18%">Days</th>
+                                            <th>Reason</th>
+                                            <th style="width:70px"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody data-rows="leave"></tbody>
                                 </table>
                             </div>
                         </div>
@@ -261,7 +289,8 @@ var sectionKey = {
 var rowIndex = {
     earning: 0,
     award: 0,
-    deduction: 0
+    deduction: 0,
+    leave: 0
 };
 
 function escapeAttr(value) {
@@ -307,6 +336,35 @@ function addRow(type, rowData) {
     tbody.insertAdjacentHTML('beforeend', buildRow(type, index, rowData || {}));
 }
 
+function buildLeaveRow(index, rowData) {
+    var leaveType = String(rowData.leave_type || 'paid');
+    var days = rowData.days === 0 ? '0' : String(rowData.days || '');
+    var reason = escapeAttr(rowData.reason || '');
+
+    return '' +
+        '<tr>' +
+            '<td>' +
+                '<select class="form-select form-select-sm" name="leaves[' + index + '][leave_type]">' +
+                    '<option value="paid"' + (leaveType === 'paid' ? ' selected' : '') + '>Paid</option>' +
+                    '<option value="unpaid"' + (leaveType === 'unpaid' ? ' selected' : '') + '>Unpaid</option>' +
+                '</select>' +
+            '</td>' +
+            '<td><input type="number" step="0.5" min="0.5" max="31" class="form-control form-control-sm" name="leaves[' + index + '][days]" value="' + escapeAttr(days) + '" placeholder="1"></td>' +
+            '<td><input type="text" class="form-control form-control-sm" name="leaves[' + index + '][reason]" value="' + reason + '" placeholder="Reason for leave"></td>' +
+            '<td class="text-end"><button type="button" class="btn btn-sm btn-outline-secondary" onclick="removeRow(this)"><span class="material-icons-outlined" style="font-size:16px;vertical-align:middle">delete</span></button></td>' +
+        '</tr>';
+}
+
+function addLeaveRow(rowData) {
+    var tbody = document.querySelector('[data-rows="leave"]');
+    if (!tbody) {
+        return;
+    }
+
+    var index = rowIndex.leave++;
+    tbody.insertAdjacentHTML('beforeend', buildLeaveRow(index, rowData || {}));
+}
+
 function removeRow(button) {
     var row = button.closest('tr');
     if (row) {
@@ -330,6 +388,7 @@ document.addEventListener('DOMContentLoaded', function() {
     var oldEarnings = normalizeRows(@json(old('earnings', [])));
     var oldAwards = normalizeRows(@json(old('awards', [])));
     var oldDeductions = normalizeRows(@json(old('deductions_items', [])));
+    var oldLeaves = normalizeRows(@json(old('leaves', [])));
 
     if (oldEarnings.length > 0) {
         oldEarnings.forEach(function(row) { addRow('earning', row || {}); });
@@ -347,6 +406,12 @@ document.addEventListener('DOMContentLoaded', function() {
         oldDeductions.forEach(function(row) { addRow('deduction', row || {}); });
     } else {
         addRow('deduction');
+    }
+
+    if (oldLeaves.length > 0) {
+        oldLeaves.forEach(function(row) { addLeaveRow(row || {}); });
+    } else {
+        addLeaveRow();
     }
 });
 </script>

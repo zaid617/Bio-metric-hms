@@ -133,6 +133,10 @@ class AttendancePayrollController extends Controller
             'awards.*.code' => 'nullable|string|max:80',
             'awards.*.amount' => 'nullable|numeric|min:0.01',
             'awards.*.notes' => 'nullable|string|max:500',
+            'leaves' => 'nullable|array',
+            'leaves.*.leave_type' => 'nullable|in:paid,unpaid',
+            'leaves.*.days' => 'nullable|numeric|min:0.5|max:31',
+            'leaves.*.reason' => 'nullable|string|max:500',
             'earning_code' => 'nullable|string|max:80',
             'earning_amount' => 'nullable|numeric|min:0',
             'earning_notes' => 'nullable|string|max:500',
@@ -213,6 +217,40 @@ class AttendancePayrollController extends Controller
                 $batchAdjustments,
                 $containsManualOvertime
             );
+
+            $leaveRows = collect($validated['leaves'] ?? [])
+                ->filter(fn ($row) => is_array($row))
+                ->map(function (array $row): array {
+                    $days = (float) ($row['days'] ?? 0);
+                    $leaveType = strtolower(trim((string) ($row['leave_type'] ?? '')));
+                    $reason = isset($row['reason']) && trim((string) $row['reason']) !== ''
+                        ? trim((string) $row['reason'])
+                        : null;
+
+                    return [
+                        'leave_type' => $leaveType,
+                        'days' => $days,
+                        'reason' => $reason,
+                    ];
+                })
+                ->filter(fn (array $row) => in_array($row['leave_type'], ['paid', 'unpaid'], true) && $row['days'] > 0)
+                ->values();
+
+            foreach ($leaveRows as $leaveRow) {
+                $leaveType = $leaveRow['leave_type'];
+
+                $batchAdjustments[] = [
+                    'adjustment_type' => PayrollAdjustmentType::DEDUCTION,
+                    'code' => $leaveType === 'unpaid' ? PayrollDeductionType::UNPAID_LEAVE : PayrollDeductionType::PAID_LEAVE,
+                    'amount' => 0,
+                    'notes' => $leaveRow['reason'] ?? ucfirst($leaveType) . ' leave',
+                    'meta' => [
+                        'days' => $leaveRow['days'],
+                        'leave_type' => $leaveType,
+                        'reason' => $leaveRow['reason'],
+                    ],
+                ];
+            }
 
             // Backward compatibility for older single-row payloads.
             if (!empty($validated['earning_amount'])) {
@@ -432,6 +470,8 @@ class AttendancePayrollController extends Controller
                 'present_days' => (int) ($attendanceData['present_days'] ?? $payroll->present_days ?? 0),
                 'absent_days' => (int) ($attendanceData['absent_days'] ?? $payroll->absent_days ?? 0),
                 'leave_days' => (int) ($attendanceData['leave_days'] ?? $payroll->leave_days ?? 0),
+                'paid_leave_days' => (float) ($attendanceData['paid_leave_days'] ?? 0),
+                'unpaid_leave_days' => (float) ($attendanceData['unpaid_leave_days'] ?? 0),
                 'late_count' => (int) ($payroll->total_late_count ?? $payroll->late_days ?? $attendanceData['late_count'] ?? 0),
                 'late_minutes' => (int) ($payroll->total_late_minutes ?? $attendanceData['late_minutes'] ?? 0),
                 'overtime_hours' => round((float) ($attendanceData['overtime_hours'] ?? $payroll->total_overtime_hours ?? $payroll->overtime_hours ?? 0), 2),

@@ -7,6 +7,7 @@ use App\Models\Employee;
 use App\Models\User;
 use App\Modules\Payroll\Repositories\PayrollRepository;
 use App\Modules\Payroll\Types\PayrollAdjustmentType;
+use App\Modules\Payroll\Types\PayrollDeductionType;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -178,12 +179,15 @@ class PayrollService
                     'present_days' => $result['present_days'],
                     'absent_days' => $result['absent_days'],
                     'leave_days' => $result['leave_days'] ?? 0,
+                    'paid_leave_days' => $result['paid_leave_days'] ?? 0,
+                    'unpaid_leave_days' => $result['unpaid_leave_days'] ?? 0,
                     'holiday_days' => $result['holiday_days'] ?? 0,
                     'weekend_days' => $result['weekend_days'] ?? 0,
                     'late_count' => $result['total_late_count'] ?? $result['late_days'],
                     'late_minutes' => $result['total_late_minutes'] ?? 0,
                     'overtime_hours' => $result['total_overtime_hours'] ?? $result['overtime_hours'],
                 ],
+                'leaves' => $result['leave_entries'] ?? [],
                 'earnings' => $result['earnings'],
                 'awards' => $result['awards'],
                 'deductions' => $result['deductions'],
@@ -194,6 +198,7 @@ class PayrollService
                     'advance' => $result['advance'] ?? 0,
                     'loan' => $result['loan'] ?? 0,
                     'absent_deduction' => $result['absent_deduction'] ?? 0,
+                    'unpaid_leave_deduction' => $result['unpaid_leave_deduction'] ?? 0,
                     'late_deduction' => $result['late_deduction'] ?? 0,
                     'other_deduction' => $result['other_deduction'] ?? 0,
                 ],
@@ -241,9 +246,11 @@ class PayrollService
         $normalized = collect($adjustments)
             ->filter(fn ($adjustment) => is_array($adjustment))
             ->map(function (array $adjustment): array {
+                $code = strtoupper(trim((string) ($adjustment['code'] ?? '')));
+
                 return [
                     'adjustment_type' => (string) ($adjustment['adjustment_type'] ?? ''),
-                    'code' => (string) ($adjustment['code'] ?? ''),
+                    'code' => $code,
                     'amount' => (float) ($adjustment['amount'] ?? 0),
                     'notes' => $adjustment['notes'] ?? null,
                     'meta' => is_array($adjustment['meta'] ?? null) ? $adjustment['meta'] : null,
@@ -251,7 +258,11 @@ class PayrollService
             })
             ->filter(fn (array $adjustment) => in_array($adjustment['adjustment_type'], PayrollAdjustmentType::ALL, true)
                 && $adjustment['code'] !== ''
-                && $adjustment['amount'] > 0)
+                && (
+                    $adjustment['amount'] > 0
+                    || ($adjustment['adjustment_type'] === PayrollAdjustmentType::DEDUCTION
+                        && in_array($adjustment['code'], [PayrollDeductionType::PAID_LEAVE, PayrollDeductionType::UNPAID_LEAVE], true))
+                ))
             ->values();
 
         if ($normalized->isEmpty()) {

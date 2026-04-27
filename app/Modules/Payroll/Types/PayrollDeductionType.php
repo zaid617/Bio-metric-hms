@@ -11,6 +11,8 @@ final class PayrollDeductionType
     public const LOAN = 'LOAN';
     public const ABSENT_DEDUCTION = 'ABSENT_DEDUCTION';
     public const LATE_DEDUCTION = 'LATE_DEDUCTION';
+    public const UNPAID_LEAVE = 'UNPAID_LEAVE';
+    public const PAID_LEAVE = 'PAID_LEAVE';
     public const OTHER_DEDUCTION = 'OTHER_DEDUCTION';
 
     public const SESSION_NUMBER_MISSING = 'SESSION_NUMBER_MISSING';
