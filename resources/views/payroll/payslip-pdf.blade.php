@@ -193,6 +193,7 @@
         ->map(fn ($line) => [
             'type' => (string) ($line['type'] ?? 'EARNING'),
             'amount' => (float) ($line['amount'] ?? 0),
+            'label' => trim((string) ($line['label'] ?? '')),
             'notes' => (string) ($line['notes'] ?? ''),
         ])
         ->filter(fn ($line) => $line['amount'] > 0)
@@ -222,6 +223,8 @@
         'ALLOWANCE_CONVEYANCE',
         'ALLOWANCE_MEDICAL',
         'ALLOWANCE_HOUSE_RENT',
+        'ALLOWANCE_BRANCH_MANAGER',
+        'ALLOWANCE_ASSISTANT_BRANCH_MANAGER',
         'OTHER_ALLOWANCE',
     ];
 
@@ -319,7 +322,18 @@
         <tbody>
             @forelse($allowanceRows as $line)
                 <tr>
-                    <td>{{ str_replace('_', ' ', $line['type']) }}</td>
+                    <td>
+                        @php
+                            $allowanceLabel = trim((string) ($line['label'] ?? ''));
+                            if ($allowanceLabel === '' && $line['type'] === 'OTHER_ALLOWANCE') {
+                                $allowanceLabel = 'Other Allowance';
+                            }
+                            if ($allowanceLabel === '') {
+                                $allowanceLabel = str_replace('_', ' ', $line['type']);
+                            }
+                        @endphp
+                        {{ $allowanceLabel }}
+                    </td>
                     <td>{{ number_format((float) $line['amount'], 2) }}</td>
                 </tr>
             @empty

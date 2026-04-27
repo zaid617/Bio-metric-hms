@@ -160,8 +160,27 @@
                                 + (float)($employee->allowance_house_job ?? 0)
                                 + (float)($employee->allowance_conveyance ?? 0)
                                 + (float)($employee->allowance_medical ?? 0)
-                                + (float)($employee->allowance_house_rent ?? 0);
-                            $otherAllowance = (float)($employee->other_allowance ?? 0);
+                                + (float)($employee->allowance_house_rent ?? 0)
+                                + (float)($employee->allowance_branch_manager ?? 0)
+                                + (float)($employee->allowance_assistant_branch_manager ?? 0);
+
+                            $otherAllowance = 0.0;
+                            $decodedOtherAllowances = [];
+                            if (!empty($employee->other_allowances)) {
+                                if (is_string($employee->other_allowances)) {
+                                    $decodedOtherAllowances = json_decode($employee->other_allowances, true) ?: [];
+                                } elseif (is_array($employee->other_allowances)) {
+                                    $decodedOtherAllowances = $employee->other_allowances;
+                                }
+                            }
+
+                            foreach ($decodedOtherAllowances as $allowanceRow) {
+                                $otherAllowance += (float)($allowanceRow['amount'] ?? 0);
+                            }
+
+                            if ($otherAllowance <= 0) {
+                                $otherAllowance = (float)($employee->other_allowance ?? 0);
+                            }
                         @endphp
                         <td class="text-end">
                             <div class="small text-muted">Allowances: {{ number_format($totalAllowances, 2) }}</div>

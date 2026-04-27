@@ -77,8 +77,13 @@ class EmployeeController extends Controller
     {
         try {
             $validated = $request->validated();
+            $otherAllowances = $this->normalizeOtherAllowances($validated);
+            $totalOtherAllowance = round((float) collect($otherAllowances)->sum('amount'), 2);
+            $otherAllowanceLabel = count($otherAllowances) === 1
+                ? ($otherAllowances[0]['label'] ?? 'Other Allowance')
+                : null;
 
-            DB::transaction(function () use ($validated) {
+            DB::transaction(function () use ($validated, $otherAllowances, $totalOtherAllowance, $otherAllowanceLabel) {
                 DB::table('employees')->insert([
                     'prefix' => $validated['prefix'],
                     'name' => $validated['name'],
@@ -97,8 +102,11 @@ class EmployeeController extends Controller
                     'allowance_conveyance' => (float) ($validated['allowance_conveyance'] ?? 0),
                     'allowance_medical' => (float) ($validated['allowance_medical'] ?? 0),
                     'allowance_house_rent' => (float) ($validated['allowance_house_rent'] ?? 0),
-                    'other_allowance' => (float) ($validated['other_allowance'] ?? 0),
-                    'other_allowance_label' => $validated['other_allowance_label'] ?? null,
+                    'allowance_branch_manager' => (float) ($validated['allowance_branch_manager'] ?? 0),
+                    'allowance_assistant_branch_manager' => (float) ($validated['allowance_assistant_branch_manager'] ?? 0),
+                    'other_allowance' => $totalOtherAllowance,
+                    'other_allowance_label' => $otherAllowanceLabel,
+                    'other_allowances' => !empty($otherAllowances) ? json_encode($otherAllowances) : null,
                     'working_hours' => $validated['working_hours'],
                     'phone' => $validated['phone'],
                     'joining_date' => $validated['joining_date'],
@@ -137,8 +145,13 @@ class EmployeeController extends Controller
     {
         try {
             $validated = $request->validated();
+            $otherAllowances = $this->normalizeOtherAllowances($validated);
+            $totalOtherAllowance = round((float) collect($otherAllowances)->sum('amount'), 2);
+            $otherAllowanceLabel = count($otherAllowances) === 1
+                ? ($otherAllowances[0]['label'] ?? 'Other Allowance')
+                : null;
 
-            DB::transaction(function () use ($validated, $id) {
+            DB::transaction(function () use ($validated, $id, $otherAllowances, $totalOtherAllowance, $otherAllowanceLabel) {
                 DB::table('employees')->where('id', $id)->update([
                     'prefix' => $validated['prefix'],
                     'name' => $validated['name'],
@@ -157,8 +170,11 @@ class EmployeeController extends Controller
                     'allowance_conveyance' => (float) ($validated['allowance_conveyance'] ?? 0),
                     'allowance_medical' => (float) ($validated['allowance_medical'] ?? 0),
                     'allowance_house_rent' => (float) ($validated['allowance_house_rent'] ?? 0),
-                    'other_allowance' => (float) ($validated['other_allowance'] ?? 0),
-                    'other_allowance_label' => $validated['other_allowance_label'] ?? null,
+                    'allowance_branch_manager' => (float) ($validated['allowance_branch_manager'] ?? 0),
+                    'allowance_assistant_branch_manager' => (float) ($validated['allowance_assistant_branch_manager'] ?? 0),
+                    'other_allowance' => $totalOtherAllowance,
+                    'other_allowance_label' => $otherAllowanceLabel,
+                    'other_allowances' => !empty($otherAllowances) ? json_encode($otherAllowances) : null,
                     'working_hours' => $validated['working_hours'],
                     'phone' => $validated['phone'],
                     'joining_date' => $validated['joining_date'],
@@ -188,5 +204,42 @@ class EmployeeController extends Controller
             \Log::error('Employee delete error: ' . $e->getMessage());
             return back()->with('error', 'Unable to delete employee.');
         }
+    }
+
+    private function normalizeOtherAllowances(array $validated): array
+    {
+        $labels = data_get($validated, 'other_allowances.labels', []);
+        $amounts = data_get($validated, 'other_allowances.amounts', []);
+
+        $labels = is_array($labels) ? array_values($labels) : [];
+        $amounts = is_array($amounts) ? array_values($amounts) : [];
+
+        $rows = [];
+        $maxRows = max(count($labels), count($amounts));
+
+        for ($i = 0; $i < $maxRows; $i++) {
+            $amount = (float) ($amounts[$i] ?? 0);
+            $label = trim((string) ($labels[$i] ?? ''));
+
+            if ($amount <= 0) {
+                continue;
+            }
+
+            $rows[] = [
+                'label' => $label !== '' ? $label : 'Other Allowance',
+                'amount' => round($amount, 2),
+            ];
+        }
+
+        $legacyOtherAllowance = (float) ($validated['other_allowance'] ?? 0);
+        if ($legacyOtherAllowance > 0) {
+            $legacyLabel = trim((string) ($validated['other_allowance_label'] ?? ''));
+            $rows[] = [
+                'label' => $legacyLabel !== '' ? $legacyLabel : 'Other Allowance',
+                'amount' => round($legacyOtherAllowance, 2),
+            ];
+        }
+
+        return $rows;
     }
 }

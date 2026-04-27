@@ -75,6 +75,8 @@ class StorePayrollAdjustmentRequest extends FormRequest
                 PayrollEarningType::ALLOWANCE_CONVEYANCE => 'Conveyance Allowance',
                 PayrollEarningType::ALLOWANCE_MEDICAL => 'Medical Allowance',
                 PayrollEarningType::ALLOWANCE_HOUSE_RENT => 'House Rent Allowance',
+                PayrollEarningType::ALLOWANCE_BRANCH_MANAGER => 'Branch Manager Allowance',
+                PayrollEarningType::ALLOWANCE_ASSISTANT_BRANCH_MANAGER => 'Assistant Branch Manager Allowance',
                 PayrollEarningType::OTHER_ALLOWANCE => 'Other Allowance',
                 PayrollEarningType::TREATMENT_EXTENSION_COMMISSION => 'Treatment Extension Commission',
                 PayrollEarningType::SATISFACTION_BONUS      => 'Patient Satisfaction Bonus',

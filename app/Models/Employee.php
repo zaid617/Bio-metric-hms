@@ -27,8 +27,11 @@ class Employee extends Model
         'allowance_conveyance',
         'allowance_medical',
         'allowance_house_rent',
+        'allowance_branch_manager',
+        'allowance_assistant_branch_manager',
         'other_allowance',
         'other_allowance_label',
+        'other_allowances',
         'working_hours',
         'shift',
         'shift_start_time',
@@ -49,7 +52,10 @@ class Employee extends Model
         'allowance_conveyance' => 'decimal:2',
         'allowance_medical' => 'decimal:2',
         'allowance_house_rent' => 'decimal:2',
+        'allowance_branch_manager' => 'decimal:2',
+        'allowance_assistant_branch_manager' => 'decimal:2',
         'other_allowance' => 'decimal:2',
+        'other_allowances' => 'array',
         'working_hours' => 'float',
       ];
 
@@ -67,7 +73,9 @@ class Employee extends Model
             + (float) $this->allowance_house_job
             + (float) $this->allowance_conveyance
             + (float) $this->allowance_medical
-            + (float) $this->allowance_house_rent;
+          + (float) $this->allowance_house_rent
+          + (float) $this->allowance_branch_manager
+          + (float) $this->allowance_assistant_branch_manager;
       }
 
       public function getGrossSalaryAttribute(): float
@@ -86,8 +94,11 @@ class Employee extends Model
             'allowance_conveyance',
             'allowance_medical',
             'allowance_house_rent',
+            'allowance_branch_manager',
+            'allowance_assistant_branch_manager',
             'other_allowance',
             'other_allowance_label',
+            'other_allowances',
         ]);
       }
 

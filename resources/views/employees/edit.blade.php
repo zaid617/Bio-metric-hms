@@ -23,6 +23,25 @@
                     @csrf
                     @method('PUT')
                     @php
+                        $storedOtherAllowances = [];
+                        if (!empty($employee->other_allowances)) {
+                            if (is_string($employee->other_allowances)) {
+                                $storedOtherAllowances = json_decode($employee->other_allowances, true) ?: [];
+                            } elseif (is_array($employee->other_allowances)) {
+                                $storedOtherAllowances = $employee->other_allowances;
+                            }
+                        }
+
+                        $storedOtherAllowancesTotal = 0;
+                        foreach ($storedOtherAllowances as $row) {
+                            $storedOtherAllowancesTotal += (float) ($row['amount'] ?? 0);
+                        }
+
+                        $legacyOtherAllowance = (float)($employee->other_allowance ?? 0);
+                        $effectiveOtherAllowance = $storedOtherAllowancesTotal > 0
+                            ? $storedOtherAllowancesTotal
+                            : $legacyOtherAllowance;
+
                         $hasIncentiveComponents = (float)($employee->incentive_sunday_roster ?? 0)
                             + (float)($employee->incentive_home_visit ?? 0)
                             + (float)($employee->incentive_speech_therapy ?? 0)
@@ -32,7 +51,9 @@
                             + (float)($employee->allowance_conveyance ?? 0)
                             + (float)($employee->allowance_medical ?? 0)
                             + (float)($employee->allowance_house_rent ?? 0)
-                            + (float)($employee->other_allowance ?? 0) > 0
+                            + (float)($employee->allowance_branch_manager ?? 0)
+                            + (float)($employee->allowance_assistant_branch_manager ?? 0)
+                            + $effectiveOtherAllowance > 0
                             || $hasIncentiveComponents;
                     @endphp
 
@@ -176,6 +197,16 @@
                                                 <input type="number" step="0.01" min="0" id="allowance_house_rent" name="allowance_house_rent" class="form-control salary-component" placeholder="0.00" value="{{ old('allowance_house_rent', $employee->allowance_house_rent ?? '0.00') }}">
                                                 @error('allowance_house_rent')<small class="text-danger">{{ $message }}</small>@enderror
                                             </div>
+                                            <div class="col-md-4">
+                                                <label for="allowance_branch_manager" class="form-label">Branch Manager Allowance</label>
+                                                <input type="number" step="0.01" min="0" id="allowance_branch_manager" name="allowance_branch_manager" class="form-control salary-component" placeholder="0.00" value="{{ old('allowance_branch_manager', $employee->allowance_branch_manager ?? '0.00') }}">
+                                                @error('allowance_branch_manager')<small class="text-danger">{{ $message }}</small>@enderror
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label for="allowance_assistant_branch_manager" class="form-label">Assistant Branch Manager Allowance</label>
+                                                <input type="number" step="0.01" min="0" id="allowance_assistant_branch_manager" name="allowance_assistant_branch_manager" class="form-control salary-component" placeholder="0.00" value="{{ old('allowance_assistant_branch_manager', $employee->allowance_assistant_branch_manager ?? '0.00') }}">
+                                                @error('allowance_assistant_branch_manager')<small class="text-danger">{{ $message }}</small>@enderror
+                                            </div>
                                         </div>
                                     </div>
 
@@ -207,17 +238,68 @@
 
                                     <div class="mb-3">
                                         <h6 class="text-primary mb-3">Other</h6>
-                                        <div class="row g-3">
-                                            <div class="col-md-4">
-                                                <label for="other_allowance" class="form-label">Other</label>
-                                                <input type="number" step="0.01" min="0" id="other_allowance" name="other_allowance" class="form-control salary-component" placeholder="0.00" value="{{ old('other_allowance', $employee->other_allowance ?? '0.00') }}">
-                                                @error('other_allowance')<small class="text-danger">{{ $message }}</small>@enderror
-                                            </div>
-                                            <div class="col-md-8">
-                                                <label for="other_allowance_label" class="form-label">Other Description or Label</label>
-                                                <input type="text" id="other_allowance_label" name="other_allowance_label" class="form-control" placeholder="Enter custom label" value="{{ old('other_allowance_label', $employee->other_allowance_label) }}">
-                                                @error('other_allowance_label')<small class="text-danger">{{ $message }}</small>@enderror
-                                            </div>
+                                        @php
+                                            $otherAllowanceRows = [];
+                                            $otherAllowanceLabels = old('other_allowances.labels');
+                                            $otherAllowanceAmounts = old('other_allowances.amounts');
+
+                                            if (is_array($otherAllowanceLabels) || is_array($otherAllowanceAmounts)) {
+                                                $otherAllowanceLabels = is_array($otherAllowanceLabels) ? $otherAllowanceLabels : [];
+                                                $otherAllowanceAmounts = is_array($otherAllowanceAmounts) ? $otherAllowanceAmounts : [];
+                                                $otherAllowanceCount = max(count($otherAllowanceLabels), count($otherAllowanceAmounts), 1);
+
+                                                for ($i = 0; $i < $otherAllowanceCount; $i++) {
+                                                    $otherAllowanceRows[] = [
+                                                        'label' => $otherAllowanceLabels[$i] ?? '',
+                                                        'amount' => $otherAllowanceAmounts[$i] ?? '0.00',
+                                                    ];
+                                                }
+                                            } else {
+                                                foreach ($storedOtherAllowances as $row) {
+                                                    $otherAllowanceRows[] = [
+                                                        'label' => $row['label'] ?? '',
+                                                        'amount' => number_format((float) ($row['amount'] ?? 0), 2, '.', ''),
+                                                    ];
+                                                }
+
+                                                if (empty($otherAllowanceRows) && ((float) ($employee->other_allowance ?? 0)) > 0) {
+                                                    $otherAllowanceRows[] = [
+                                                        'label' => $employee->other_allowance_label ?: 'Other Allowance',
+                                                        'amount' => number_format((float) $employee->other_allowance, 2, '.', ''),
+                                                    ];
+                                                }
+
+                                                if (empty($otherAllowanceRows)) {
+                                                    $otherAllowanceRows[] = [
+                                                        'label' => '',
+                                                        'amount' => '0.00',
+                                                    ];
+                                                }
+                                            }
+                                        @endphp
+
+                                        <div id="otherAllowancesContainer" class="d-grid gap-3">
+                                            @foreach($otherAllowanceRows as $index => $row)
+                                                <div class="row g-3 align-items-end js-other-allowance-row">
+                                                    <div class="col-md-7">
+                                                        <label class="form-label">Other Allowance Label</label>
+                                                        <input type="text" name="other_allowances[labels][]" class="form-control" placeholder="Enter custom label" value="{{ $row['label'] }}">
+                                                        @error('other_allowances.labels.' . $index)<small class="text-danger">{{ $message }}</small>@enderror
+                                                    </div>
+                                                    <div class="col-md-4">
+                                                        <label class="form-label">Amount</label>
+                                                        <input type="number" step="0.01" min="0" name="other_allowances[amounts][]" class="form-control salary-component" placeholder="0.00" value="{{ $row['amount'] }}">
+                                                        @error('other_allowances.amounts.' . $index)<small class="text-danger">{{ $message }}</small>@enderror
+                                                    </div>
+                                                    <div class="col-md-1 d-flex justify-content-end">
+                                                        <button type="button" class="btn btn-outline-danger js-remove-other-allowance" title="Remove allowance">&times;</button>
+                                                    </div>
+                                                </div>
+                                            @endforeach
+                                        </div>
+
+                                        <div class="mt-3">
+                                            <button type="button" id="addOtherAllowanceRow" class="btn btn-sm btn-outline-primary">Add Other Allowance</button>
                                         </div>
                                     </div>
 
@@ -268,8 +350,9 @@
 <script src="{{ URL::asset('build/js/main.js') }}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    const componentFields = document.querySelectorAll('.salary-component');
     const totalNode = document.getElementById('salaryComponentsTotal');
+    const otherAllowancesContainer = document.getElementById('otherAllowancesContainer');
+    const addOtherAllowanceRowButton = document.getElementById('addOtherAllowanceRow');
 
     const toNumber = (value) => {
         const normalized = String(value || '').replace(/,/g, '').trim();
@@ -279,14 +362,67 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const renderTotal = () => {
         let total = toNumber(document.getElementById('basic_salary').value) || 0;
-        componentFields.forEach((field) => {
+        document.querySelectorAll('.salary-component').forEach((field) => {
             total += toNumber(field.value);
         });
         totalNode.textContent = total.toFixed(2);
     };
 
-    componentFields.forEach((field) => {
-        field.addEventListener('input', renderTotal);
+    document.addEventListener('input', function (event) {
+        if (event.target.classList.contains('salary-component')) {
+            renderTotal();
+        }
+    });
+
+    const addOtherAllowanceRow = (label = '', amount = '0.00') => {
+        const row = document.createElement('div');
+        row.className = 'row g-3 align-items-end js-other-allowance-row';
+        row.innerHTML = `
+            <div class="col-md-7">
+                <label class="form-label">Other Allowance Label</label>
+                <input type="text" name="other_allowances[labels][]" class="form-control" placeholder="Enter custom label" value="${label}">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Amount</label>
+                <input type="number" step="0.01" min="0" name="other_allowances[amounts][]" class="form-control salary-component" placeholder="0.00" value="${amount}">
+            </div>
+            <div class="col-md-1 d-flex justify-content-end">
+                <button type="button" class="btn btn-outline-danger js-remove-other-allowance" title="Remove allowance">&times;</button>
+            </div>
+        `;
+
+        otherAllowancesContainer.appendChild(row);
+        renderTotal();
+    };
+
+    addOtherAllowanceRowButton.addEventListener('click', function () {
+        addOtherAllowanceRow();
+    });
+
+    document.addEventListener('click', function (event) {
+        if (!event.target.classList.contains('js-remove-other-allowance')) {
+            return;
+        }
+
+        const rows = otherAllowancesContainer.querySelectorAll('.js-other-allowance-row');
+        if (rows.length <= 1) {
+            const activeRow = rows[0];
+            if (activeRow) {
+                const labelInput = activeRow.querySelector('input[name="other_allowances[labels][]"]');
+                const amountInput = activeRow.querySelector('input[name="other_allowances[amounts][]"]');
+                if (labelInput) {
+                    labelInput.value = '';
+                }
+                if (amountInput) {
+                    amountInput.value = '0.00';
+                }
+            }
+            renderTotal();
+            return;
+        }
+
+        event.target.closest('.js-other-allowance-row')?.remove();
+        renderTotal();
     });
 
     document.querySelectorAll('.js-money-format').forEach((field) => {

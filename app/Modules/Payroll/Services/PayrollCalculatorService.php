@@ -43,7 +43,14 @@ class PayrollCalculatorService
         $allowanceConveyance = $this->money($employee->allowance_conveyance ?? 0);
         $allowanceMedical = $this->money($employee->allowance_medical ?? 0);
         $allowanceHouseRent = $this->money($employee->allowance_house_rent ?? 0);
-        $otherAllowance = $this->money($employee->other_allowance ?? 0);
+        $allowanceBranchManager = $this->money($employee->allowance_branch_manager ?? 0);
+        $allowanceAssistantBranchManager = $this->money($employee->allowance_assistant_branch_manager ?? 0);
+
+        $profileOtherAllowances = $this->normalizeOtherAllowances($employee->other_allowances ?? null);
+        $profileOtherAllowancesTotal = $this->money((float) collect($profileOtherAllowances)->sum('amount'));
+        $legacyOtherAllowance = $this->money($employee->other_allowance ?? 0);
+        $otherAllowanceDifference = $this->money(max(0, $legacyOtherAllowance - $profileOtherAllowancesTotal));
+        $otherAllowance = $this->money($profileOtherAllowancesTotal + $otherAllowanceDifference);
 
         $incentiveSundayRoster = $this->money($employee->incentive_sunday_roster ?? 0);
         $incentiveHomeVisit = $this->money($employee->incentive_home_visit ?? 0);
@@ -146,12 +153,31 @@ class PayrollCalculatorService
             ['type' => PayrollEarningType::ALLOWANCE_CONVEYANCE, 'amount' => $allowanceConveyance, 'notes' => 'Employee profile allowance'],
             ['type' => PayrollEarningType::ALLOWANCE_MEDICAL, 'amount' => $allowanceMedical, 'notes' => 'Employee profile allowance'],
             ['type' => PayrollEarningType::ALLOWANCE_HOUSE_RENT, 'amount' => $allowanceHouseRent, 'notes' => 'Employee profile allowance'],
+            ['type' => PayrollEarningType::ALLOWANCE_BRANCH_MANAGER, 'amount' => $allowanceBranchManager, 'notes' => 'Employee profile allowance'],
+            ['type' => PayrollEarningType::ALLOWANCE_ASSISTANT_BRANCH_MANAGER, 'amount' => $allowanceAssistantBranchManager, 'notes' => 'Employee profile allowance'],
             ['type' => PayrollEarningType::INCENTIVE_SUNDAY_ROSTER, 'amount' => $incentiveSundayRoster, 'notes' => 'Employee profile incentive'],
             ['type' => PayrollEarningType::INCENTIVE_HOME_VISIT, 'amount' => $incentiveHomeVisit, 'notes' => 'Employee profile incentive'],
             ['type' => PayrollEarningType::INCENTIVE_SPEECH_THERAPY, 'amount' => $incentiveSpeechTherapy, 'notes' => 'Employee profile incentive'],
             ['type' => PayrollEarningType::INCENTIVE_DRY_NEEDLING, 'amount' => $incentiveDryNeedling, 'notes' => 'Employee profile incentive'],
-            ['type' => PayrollEarningType::OTHER_ALLOWANCE, 'amount' => $otherAllowance, 'notes' => 'Employee profile allowance'],
         ];
+
+        foreach ($profileOtherAllowances as $allowance) {
+            $earnings[] = [
+                'type' => PayrollEarningType::OTHER_ALLOWANCE,
+                'amount' => $this->money((float) ($allowance['amount'] ?? 0)),
+                'label' => (string) ($allowance['label'] ?? 'Other Allowance'),
+                'notes' => 'Employee profile allowance',
+            ];
+        }
+
+        if ($otherAllowanceDifference > 0) {
+            $earnings[] = [
+                'type' => PayrollEarningType::OTHER_ALLOWANCE,
+                'amount' => $otherAllowanceDifference,
+                'label' => trim((string) ($employee->other_allowance_label ?? '')) ?: 'Other Allowance',
+                'notes' => 'Employee profile allowance',
+            ];
+        }
 
         foreach ($earningAdjustments as $adjustment) {
             $code = $normalizeCode(data_get($adjustment, 'code'), PayrollEarningType::CUSTOM);
@@ -224,6 +250,8 @@ class PayrollCalculatorService
             'allowance_conveyance' => $allowanceConveyance,
             'allowance_medical' => $allowanceMedical,
             'allowance_house_rent' => $allowanceHouseRent,
+            'allowance_branch_manager' => $allowanceBranchManager,
+            'allowance_assistant_branch_manager' => $allowanceAssistantBranchManager,
             'other_allowance' => $otherAllowance,
             'incentive_sunday_roster' => $incentiveSundayRoster,
             'incentive_home_visit' => $incentiveHomeVisit,
@@ -268,5 +296,32 @@ class PayrollCalculatorService
         }
 
         return $workingDays;
+    }
+
+    private function normalizeOtherAllowances(array|string|null $rawAllowances): array
+    {
+        if (is_string($rawAllowances)) {
+            $decoded = json_decode($rawAllowances, true);
+            $rawAllowances = is_array($decoded) ? $decoded : [];
+        }
+
+        if (!is_array($rawAllowances)) {
+            return [];
+        }
+
+        return collect($rawAllowances)
+            ->filter(fn ($row) => is_array($row))
+            ->map(function (array $row): array {
+                $amount = $this->money((float) ($row['amount'] ?? 0));
+                $label = trim((string) ($row['label'] ?? ''));
+
+                return [
+                    'label' => $label !== '' ? $label : 'Other Allowance',
+                    'amount' => $amount,
+                ];
+            })
+            ->filter(fn (array $row) => $row['amount'] > 0)
+            ->values()
+            ->all();
     }
 }
