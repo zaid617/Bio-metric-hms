@@ -98,7 +98,7 @@ class AttendanceRecordController extends Controller
                 $deadline = (clone $shiftRule['shift_start_at'])->addMinutes($shiftRule['grace_minutes']);
                 $validated['is_late'] = $checkIn->gt($deadline);
                 $validated['late_minutes'] = $validated['is_late']
-                    ? $shiftRule['shift_start_at']->diffInMinutes($checkIn)
+                    ? $deadline->diffInMinutes($checkIn)
                     : 0;
 
                 if (in_array($validated['status'], ['present', 'late'], true)) {
@@ -197,7 +197,7 @@ class AttendanceRecordController extends Controller
                         : 0,
                     'is_late' => $isLate,
                     'late_minutes' => $isLate
-                        ? $shiftRule['shift_start_at']->diffInMinutes($checkIn)
+                        ? $deadline->diffInMinutes($checkIn)
                         : 0,
                     'status' => $status,
                 ]);

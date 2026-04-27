@@ -65,7 +65,16 @@ class PayrollRepository
         if (!empty($employee->joining_date)) {
             $joiningDate = Carbon::parse($employee->joining_date);
             if ($joiningDate->betweenIncluded($periodStart, $periodEnd) && $joiningDate->gt($effectiveStart)) {
-                $effectiveStart = $joiningDate->copy();
+                $hasAttendanceBeforeJoiningDate = AttendanceRecord::query()
+                    ->where('employee_id', $employee->id)
+                    ->whereBetween('attendance_date', [$periodStart->toDateString(), $periodEnd->toDateString()])
+                    ->whereDate('attendance_date', '<', $joiningDate->toDateString())
+                    ->exists();
+
+                // If attendance exists before joining_date, trust attendance history for payroll period counts.
+                if (!$hasAttendanceBeforeJoiningDate) {
+                    $effectiveStart = $joiningDate->copy();
+                }
             }
         }
 
@@ -121,14 +130,20 @@ class PayrollRepository
                 $totalWorkingMinutes += (int) ($record->total_working_minutes ?? 0);
                 $overtimeMinutes += max(0, (int) ($record->overtime_minutes ?? 0));
 
-                $recordLateMinutes = (int) ($record->late_minutes ?? 0);
-                $isLate = (bool) ($record->is_late ?? false);
-                if (!$isLate && $recordLateMinutes <= 0 && !empty($record->check_in)) {
+                $recordLateMinutes = 0;
+                $isLate = false;
+
+                if (!empty($record->check_in)) {
                     $recordLateMinutes = $this->calculateLateMinutes($employee, $dateKey, (string) $record->check_in);
                     $isLate = $recordLateMinutes > 0;
+                } else {
+                    $recordLateMinutes = max(0, (int) ($record->late_minutes ?? 0));
+                    $isLate = (bool) ($record->is_late ?? false)
+                        || $recordLateMinutes > 0
+                        || $status === 'late';
                 }
 
-                if ($isLate || $status === 'late') {
+                if ($isLate) {
                     $totalLateCount++;
                     $totalLateMinutes += max(0, $recordLateMinutes);
                 }
@@ -174,21 +189,26 @@ class PayrollRepository
 
     private function calculateLateMinutes(Employee $employee, string $attendanceDate, string $checkInTime): int
     {
-        $shiftStart = $this->resolveShiftStart($employee);
-        $shiftStartAt = Carbon::parse($attendanceDate . ' ' . $shiftStart);
+        $shiftRule = $this->resolveShiftRule($employee);
+        $shiftStartAt = Carbon::parse($attendanceDate . ' ' . $shiftRule['shift_start_time']);
+        $deadline = (clone $shiftStartAt)->addMinutes($shiftRule['grace_minutes']);
         $checkInAt = Carbon::parse($attendanceDate . ' ' . substr($checkInTime, 0, 8));
 
-        return $checkInAt->gt($shiftStartAt)
-            ? $shiftStartAt->diffInMinutes($checkInAt)
-            : 0;
+        if (!$checkInAt->gt($deadline)) {
+            return 0;
+        }
+
+        return (int) round($deadline->diffInMinutes($checkInAt));
     }
 
-    private function resolveShiftStart(Employee $employee): string
+    private function resolveShiftRule(Employee $employee): array
     {
         $defaultShiftStart = (string) config('payroll.shift_start', '09:00');
+        $defaultGrace = (int) config('payroll.late_grace_minutes', 15);
         $shiftStart = !empty($employee->shift_start_time)
             ? substr((string) $employee->shift_start_time, 0, 5)
             : $defaultShiftStart;
+        $graceMinutes = $defaultGrace;
 
         static $hasShiftTable = null;
         $shiftName = trim((string) ($employee->shift ?? ''));
@@ -215,13 +235,16 @@ class PayrollRepository
                     if (preg_match('/^\d{2}:\d{2}$/', $candidateStart)) {
                         $shiftStart = $candidateStart;
                     }
+
+                    $graceMinutes = (int) ($match->grace_period_minutes ?? $graceMinutes);
                 }
             }
         }
 
-        return preg_match('/^\d{2}:\d{2}$/', $shiftStart)
-            ? $shiftStart
-            : $defaultShiftStart;
+        return [
+            'shift_start_time' => preg_match('/^\d{2}:\d{2}$/', $shiftStart) ? $shiftStart : $defaultShiftStart,
+            'grace_minutes' => max(0, $graceMinutes),
+        ];
     }
 
     public function findDoctorByEmployee(Employee $employee): ?Doctor

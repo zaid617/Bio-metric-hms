@@ -116,8 +116,8 @@
                                         </td>
                                         <td>{{ $record->working_hours ?? 0 }}h</td>
                                         <td>
-                                            <span class="status-{{ $record->status }}">
-                                                {{ ucfirst(str_replace('_', ' ', $record->status)) }}
+                                            <span class="status-{{ $record->effective_status }}">
+                                                {{ ucfirst(str_replace('_', ' ', $record->effective_status)) }}
                                             </span>
                                         </td>
                                         <td>

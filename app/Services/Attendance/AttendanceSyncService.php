@@ -642,7 +642,7 @@ class AttendanceSyncService
         $deadline = (clone $shiftStartAt)->addMinutes($graceMinutes);
         $record->is_late = $checkIn->gt($deadline);
         $record->late_minutes = $record->is_late
-            ? $shiftStartAt->diffInMinutes($checkIn)
+            ? $deadline->diffInMinutes($checkIn)
             : 0;
         $record->status = $record->is_late ? 'late' : 'present';
 

@@ -5,8 +5,10 @@ namespace App\Models\Attendance;
 use App\Models\Employee;
 use App\Models\Branch;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\DB;
 
 class AttendanceRecord extends Model
 {
@@ -131,6 +133,116 @@ class AttendanceRecord extends Model
         $overtime = $this->total_working_minutes - $standardMinutes;
 
         return $overtime > 0 ? (int) $overtime : 0;
+    }
+
+    /**
+     * Compute the current attendance status using the active payroll grace period.
+     */
+    public function getEffectiveStatusAttribute(): string
+    {
+        $storedStatus = strtolower((string) ($this->status ?? 'absent'));
+
+        if (in_array($storedStatus, ['leave', 'holiday', 'weekend', 'absent'], true) && empty($this->check_in)) {
+            return $storedStatus;
+        }
+
+        if (empty($this->check_in) || !$this->employee) {
+            return $storedStatus;
+        }
+
+        $shiftRule = $this->resolveShiftRuleForDisplay();
+        $attendanceDate = $this->attendance_date instanceof Carbon
+            ? $this->attendance_date->toDateString()
+            : (string) $this->attendance_date;
+
+        $checkIn = Carbon::parse($attendanceDate . ' ' . substr((string) $this->check_in, 0, 8));
+        $deadline = (clone $shiftRule['shift_start_at'])->addMinutes($shiftRule['grace_minutes']);
+
+        if ($checkIn->gt($deadline)) {
+            return 'late';
+        }
+
+        return in_array($storedStatus, ['present', 'late', 'half_day'], true) ? 'present' : $storedStatus;
+    }
+
+    /**
+     * Compute current late minutes using the active payroll grace period.
+     */
+    public function getEffectiveLateMinutesAttribute(): int
+    {
+        if (empty($this->check_in) || !$this->employee) {
+            return (int) ($this->late_minutes ?? 0);
+        }
+
+        $shiftRule = $this->resolveShiftRuleForDisplay();
+        $attendanceDate = $this->attendance_date instanceof Carbon
+            ? $this->attendance_date->toDateString()
+            : (string) $this->attendance_date;
+
+        $checkIn = Carbon::parse($attendanceDate . ' ' . substr((string) $this->check_in, 0, 8));
+        $deadline = (clone $shiftRule['shift_start_at'])->addMinutes($shiftRule['grace_minutes']);
+
+        return $checkIn->gt($deadline)
+            ? $deadline->diffInMinutes($checkIn)
+            : 0;
+    }
+
+    /**
+     * Resolve the active shift rule for display-time calculations.
+     */
+    protected function resolveShiftRuleForDisplay(): array
+    {
+        $employee = $this->employee;
+        $defaultShiftStart = (string) config('payroll.shift_start', '09:00');
+        $defaultGrace = (int) config('payroll.late_grace_minutes', 15);
+        $shiftStart = !empty($employee?->shift_start_time)
+            ? substr((string) $employee->shift_start_time, 0, 5)
+            : $defaultShiftStart;
+        $graceMinutes = $defaultGrace;
+
+        static $hasShiftTable = null;
+        $shiftName = trim((string) ($employee?->shift ?? ''));
+
+        if ($shiftName !== '') {
+            if ($hasShiftTable === null) {
+                $hasShiftTable = DB::getSchemaBuilder()->hasTable('attendance_shifts');
+            }
+
+            if ($hasShiftTable) {
+                $match = DB::table('attendance_shifts')
+                    ->when(!empty($employee?->branch_id), function ($query) use ($employee) {
+                        $query->where(function ($inner) use ($employee) {
+                            $inner->where('branch_id', $employee->branch_id)
+                                ->orWhereNull('branch_id');
+                        });
+                    })
+                    ->whereRaw('LOWER(shift_name) = ?', [strtolower($shiftName)])
+                    ->orderByDesc('is_default')
+                    ->first();
+
+                if ($match) {
+                    $candidateStart = substr((string) $match->start_time, 0, 5);
+                    if (preg_match('/^\d{2}:\d{2}$/', $candidateStart)) {
+                        $shiftStart = $candidateStart;
+                    }
+
+                    $graceMinutes = (int) ($match->grace_period_minutes ?? $graceMinutes);
+                }
+            }
+        }
+
+        if (!preg_match('/^\d{2}:\d{2}$/', $shiftStart)) {
+            $shiftStart = $defaultShiftStart;
+        }
+
+        $dateString = $this->attendance_date instanceof Carbon
+            ? $this->attendance_date->toDateString()
+            : (string) $this->attendance_date;
+
+        return [
+            'shift_start_at' => Carbon::parse($dateString . ' ' . $shiftStart),
+            'grace_minutes' => max(0, $graceMinutes),
+        ];
     }
 
     /**

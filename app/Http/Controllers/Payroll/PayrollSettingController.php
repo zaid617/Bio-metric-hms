@@ -3,13 +3,23 @@
 namespace App\Http\Controllers\Payroll;
 
 use App\Http\Controllers\Controller;
+use App\Models\Attendance\AttendancePayroll;
+use App\Models\Employee;
 use App\Models\PayrollSetting;
+use App\Modules\Payroll\Services\PayrollService;
+use App\Services\Attendance\AttendanceSyncService;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
 class PayrollSettingController extends Controller
 {
+    public function __construct(
+        private readonly AttendanceSyncService $attendanceSyncService,
+        private readonly PayrollService $payrollService
+    ) {
+    }
+
     public function index()
     {
         try {
@@ -51,6 +61,22 @@ class PayrollSettingController extends Controller
             // Refresh the runtime config so the rest of the request (and future
             // requests that boot via AppServiceProvider) picks up the new values.
             config(['payroll' => $settings->fresh()->toConfigArray()]);
+
+            $employees = Employee::query()
+                ->whereHas('attendanceRecords')
+                ->get();
+
+            foreach ($employees as $employee) {
+                $this->attendanceSyncService->recalculateEmployeeAttendanceRecords($employee);
+            }
+
+            AttendancePayroll::query()
+                ->draft()
+                ->with('employee')
+                ->get()
+                ->each(function (AttendancePayroll $payroll) {
+                    $this->payrollService->regeneratePayroll($payroll);
+                });
 
             return redirect()->back()->with('success', 'Payroll settings updated successfully.');
         } catch (Exception $e) {

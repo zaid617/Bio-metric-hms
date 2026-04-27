@@ -222,7 +222,7 @@
                                     </div>
 
                                     <div class="alert alert-info mb-0 d-flex justify-content-between align-items-center">
-                                        <span class="fw-semibold">Total Earnings (Allowances + Other)</span>
+                                        <span class="fw-semibold">Total Gross (Basic + Allowances + Other)</span>
                                         <span id="salaryComponentsTotal" class="fw-bold">0.00</span>
                                     </div>
                                 </div>
@@ -278,7 +278,7 @@ document.addEventListener('DOMContentLoaded', function () {
     };
 
     const renderTotal = () => {
-        let total = 0;
+        let total = toNumber(document.getElementById('basic_salary').value) || 0;
         componentFields.forEach((field) => {
             total += toNumber(field.value);
         });
@@ -300,6 +300,8 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     renderTotal();
+
+    document.getElementById('basic_salary').addEventListener('input', renderTotal);
 });
 </script>
 @endpush
