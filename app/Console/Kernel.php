@@ -12,18 +12,10 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule): void
     {
-        // Har mahine ke 1 tareekh ko 2 baje subah salary generate
-    $schedule->command('generate:monthly-salaries')->monthlyOn(1, '2:00');
-
-        // ZKTeco attendance sync every 5 minutes
-        $schedule->command('zkteco:sync')
-            ->everyFiveMinutes()
+        // Scheduled device sync every 6 hours (0 */6 * * *)
+        $schedule->command('attendance:schedule-sync')
+            ->everySixHours()
             ->withoutOverlapping()
-            ->runInBackground();
-
-        // Handle missing checkouts daily at 1:00 AM
-        $schedule->command('zkteco:sync --handle-missing-checkouts')
-            ->dailyAt('01:00')
             ->runInBackground();
     }
 
