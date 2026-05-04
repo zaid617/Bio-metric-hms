@@ -9,6 +9,7 @@ use App\Models\Doctor;
 use App\Models\Patient;
 use App\Models\Transaction;
 use Carbon\Carbon;
+use Illuminate\Http\Request;
 
 class AdminController extends Controller
 {
@@ -45,9 +46,11 @@ class AdminController extends Controller
                 ->where('type', '+')
                 ->sum('amount');
 
-            // ────────────── Total Payments (All Time) ──────────────
+            // ────────────── Total Payments (Current Month) ──────────────
             $totalPaymentsAll = Transaction::where('branch_id', $branch->id)
                 ->where('type', '+')
+                ->whereYear('created_at', Carbon::now()->year)
+                ->whereMonth('created_at', Carbon::now()->month)
                 ->sum('amount');
 
             $consultationPendingTotal = Checkup::where('branch_id', $branch->id)
@@ -70,6 +73,40 @@ class AdminController extends Controller
         });
 
         return view('admin.dashboard', compact('branchStats'));
+    }
+
+    public function branchStatsByDate(Request $request)
+    {
+
+        $branchId = $request->branch_id;
+        $date = $request->date;
+        $date = Carbon::parse($date);
+
+        $transactions = Transaction::where('branch_id', $branchId)
+            ->whereDate('created_at', $date);
+
+        $sessionsCount = (clone $transactions)->where('payment_type', 2)->count();
+        $sessionsAmount = (clone $transactions)
+            ->where('payment_type', 2)
+            ->where('type', '+')
+            ->sum('amount');
+
+        $consultationsCount = (clone $transactions)->where('payment_type', 1)->count();
+        $consultationsAmount = (clone $transactions)
+            ->where('payment_type', 1)
+            ->where('type', '+')
+            ->sum('amount');
+
+        return response()->json([
+            'sessions' => [
+                'count' => $sessionsCount,
+                'amount' => $sessionsAmount,
+            ],
+            'consultations' => [
+                'count' => $consultationsCount,
+                'amount' => $consultationsAmount,
+            ],
+        ]);
     }
 }
 

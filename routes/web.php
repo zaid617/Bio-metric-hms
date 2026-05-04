@@ -57,6 +57,10 @@ Route::prefix('admin')
             ->middleware('check_user_permission:view_dashboard')
             ->name('dashboard');
 
+        Route::get('branch-stats', [AdminController::class, 'branchStatsByDate'])
+            ->middleware('check_user_permission:view_dashboard')
+            ->name('branch.stats');
+
             // 🔹 Appointments (Checkups) - FIXED: Using consistent middleware
         Route::get('appointments', [CheckupController::class, 'index'])
             ->middleware('check_user_permission:view appointments')

@@ -24,7 +24,10 @@
             <div class="card shadow border-0 h-100">
                 <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
                     <h5 class="mb-0 text-white ">{{ $branch['branch_name'] }}</h5>
-                    <small>{{ format_date(Now()) }}</small>
+                    <input type="date"
+                        class="branch-date-picker form-control form-control-sm w-auto text-white bg-primary border-0"
+                        data-branch-id="{{ $branch['branch_id'] }}"
+                        value="{{ now()->toDateString() }}">
                 </div>
                 <div class="card-body">
                     <div class="row">
@@ -49,7 +52,7 @@
                             </div>
                         </div>
                         <!-- Today Consultations -->
-                        <div class="col-6 mb-2">
+                        <div class="col-6 mb-2" id="consultations-{{ $branch['branch_id'] }}">
                             <div class="d-flex align-items-center p-3 stat-card-custom border border-info">
                                 <i class="fas fa-handshake fa-2x text-info me-3"></i>
                                 <div>
@@ -59,7 +62,7 @@
                             </div>
                         </div>
                         <!-- Sessions -->
-                        <div class="col-6 mb-2">
+                        <div class="col-6 mb-2" id="sessions-{{ $branch['branch_id'] }}">
                             <div class="d-flex align-items-center p-3 stat-card-custom border border-warning">
                                 <i class="fas fa-calendar-check fa-2x text-warning me-3"></i>
                                 <div>
@@ -69,7 +72,7 @@
                             </div>
                         </div>
                         <!-- Total Payments -->
-                        <div class="col-6">
+                        <div class="col-6" id="today-payments-{{ $branch['branch_id'] }}">
                             <a href="{{ route('payments.appointment-invoices', ['branch_id' => $branch['branch_id'] ?? null, 'date_from' => now()->toDateString(), 'date_to' => now()->toDateString()]) }}" class="text-decoration-none text-reset d-block">
                             <div class="d-flex align-items-center p-3 stat-card-custom border border-danger">
                                 <i class="fas fa-coins fa-2x text-danger me-3"></i>
@@ -83,7 +86,7 @@
                             </a>
                         </div>
                         <!-- Total Payments -->
-                        <div class="col-6">
+                        <div class="col-6" id="total-payments-{{ $branch['branch_id'] }}">
                             <a href="{{ route('payments.appointment-invoices', ['branch_id' => $branch['branch_id'] ?? null]) }}" class="text-decoration-none text-reset d-block">
                             <div class="d-flex align-items-center p-3 stat-card-custom border border-danger">
                                 <i class="fas fa-coins fa-2x text-danger me-3"></i>
@@ -96,7 +99,7 @@
                             </div>
                             </a>
                         </div>
-                        <div class="col-6">
+                        <div class="col-6" id="consultation-pending-{{ $branch['branch_id'] }}">
                             <div class="d-flex align-items-center p-3 stat-card-custom border border-warning">
                                 <i class="fas fa-file-invoice-dollar fa-2x text-warning me-3"></i>
                                 <div>
@@ -206,4 +209,35 @@
     <script src="{{ URL::asset('build/plugins/perfect-scrollbar/js/perfect-scrollbar.js') }}"></script>
     <script src="{{ URL::asset('build/plugins/metismenu/metisMenu.min.js') }}"></script>
     <script src="{{ URL::asset('build/js/main.js') }}"></script>
+
+    <script>
+        $(document).ready(function() {
+            // Handle date change for each branch
+            $('.branch-date-picker').on('change', function() {
+                const branchId = $(this).data('branch-id');
+                const selectedDate = $(this).val();
+
+                // Make AJAX request to fetch stats for the selected date
+                $.ajax({
+                    url: '{{ route("admin.branch.stats") }}',
+                    method: 'GET',
+                    data: {
+                        branch_id: branchId,
+                        date: selectedDate
+                    },
+                    success: function(response) {
+                        // Update the stats cards with the new data
+                        $(`#consultations-${branchId} h6`).text(response.totalConsultationsToday);
+                        $(`#sessions-${branchId} h6`).text(response.totalSessionsToday);
+                        $(`#today-payments-${branchId} h6`).text(response.totalPaymentsToday.toLocaleString());
+                        $(`#total-payments-${branchId} h6`).text(response.totalPaymentsAll.toLocaleString());
+                        $(`#consultation-pending-${branchId} h6`).text(response.consultationPendingTotal.toLocaleString());
+                    },
+                    error: function() {
+                        alert('Failed to fetch data. Please try again.');
+                    }
+                });
+            });
+        });
+    </script>
 @endpush
