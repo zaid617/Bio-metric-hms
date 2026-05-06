@@ -14,14 +14,22 @@ class RolePermissionController extends Controller
     // =========================
     public function rolePermissions()
     {
-        $roles = Role::with('permissions')->get();
-        $permissions = Permission::all();
-        return view('role_permissions.roles', compact('roles','permissions'));
+        $roles       = Role::with('permissions')->get();
+        $permissions = Permission::where('name', 'like', '%.%')->orderBy('name')->get();
+        $isSuperAdmin = auth()->user()?->hasRole('super-admin') ?? false;
+
+        return view('role_permissions.roles', compact('roles', 'permissions', 'isSuperAdmin'));
     }
 
     public function updateRolePermission(Request $request)
     {
         $role = Role::findOrFail($request->role_id);
+
+        // Only super-admin may modify the super-admin role's permissions
+        if ($role->name === 'super-admin' && !auth()->user()?->hasRole('super-admin')) {
+            return response()->json(['status' => 'error', 'message' => 'Only super-admin can modify super-admin permissions.'], 403);
+        }
+
         $permission = Permission::where('name', $request->permission_name)
                                 ->where('guard_name', $role->guard_name)
                                 ->firstOrFail();
@@ -34,7 +42,7 @@ class RolePermissionController extends Controller
 
         app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
 
-        return response()->json(['status'=>'success']);
+        return response()->json(['status' => 'success']);
     }
 
     // =========================

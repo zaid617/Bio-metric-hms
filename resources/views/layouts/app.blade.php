@@ -52,33 +52,16 @@
     {{-- Top navigation bar --}}
     @include('layouts.topbar')
 
-    {{-- Sidebar menu --}}
+    {{-- Single unified sidebar — visibility driven by permissions --}}
     @php
         $role = null;
-
-        // Web guard users: admin, manager, receptionist
-        if(auth()->check()) {
+        if (auth()->check()) {
             $role = auth()->user()->roles->first()->name ?? null;
-        }
-        // Doctor guard
-        elseif(auth('doctor')->check()) {
+        } elseif (auth('doctor')->check()) {
             $role = 'doctor';
         }
     @endphp
-
-    @if(in_array($role, ['admin', 'view-only-admin'], true))
-        @include('layouts.sidebar', ['role' => $role])
-    @elseif($role === 'manager')
-        @include('layouts.manager-sidebar', ['role' => $role])
-    @elseif($role === 'doctor')
-        @include('layouts.doctor-sidebar', ['role' => $role])
-    @elseif($role === 'receptionist')
-        @include('layouts.receptionist_sidebar', ['role' => $role])
-    @else
-        <div class="sidebar-wrapper">
-            <p style="color:red; padding:10px;">Please login first to access the menu.</p>
-        </div>
-    @endif
+    @include('layouts.sidebar')
 
     <!--start main wrapper-->
     <main class="main-wrapper">
