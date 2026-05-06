@@ -77,13 +77,17 @@
                                                 <span class="visually-hidden">Toggle Dropdown</span>
                                             </button>
                                             <div class="dropdown-menu dropdown-menu-end p-2" style="min-width:180px;">
+                                                @can('sessions.edit')
                                                 <a href="{{ route('doctor-consultations.status-view', $session->id) }}" class="btn btn-warning btn-sm mb-1 w-100">Satisfactory Session Update</a>
                                                 <a href="{{ route('treatment-sessions.edit', $session->id) }}" class="btn btn-warning btn-sm mb-1 w-100">Edit</a>
+                                                @endcan
+                                                @can('sessions.delete')
                                                 <form action="{{ route('treatment-sessions.destroy', $session->id) }}" method="POST" onsubmit="return confirm('Delete this session?');">
                                                     @csrf
                                                     @method('DELETE')
                                                     <button type="submit" class="btn btn-danger btn-sm mb-1 w-100">Delete</button>
                                                 </form>
+                                                @endcan
                                                 <a href="#" class="btn btn-info btn-sm mb-1 w-100" data-bs-toggle="modal" data-bs-target="#sessionModal{{ $session->id }}">Details</a>
                                             </div>
                                         </div>
@@ -120,6 +124,7 @@
                                             @forelse ($session->sessionTimes->where('is_completed', false) as $entry)
                                                 <li>
                                                     {{ \Carbon\Carbon::parse($entry->session_datetime)->format('d M Y - h:i A') }}
+                                                    @can('sessions.edit')
                                                     <form action="{{ route('sessions.complete', $entry->id) }}" method="POST" class="d-inline">
                                                         @csrf
                                                         <select name="doctor_id" class="form-control form-control-sm d-inline w-auto" required>
@@ -132,12 +137,14 @@
                                                         <input type="text" name="work_done" placeholder="Session Description" class="form-control form-control-sm d-inline w-auto" value="{{ $entry->work_done ?? '' }}">
                                                         <button type="submit" class="btn btn-success btn-sm">✔ Complete</button>
                                                     </form>
-
+                                                    @endcan
+                                                    @can('sessions.delete')
                                                     <form action="{{ route('sessions.destroy', $entry->id) }}" method="POST" class="d-inline">
                                                         @csrf
                                                         @method('DELETE')
                                                         <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Delete this session?')">❌</button>
                                                     </form>
+                                                    @endcan
                                                 </li>
                                             @empty
                                                 <li><em>No upcoming sessions</em></li>

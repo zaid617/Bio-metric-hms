@@ -156,9 +156,11 @@
                                         </button>
                                         <div class="dropdown-menu dropdown-menu-end p-2" style="min-width:180px;">
 
-                                            {{-- View button --}}
+                                            {{-- View --}}
+                                            @can('appointments.view')
                                             <a href="{{ url('/consultations/' . $consultation->id) }}"
                                                 class="btn btn-info btn-sm mb-1 w-100">View</a>
+                                            @endcan
 
                                             {{-- History --}}
                                             @can('appointments.history')

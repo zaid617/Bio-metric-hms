@@ -52,6 +52,8 @@ class RolesAndPermissionsSeeder extends Seeder
             // Sessions
             'sessions.ongoing',
             'sessions.completed',
+            'sessions.edit',
+            'sessions.delete',
 
             // Feedback
             'feedback.doctor',
@@ -168,7 +170,7 @@ class RolesAndPermissionsSeeder extends Seeder
                 'appointments.book.delete',
                 'consultations.checkup', 'consultations.complete',
                 'enrollments.complete', 'enrollments.pending',
-                'sessions.ongoing', 'sessions.completed',
+                'sessions.ongoing', 'sessions.completed', 'sessions.edit', 'sessions.delete',
                 'feedback.doctor', 'feedback.patient',
                 'payments.outstanding-invoices', 'payments.completed-invoices',
                 'payments.appointment-invoices', 'payments.receivable', 'payments.return',
@@ -189,6 +191,7 @@ class RolesAndPermissionsSeeder extends Seeder
                 'appointments.book', 'appointments.book.edit',
                 'consultations.checkup',
                 'enrollments.complete', 'enrollments.pending',
+                'sessions.ongoing', 'sessions.edit',
                 'feedback.doctor', 'feedback.patient',
             ]));
 

@@ -31,14 +31,18 @@
         <div class="card mb-3">
             <div class="card-body py-2">
                 <div class="d-flex flex-wrap gap-2 align-items-center">
+                    @can('attendance.payroll.generate')
                     <a href="{{ route('attendance.payroll.generate') }}" class="btn btn-primary">
                         <span class="material-icons-outlined me-1" style="font-size:18px;vertical-align:middle">add_circle</span>
                         Generate Payroll
                     </a>
+                    @endcan
+                    @can('attendance.payroll.view')
                     <button type="submit" form="bulk-payslip-form" class="btn btn-outline-secondary" id="bulk-download-btn" disabled>
                         <span class="material-icons-outlined me-1" style="font-size:18px;vertical-align:middle">download</span>
                         Download Selected Payslips
                     </button>
+                    @endcan
                 </div>
             </div>
         </div>

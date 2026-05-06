@@ -113,17 +113,23 @@
                                                 <a href="{{ route('session-details', $session->id) }}" class="dropdown-item d-flex align-items-center text-primary mb-2">
                                                     <i class="fas fa-eye me-2"></i>Details
                                                 </a>
+                                                @can('sessions.edit')
                                                 <a href="{{ route('treatment-sessions.edit', $session->id) }}" class="dropdown-item d-flex align-items-center text-warning mb-2">
                                                     <i class="fas fa-edit me-2"></i>Edit
                                                 </a>
+                                                @endcan
                                                 @if ($session->status === 2)
                                                     <div class="dropdown-divider my-2"></div>
+                                                    @can('feedback.doctor')
                                                     <a href="{{ url('/feedback/doctor/' . $session->id) }}" class="dropdown-item d-flex align-items-center text-info mb-2">
                                                         <i class="fas fa-stethoscope me-2"></i>Doctor Feedback
                                                     </a>
+                                                    @endcan
+                                                    @can('feedback.patient')
                                                     <a href="{{ url('/feedback/patient/' . $session->id) }}" class="dropdown-item d-flex align-items-center text-success">
                                                         <i class="fas fa-user me-2"></i>Patient Feedback
                                                     </a>
+                                                    @endcan
                                                 @endif
                                             </div>
                                         </div>

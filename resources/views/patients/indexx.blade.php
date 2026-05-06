@@ -78,10 +78,12 @@
                                             <div class="dropdown-menu dropdown-menu-end p-2" style="min-width:220px;">
 
                                                 {{-- Print Card --}}
+                                                @can('patients.view')
                                                 <a href="{{ url('/patients/'.$patient->id) }}"
                                                    class="btn btn-sm btn-info mb-1 w-100">
                                                     Print Card
                                                 </a>
+                                                @endcan
 
                                                 @can('patients.edit')
                                                     <a href="{{ url('/patients/'.$patient->id.'/edit') }}"

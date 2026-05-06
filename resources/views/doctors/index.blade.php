@@ -86,7 +86,9 @@
                                                     </form>
                                                     @endcan
 
+                                                    @can('doctors.view')
                                                     <a href="{{ route('doctors.availability.index', $doctor->id) }}" class="btn btn-sm btn-info mb-1 w-100">Availability</a>
+                                                    @endcan
                                                 </div>
                                             </div>
                                         </td>
