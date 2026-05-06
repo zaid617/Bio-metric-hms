@@ -26,7 +26,9 @@
                     <!-- Header with Add New Button -->
                     <div class="d-flex justify-content-between mb-3">
                         <h5 class="mb-0">All Banks</h5>
+                        @can('settings.bank.create')
                         <a href="{{ route('banks.create') }}" class="btn btn-primary">Add New Bank</a>
+                        @endcan
                     </div>
 
                     <!-- Banks Table -->
@@ -58,12 +60,16 @@
                                                 </button>
                                                 <div class="dropdown-menu dropdown-menu-end p-2" style="min-width:220px;">
                                                     <a href="{{ route('banks.show', $bank->id) }}" class="btn btn-sm btn-info mb-1 w-100">View</a>
+                                                    @can('settings.bank.edit')
                                                     <a href="{{ route('banks.edit', $bank->id) }}" class="btn btn-sm btn-warning mb-1 w-100">Edit</a>
+                                                    @endcan
+                                                    @can('settings.bank.delete')
                                                     <form action="{{ route('banks.destroy', $bank->id) }}" method="POST" onsubmit="return confirm('Are you sure you want to delete this bank?');">
                                                         @csrf
                                                         @method('DELETE')
                                                         <button type="submit" class="btn btn-sm btn-danger mb-1 w-100">Delete</button>
                                                     </form>
+                                                    @endcan
                                                 </div>
                                             </div>
                                         </td>

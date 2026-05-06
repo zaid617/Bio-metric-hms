@@ -18,7 +18,9 @@
 @section('content')
 <div class="container mt-5">
     <h2 class="mb-4">All Expenses
+        @can('expenses.create')
         <a href="{{ route('expenses.create') }}" class="btn btn-success btn-add">Add New Expense</a>
+        @endcan
     </h2>
 
     <!-- Success Message -->

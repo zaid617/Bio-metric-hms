@@ -36,6 +36,7 @@
                     <div class="d-flex justify-content-between mb-3">
                         <h5 class="mb-0">All Devices</h5>
                         <div class="d-flex gap-2">
+                            @can('attendance.device.edit')
                             <form action="{{ route('attendance.devices.sync-all-now') }}" method="POST" style="display:inline;">
                                 @csrf
                                 <input type="hidden" name="force_full_sync" value="1">
@@ -45,9 +46,12 @@
                                     Sync All Active Devices
                                 </button>
                             </form>
+                            @endcan
+                            @can('attendance.device.create')
                             <a href="{{ route('attendance.devices.create') }}" class="btn btn-primary">
                                 Add New Device
                             </a>
+                            @endcan
                         </div>
                     </div>
 
@@ -109,10 +113,12 @@
                                         </td>
                                         <td>
                                             <div class="btn-group" role="group">
+                                                @can('attendance.device.edit')
                                                 <a href="{{ route('attendance.devices.edit', $device) }}"
                                                    class="btn btn-sm btn-warning" title="Edit">
                                                     <i class="material-icons-outlined">edit</i>
                                                 </a>
+                                                @endcan
                                                 <button type="button" class="btn btn-sm btn-info"
                                                         onclick="testConnection({{ $device->id }})" title="Test Connection">
                                                     <i class="material-icons-outlined">wifi</i>

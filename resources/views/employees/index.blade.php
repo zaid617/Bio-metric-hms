@@ -28,9 +28,11 @@
 
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h6 class="mb-0 text-uppercase fw-bold">Employee List</h6>
+    @can('employees.create')
     <a href="{{ url('/employees/create') }}" class="btn btn-primary btn-sm">
         <i class="bi bi-plus-circle me-1"></i> Add New Employee
     </a>
+    @endcan
 </div>
 
 <!-- Filters Card -->
@@ -197,10 +199,13 @@
 
                         {{-- Actions --}}
                         <td class="text-center text-nowrap">
+                            @can('employees.edit')
                             <a href="{{ url('/employees/'.$employee->id.'/edit') }}" class="btn btn-sm btn-info text-white me-1">
                                 <i class="bi bi-pencil-square"></i>
                             </a>
+                            @endcan
 
+                            @can('employees.delete')
                             <form action="{{ url('/employees/'.$employee->id) }}" method="POST"
                                   class="d-inline-block"
                                   onsubmit="return confirm('Are you sure?');">
@@ -210,6 +215,7 @@
                                     <i class="bi bi-trash"></i>
                                 </button>
                             </form>
+                            @endcan
                         </td>
                     </tr>
                     @endforeach

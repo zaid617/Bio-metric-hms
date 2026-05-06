@@ -16,15 +16,15 @@
 <div class="container mt-5">
     <h2 class="mb-4">Expense Types</h2>
 
-    <!-- Add Expense Type Form -->
-    <h3>Add New Expense Type</h3>
-
     @if(session('success'))
         <div class="alert alert-success">
             {{ session('success') }}
         </div>
     @endif
 
+    @can('expenses.type.create')
+    <!-- Add Expense Type Form -->
+    <h3>Add New Expense Type</h3>
     <form action="{{ route('expense.types.store') }}" method="POST" class="row g-2 mb-4">
         @csrf
         <div class="col-md-5">
@@ -40,6 +40,7 @@
             <button type="submit" class="btn btn-primary btn-save">Save</button>
         </div>
     </form>
+    @endcan
 
     <!-- Expense Types Table -->
     <div class="table-responsive">

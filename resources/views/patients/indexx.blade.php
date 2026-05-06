@@ -28,9 +28,11 @@
                 {{-- Header --}}
                 <div class="d-flex justify-content-between mb-3">
                     <h5 class="mb-0">All Patients</h5>
+                    @can('patients.create')
                     <a href="{{ url('/patients/create') }}" class="btn btn-primary">
                         Add New Patient
                     </a>
+                    @endcan
                 </div>
 
                 {{-- Table --}}
@@ -81,14 +83,14 @@
                                                     Print Card
                                                 </a>
 
-                                                {{-- EDIT + DELETE (Admin & Manager only) --}}
-                                                @if(auth()->user()->hasAnyRole(['admin', 'manager']))
-
+                                                @can('patients.edit')
                                                     <a href="{{ url('/patients/'.$patient->id.'/edit') }}"
                                                        class="btn btn-sm btn-warning mb-1 w-100">
                                                         Edit
                                                     </a>
+                                                @endcan
 
+                                                @can('patients.delete')
                                                     <form action="{{ route('patients.destroy', $patient->id) }}"
                                                           method="POST"
                                                           onsubmit="return confirm('Are you sure you want to delete this patient?');">
@@ -99,37 +101,27 @@
                                                             Delete
                                                         </button>
                                                     </form>
+                                                @endcan
 
-                                                @endif
-
-                                                {{-- Make Appointment --}}
-                                               @php
-    $role = auth()->user()->getRoleNames()->first(); // admin, manager, receptionist
+                                                @can('appointments.book')
+                                                @php
+    $role = auth()->user()->getRoleNames()->first();
+    $apptRoute = match(true) {
+        $role === 'admin'        => 'admin.appointments.create',
+        $role === 'manager'      => 'manager.appointments.create',
+        $role === 'super-admin'  => 'admin.appointments.create',
+        default                  => 'receptionist.appointments.create',
+    };
 @endphp
-
-<a href="
-    @if($role == 'admin')
-        {{ route('admin.appointments.create', ['patient_id' => $patient->id, 'consultation_type' => 'Appointment']) }}
-    @elseif($role == 'manager')
-        {{ route('manager.appointments.create', ['patient_id' => $patient->id, 'consultation_type' => 'Appointment']) }}
-    @elseif($role == 'receptionist')
-        {{ route('receptionist.appointments.create', ['patient_id' => $patient->id, 'consultation_type' => 'Appointment']) }}
-    @endif
-" class="btn btn-sm btn-primary mb-1 w-100">
+<a href="{{ route($apptRoute, ['patient_id' => $patient->id, 'consultation_type' => 'Appointment']) }}"
+   class="btn btn-sm btn-primary mb-1 w-100">
     Make Appointment
 </a>
-
-<a href="
-    @if($role == 'admin')
-        {{ route('admin.appointments.create', ['patient_id' => $patient->id, 'consultation_type' => 'Enrollment']) }}
-    @elseif($role == 'manager')
-        {{ route('manager.appointments.create', ['patient_id' => $patient->id, 'consultation_type' => 'Enrollment']) }}
-    @elseif($role == 'receptionist')
-        {{ route('receptionist.appointments.create', ['patient_id' => $patient->id, 'consultation_type' => 'Enrollment']) }}
-    @endif
-" class="btn btn-sm btn-success mb-1 w-100">
+<a href="{{ route($apptRoute, ['patient_id' => $patient->id, 'consultation_type' => 'Enrollment']) }}"
+   class="btn btn-sm btn-success mb-1 w-100">
     Add Enrollment
 </a>
+                                                @endcan
 
 
                                             </div>

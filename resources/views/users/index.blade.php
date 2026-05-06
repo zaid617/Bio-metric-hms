@@ -25,7 +25,9 @@
                     <!-- Header with Add New Button -->
                     <div class="d-flex justify-content-between mb-3">
                         <h5 class="mb-0">All Users</h5>
+                        @can('users.create')
                         <a href="{{ route('users.create') }}" class="btn btn-primary">Create New User</a>
+                        @endcan
                     </div>
 
                     <!-- Success message -->
@@ -67,13 +69,19 @@
                                                     <span class="visually-hidden">Toggle Dropdown</span>
                                                 </button>
                                                 <div class="dropdown-menu dropdown-menu-end p-2" style="min-width:220px;">
+                                                    @can('users.edit')
                                                     <a href="{{ route('users.edit', $user->id) }}" class="btn btn-sm btn-warning mb-1 w-100">Edit</a>
+                                                    @endcan
+                                                    @can('users.delete')
                                                     <form action="{{ route('users.destroy', $user->id) }}" method="POST" onsubmit="return confirm('Are you sure you want to delete this user?');">
                                                         @csrf
                                                         @method('DELETE')
                                                         <button type="submit" class="btn btn-sm btn-danger mb-1 w-100">Delete</button>
                                                     </form>
+                                                    @endcan
+                                                    @can('users.roles.edit')
                                                     <a href="{{ route('user.permissions.show', $user->id) }}" class="btn btn-sm btn-info w-100">Permissions</a>
+                                                    @endcan
                                                 </div>
                                             </div>
                                         </td>

@@ -121,10 +121,12 @@
                                             </span>
                                         </td>
                                         <td>
+                                            @can('attendance.records.edit')
                                             <a href="{{ route('attendance.records.edit', $record) }}"
                                                class="btn btn-sm btn-warning" title="Edit">
                                                 <i class="material-icons-outlined">edit</i>
                                             </a>
+                                            @endcan
                                         </td>
                                     </tr>
                                 @empty

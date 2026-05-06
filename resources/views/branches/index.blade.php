@@ -25,7 +25,9 @@
                     <!-- Header with Add New Button -->
                     <div class="d-flex justify-content-between mb-3">
                         <h5 class="mb-0">All Branches</h5>
+                        @can('settings.branches.create')
                         <a href="{{ route('branches.create') }}" class="btn btn-primary">Add New Branch</a>
+                        @endcan
                     </div>
 
                     <!-- Success Message -->
@@ -69,12 +71,16 @@
                                                     <span class="visually-hidden">Toggle Dropdown</span>
                                                 </button>
                                                 <div class="dropdown-menu dropdown-menu-end p-2" style="min-width:220px;">
+                                                    @can('settings.branches.edit')
                                                     <a href="{{ route('branches.edit', $branch->id) }}" class="btn btn-sm btn-warning mb-1 w-100">Edit</a>
+                                                    @endcan
+                                                    @can('settings.branches.delete')
                                                     <form action="{{ route('branches.destroy', $branch->id) }}" method="POST" onsubmit="return confirm('Are you sure you want to delete this branch?');">
                                                         @csrf
                                                         @method('DELETE')
                                                         <button type="submit" class="btn btn-sm btn-danger mb-1 w-100">Delete</button>
                                                     </form>
+                                                    @endcan
                                                 </div>
                                             </div>
                                         </td>

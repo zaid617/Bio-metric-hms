@@ -26,7 +26,9 @@
                     <!-- Header with Add New Button -->
                     <div class="d-flex justify-content-between mb-3">
                         <h5 class="mb-0">All Doctors</h5>
+                        @can('doctors.create')
                         <a href="{{ route('doctors.create') }}" class="btn btn-primary">Add Doctor</a>
+                        @endcan
                     </div>
 
                     <!-- Doctors Table -->
@@ -72,13 +74,17 @@
                                                     <span class="visually-hidden">Toggle Dropdown</span>
                                                 </button>
                                                 <div class="dropdown-menu dropdown-menu-end p-2" style="min-width:220px;">
+                                                    @can('doctors.edit')
                                                     <a href="{{ route('doctors.edit', $doctor->id) }}" class="btn btn-sm btn-warning mb-1 w-100">Edit</a>
+                                                    @endcan
 
+                                                    @can('doctors.delete')
                                                     <form action="{{ route('doctors.destroy', $doctor->id) }}" method="POST" onsubmit="return confirm('Are you sure you want to delete this doctor?');">
                                                         @csrf
                                                         @method('DELETE')
                                                         <button type="submit" class="btn btn-sm btn-danger mb-1 w-100">Delete</button>
                                                     </form>
+                                                    @endcan
 
                                                     <a href="{{ route('doctors.availability.index', $doctor->id) }}" class="btn btn-sm btn-info mb-1 w-100">Availability</a>
                                                 </div>

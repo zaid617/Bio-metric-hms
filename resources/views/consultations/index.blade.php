@@ -24,7 +24,9 @@
             <div class="card-body">
                 <div class="d-flex justify-content-between mb-3">
                     <h5 class="mb-0">Appointments List</h5>
+                    @can('appointments.book')
                     <a href="{{ url('/consultations/create') }}" class="btn btn-primary btn-sm">Add New Consultation</a>
+                    @endcan
                 </div>
 
                 <form method="GET" action="{{ route('consultations.index') }}" class="row g-2 mb-3">
@@ -158,35 +160,44 @@
                                             <a href="{{ url('/consultations/' . $consultation->id) }}"
                                                 class="btn btn-info btn-sm mb-1 w-100">View</a>
 
-                                            {{-- History button --}}
+                                            {{-- History --}}
+                                            @can('appointments.history')
                                             <a href="{{ route('consultations.history', $consultation->patient_id) }}"
                                                 class="btn btn-dark btn-sm mb-1 w-100">History</a>
+                                            @endcan
 
-                                            {{-- Print button --}}
+                                            {{-- Print --}}
+                                            @can('appointments.print')
                                             <a href="{{ route('consultations.print', $consultation->id) }}"
                                                 class="btn btn-secondary btn-sm mb-1 w-100">Print</a>
+                                            @endcan
 
-                                            {{-- Checkup invoice/ledger --}}
+                                            {{-- Invoice --}}
+                                            @can('appointments.invoice')
                                             <a href="{{ route('checkups.invoice', $consultation->id) }}"
                                                 class="btn btn-outline-secondary btn-sm mb-1 w-100">Invoice</a>
+                                            @endcan
 
-                                            {{-- Sessions button for doctor/admin --}}
-                                            @if(auth()->user()->hasRole(['doctor','admin','receptionist']))
+                                            {{-- Sessions --}}
+                                            @can('appointments.sessions')
                                             <a href="{{ route('treatment-sessions.create', ['checkup_id' => $consultation->id]) }}"
                                                 class="btn btn-success btn-sm mb-1 w-100">Sessions</a>
-                                            @endif
+                                            @endcan
 
-                                            {{-- Edit/Delete only for admin --}}
-                                            @if(auth()->user()->hasRole('admin'))
+                                            {{-- Edit --}}
+                                            @can('appointments.edit')
                                             <a href="{{ url('/consultations/' . $consultation->id . '/edit') }}"
                                                 class="btn btn-warning btn-sm mb-1 w-100">Edit</a>
+                                            @endcan
 
+                                            {{-- Delete --}}
+                                            @can('appointments.delete')
                                             <form action="{{ url('/consultations/' . $consultation->id) }}" method="POST" onsubmit="return confirm('Are you sure you want to delete this consultation?');">
                                                 @csrf
                                                 @method('DELETE')
                                                 <button type="submit" class="btn btn-danger btn-sm w-100">Delete</button>
                                             </form>
-                                            @endif
+                                            @endcan
 
                                         </div>
                                     </div>
