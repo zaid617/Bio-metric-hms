@@ -180,6 +180,7 @@
                                 </td>
                                 <td>
                                     <div class="d-flex gap-1">
+                                        @can('attendance.payroll.view')
                                         <a href="{{ route('attendance.payroll.show', $payroll->id) }}"
                                            class="btn btn-sm btn-outline-primary" title="View">
                                             <span class="material-icons-outlined" style="font-size:16px">visibility</span>
@@ -192,12 +193,15 @@
                                            class="btn btn-sm btn-outline-dark" title="Download Payslip">
                                             <span class="material-icons-outlined" style="font-size:16px">download</span>
                                         </a>
+                                        @endcan
+                                        @can('attendance.payroll.adjustments')
                                         @if($payroll->status == 'draft')
                                         <a href="{{ route('attendance.payroll.edit', $payroll->id) }}"
                                            class="btn btn-sm btn-outline-warning" title="Adjust">
                                             <span class="material-icons-outlined" style="font-size:16px">edit</span>
                                         </a>
                                         @endif
+                                        @endcan
                                     </div>
                                 </td>
                             </tr>

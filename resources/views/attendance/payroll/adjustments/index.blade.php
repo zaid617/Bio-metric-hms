@@ -43,9 +43,11 @@
             <div class="col-md-3 d-flex gap-2">
                 <button type="submit" class="btn btn-sm btn-primary">Filter</button>
                 <a href="{{ route('attendance.payroll.adjustments.index') }}" class="btn btn-sm btn-outline-secondary">Reset</a>
+                @can('attendance.payroll.adjustments')
                 <a href="{{ route('attendance.payroll.adjustments.create') }}" class="btn btn-sm btn-success ms-auto">
                     <span class="material-icons-outlined" style="font-size:16px;vertical-align:middle">add</span> Add Adjustment
                 </a>
+                @endcan
             </div>
         </form>
     </div>
@@ -115,9 +117,12 @@
                         <td class="small text-muted" style="max-width:180px">{{ Str::limit($adj->notes ?? $adj->reason ?? '—', 60) }}</td>
                         <td>
                             <div class="d-flex gap-1">
+                                @can('attendance.payroll.view')
                                 <a href="{{ route('attendance.payroll.adjustments.show',$adj->id) }}" class="btn btn-xs btn-outline-primary" title="View">
                                     <span class="material-icons-outlined" style="font-size:15px">visibility</span>
                                 </a>
+                                @endcan
+                                @can('attendance.payroll.adjustments')
                                 @if(!$adj->payroll_id)
                                 <a href="{{ route('attendance.payroll.adjustments.edit',$adj->id) }}" class="btn btn-xs btn-outline-warning" title="Edit">
                                     <span class="material-icons-outlined" style="font-size:15px">edit</span>
@@ -131,6 +136,7 @@
                                 @else
                                 <span class="text-muted small">Locked</span>
                                 @endif
+                                @endcan
                             </div>
                         </td>
                     </tr>

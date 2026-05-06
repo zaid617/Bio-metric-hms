@@ -12,7 +12,9 @@
 
     <div class="d-flex justify-content-between mb-3">
         <h6 class="mb-0 text-uppercase">All Salary Records</h6>
+        @can('attendance.payroll.generate')
         <a href="/salaries/create" class="btn btn-primary">+ Add Employee Salary</a>
+        @endcan
     </div>
     <hr>
 
@@ -43,6 +45,7 @@
                             </td>
                             <td>
                                 @if(strtolower($salary->payment_status) !== 'paid')
+                                    @can('attendance.payroll.generate')
                                     <button type="button"
                                             class="btn btn-success btn-sm"
                                             data-id="{{ $salary->id }}"
@@ -51,6 +54,7 @@
                                             onclick="openSalaryModal(this)">
                                         Mark as Paid
                                     </button>
+                                    @endcan
                                 @else
                                     <span class="badge bg-success">Paid</span>
                                 @endif

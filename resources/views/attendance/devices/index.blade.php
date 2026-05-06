@@ -119,6 +119,7 @@
                                                     <i class="material-icons-outlined">edit</i>
                                                 </a>
                                                 @endcan
+                                                @can('attendance.device.edit')
                                                 <button type="button" class="btn btn-sm btn-info"
                                                         onclick="testConnection({{ $device->id }})" title="Test Connection">
                                                     <i class="material-icons-outlined">wifi</i>
@@ -141,6 +142,7 @@
                                                    class="btn btn-sm btn-secondary" title="Sync Logs">
                                                     <i class="material-icons-outlined">history</i>
                                                 </a>
+                                                @endcan
                                             </div>
                                         </td>
                                     </tr>
