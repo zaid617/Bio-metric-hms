@@ -50,9 +50,11 @@
                         @foreach($roles as $role)
                             <option value="{{ $role->name }}">
                                 @if($role->name === 'admin')
-                                    Super Admin
+                                    CEO
                                 @elseif($role->name === 'view-only-admin')
-                                    Admin
+                                    Branch Admin
+                                @elseif($role->name === 'super-admin')
+                                    Super Admin
                                 @else
                                     {{ ucfirst($role->name) }}
                                 @endif

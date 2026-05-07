@@ -80,7 +80,7 @@
                                     <h6 class="mb-0">
                                         {{ number_format($branch['totalPaymentsToday'] ?? 0) }}
                                     </h6>
-                                    <small>Today's Payments</small>
+                                    <small>This Day Payments</small>
                                 </div>
                             </div>
                             </a>
@@ -94,7 +94,7 @@
                                     <h6 class="mb-0">
                                         {{ number_format($branch['totalPaymentsAll'] ?? 0, 0) }}
                                     </h6>
-                                    <small>Total Payments</small>
+                                    <small>Month Payments</small>
                                 </div>
                             </div>
                             </a>
@@ -212,6 +212,15 @@
 
     <script>
         $(document).ready(function() {
+            const toNumber = (value) => {
+                const num = Number(value);
+                return Number.isFinite(num) ? num : 0;
+            };
+
+            const formatInt = (value) => {
+                return toNumber(value).toLocaleString(undefined, { maximumFractionDigits: 0 });
+            };
+
             // Handle date change for each branch
             $('.branch-date-picker').on('change', function() {
                 const branchId = $(this).data('branch-id');
@@ -226,12 +235,31 @@
                         date: selectedDate
                     },
                     success: function(response) {
+                        if (typeof response === 'string') {
+                            try {
+                                response = JSON.parse(response);
+                            } catch (e) {
+                                response = {};
+                            }
+                        }
+
+                        const totalConsultationsToday = (response.totalConsultationsToday !== undefined && response.totalConsultationsToday !== null)
+                            ? response.totalConsultationsToday
+                            : (response.consultations && response.consultations.count);
+
+                        const totalSessionsToday = (response.totalSessionsToday !== undefined && response.totalSessionsToday !== null)
+                            ? response.totalSessionsToday
+                            : (response.sessions && response.sessions.count);
+                        const totalPaymentsToday = response.totalPaymentsToday;
+                        const totalPaymentsAll = response.totalPaymentsAll;
+                        const consultationPendingTotal = response.consultationPendingTotal;
+
                         // Update the stats cards with the new data
-                        $(`#consultations-${branchId} h6`).text(response.totalConsultationsToday);
-                        $(`#sessions-${branchId} h6`).text(response.totalSessionsToday);
-                        $(`#today-payments-${branchId} h6`).text(response.totalPaymentsToday.toLocaleString());
-                        $(`#total-payments-${branchId} h6`).text(response.totalPaymentsAll.toLocaleString());
-                        $(`#consultation-pending-${branchId} h6`).text(response.consultationPendingTotal.toLocaleString());
+                        $(`#consultations-${branchId} h6`).text(formatInt(totalConsultationsToday));
+                        $(`#sessions-${branchId} h6`).text(formatInt(totalSessionsToday));
+                        $(`#today-payments-${branchId} h6`).text(formatInt(totalPaymentsToday));
+                        $(`#total-payments-${branchId} h6`).text(formatInt(totalPaymentsAll));
+                        $(`#consultation-pending-${branchId} h6`).text(formatInt(consultationPendingTotal));
                     },
                     error: function() {
                         alert('Failed to fetch data. Please try again.');

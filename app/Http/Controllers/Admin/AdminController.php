@@ -78,25 +78,47 @@ class AdminController extends Controller
     public function branchStatsByDate(Request $request)
     {
 
-        $branchId = $request->branch_id;
-        $date = $request->date;
-        $date = Carbon::parse($date);
+        $branchId = (int) $request->input('branch_id');
+        if ($branchId <= 0) {
+            return response()->json([
+                'message' => 'branch_id is required',
+            ], 422);
+        }
 
-        $transactions = Transaction::where('branch_id', $branchId)
+        $dateInput = $request->input('date');
+        $date = $dateInput ? Carbon::parse($dateInput) : Carbon::today();
+
+        $transactionsForDay = Transaction::where('branch_id', $branchId)
             ->whereDate('created_at', $date);
 
-        $sessionsCount = (clone $transactions)->where('payment_type', 2)->count();
-        $sessionsAmount = (clone $transactions)
+        $sessionsCount = (clone $transactionsForDay)->where('payment_type', 2)->count();
+        $sessionsAmount = (clone $transactionsForDay)
             ->where('payment_type', 2)
             ->where('type', '+')
             ->sum('amount');
 
-        $consultationsCount = (clone $transactions)->where('payment_type', 1)->count();
-        $consultationsAmount = (clone $transactions)
+        $consultationsCount = (clone $transactionsForDay)->where('payment_type', 1)->count();
+        $consultationsAmount = (clone $transactionsForDay)
             ->where('payment_type', 1)
             ->where('type', '+')
             ->sum('amount');
 
+        $totalPaymentsToday = (clone $transactionsForDay)
+            ->where('type', '+')
+            ->sum('amount');
+
+        $totalPaymentsAll = Transaction::where('branch_id', $branchId)
+            ->where('type', '+')
+            ->whereYear('created_at', $date->year)
+            ->whereMonth('created_at', $date->month)
+            ->sum('amount');
+
+        $consultationPendingTotal = Checkup::where('branch_id', $branchId)
+            ->selectRaw('SUM(CASE WHEN pending_amount IS NOT NULL THEN pending_amount ELSE CASE WHEN (COALESCE(fee,0)-(COALESCE(fee,0)*(COALESCE(discount,0)/100))-COALESCE(paid_amount,0)) > 0 THEN (COALESCE(fee,0)-(COALESCE(fee,0)*(COALESCE(discount,0)/100))-COALESCE(paid_amount,0)) ELSE 0 END END) as total_pending')
+            ->value('total_pending') ?? 0;
+
+        // Keep existing nested response for compatibility, and add top-level fields
+        // expected by the dashboard AJAX handler.
         return response()->json([
             'sessions' => [
                 'count' => $sessionsCount,
@@ -106,6 +128,11 @@ class AdminController extends Controller
                 'count' => $consultationsCount,
                 'amount' => $consultationsAmount,
             ],
+            'totalSessionsToday' => $sessionsCount,
+            'totalConsultationsToday' => $consultationsCount,
+            'totalPaymentsToday' => $totalPaymentsToday,
+            'totalPaymentsAll' => $totalPaymentsAll,
+            'consultationPendingTotal' => $consultationPendingTotal,
         ]);
     }
 }
