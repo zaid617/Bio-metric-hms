@@ -67,11 +67,16 @@
                     <label for="role" class="form-label">Role</label>
                     <select name="role" id="role" class="form-control" required>
                         <option value="">Select Role</option>
-                        @foreach($roles as $role)
-                            <option value="{{ $role->name }}" {{ $user->hasRole($role->name) ? 'selected' : '' }}>
-                                {{ ucfirst($role->name) }}
-                            </option>
-                        @endforeach
+                            @foreach($roles as $role)
+                                <option value="{{ $role->name }}">
+                                    {{
+                                        $role->name === 'admin' ? 'CEO' :
+                                        ($role->name === 'view-only-admin' ? 'Branch Admin' :
+                                        ($role->name === 'super-admin' ? 'Super Admin' :
+                                        ucwords(str_replace('-', ' ', $role->name))))
+                                    }}
+                                </option>
+                            @endforeach
                     </select>
                 </div>
 

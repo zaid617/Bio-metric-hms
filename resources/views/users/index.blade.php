@@ -57,7 +57,12 @@
                                         <td>{{ $user->branch?->name ?? 'N/A' }}</td>
                                         <td>
                                             @forelse($user->roles as $role)
-                                                <span >{{ $role->name }}</span>
+                                                <span >{{
+                                                        $role->name === 'admin' ? 'CEO' :
+                                                        ($role->name === 'view-only-admin' ? 'Branch Admin' :
+                                                        ($role->name === 'super-admin' ? 'Super Admin' :
+                                                        ucwords(str_replace('-', ' ', $role->name))))
+                                                    }}</span>
                                             @empty
                                                 <span class="badge bg-secondary">No Role</span>
                                             @endforelse

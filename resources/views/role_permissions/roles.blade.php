@@ -347,9 +347,14 @@ $totalPerms = $permissions->where('guard_name','web')->count();
          data-role-tab="{{ $role->id }}"
          style="background:{{ $s['bg'] }}1f; color:{{ $tabTextColor }}; border-color:{{ $s['bg'] }}55;">
         <span class="rtab-dot" style="background:{{ $s['bg'] }};"></span>
-        {{ ucwords(str_replace('-', ' ', $role->name)) }}
+        {{
+            $role->name === 'admin' ? 'CEO' :
+            ($role->name === 'view-only-admin' ? 'Branch Admin' :
+            ($role->name === 'super-admin' ? 'Super Admin' :
+            ucwords(str_replace('-', ' ', $role->name))))
+        }}
         <span class="rtab-count" id="rtab-count-{{ $role->id }}">
-            {{ $role->name === 'super-admin' ? '∞' : $cnt }}
+            {{ $role->name === 'admin' ? '∞' : $cnt }}
         </span>
     </div>
     @endforeach
@@ -360,8 +365,8 @@ $totalPerms = $permissions->where('guard_name','web')->count();
 @php
     $s    = $roleStyle[$role->name] ?? ['bg'=>'#555','text'=>'#fff'];
     $cnt  = $roleCounts[$role->id];
-    $isSA = ($role->name === 'super-admin');
-    $pct  = ($totalPerms > 0 && !$isSA) ? round($cnt / $totalPerms * 100) : 0;
+    $isLocked = $isLocked = ($role->name === 'admin');
+    $pct  = ($totalPerms > 0 && !$isLocked) ? round($cnt / $totalPerms * 100) : 0;
 @endphp
 
 <div class="role-panel {{ $i === 0 ? 'active' : '' }}" id="panel-{{ $role->id }}" data-role="{{ $role->id }}">
@@ -375,10 +380,10 @@ $totalPerms = $permissions->where('guard_name','web')->count();
             <div class="rs-sub" style="color:{{ $s['bg'] }};">role</div>
         </div>
         <div style="text-align:center; min-width:60px;">
-            <div class="rs-big" style="color:{{ $s['bg'] }};">{{ $isSA ? '∞' : $cnt }}</div>
-            <div class="rs-sub">{{ $isSA ? 'all perms' : 'of '.$totalPerms }}</div>
+            <div class="rs-big" style="color:{{ $s['bg'] }};">{{ $isLocked ? '∞' : $cnt }}</div>
+            <div class="rs-sub">{{ $isLocked ? 'all perms' : 'of '.$totalPerms }}</div>
         </div>
-        @if(!$isSA)
+        @if(!$isLocked)
         <div class="rs-progress-wrap">
             <div class="d-flex justify-content-between mb-1" style="font-size:.67rem; color:#888;">
                 <span>Coverage</span>
@@ -406,7 +411,7 @@ $totalPerms = $permissions->where('guard_name','web')->count();
         @php
             $webPerms   = collect($perms)->where('guard_name','web')->values();
             $modTotal   = $webPerms->count();
-            $modChecked = $isSA ? $modTotal
+            $modChecked = $isLocked ? $modTotal
                                 : $webPerms->filter(fn($p) => isset($rolePermMap[$role->id][$p->id]))->count();
         @endphp
         @if($webPerms->isEmpty()) @continue @endif
@@ -424,7 +429,7 @@ $totalPerms = $permissions->where('guard_name','web')->count();
                       style="background:rgba(255,255,255,.06); color:#999;">
                     {{ $modChecked }}/{{ $modTotal }}
                 </span>
-                @if(!$isSA)
+                @if(!$isLocked)
                 <span class="tog-all" data-role="{{ $role->id }}" data-mod="{{ $modName }}"
                       title="Toggle all in {{ ucfirst($modName) }}">
                     <span class="material-icons-outlined">
@@ -437,7 +442,7 @@ $totalPerms = $permissions->where('guard_name','web')->count();
 
             {{-- Permission rows --}}
             @foreach($webPerms as $perm)
-            @php $checked = $isSA || isset($rolePermMap[$role->id][$perm->id]); @endphp
+            @php $checked = $isLocked || isset($rolePermMap[$role->id][$perm->id]); @endphp
             <div class="perm-item"
                  data-perm="{{ strtolower($perm->name) }}"
                  data-label="{{ strtolower($permLabel[$perm->name] ?? $perm->name) }}">
@@ -445,9 +450,9 @@ $totalPerms = $permissions->where('guard_name','web')->count();
                     <div class="pi-name">{{ $permLabel[$perm->name] ?? $perm->name }}</div>
                     <div class="pi-slug">{{ $perm->name }}</div>
                 </div>
-                @if($isSA)
+                @if($isLocked)
                 <span class="sa-lk">
-                    <span class="material-icons-outlined">lock</span>Always
+                    <span class="material-icons-outlined">lock</span>CEO Access
                 </span>
                 @else
                 <label class="ts" title="{{ $role->name }}: {{ $permLabel[$perm->name] ?? $perm->name }}">
