@@ -5,175 +5,490 @@
 @push('css')
 <style>
 /* ══════════════════════════════════════════════════════════════
-   Role-tab permission editor
+   Role Permission Editor — Light Mode Redesign
 ══════════════════════════════════════════════════════════════ */
 
-/* ── Tab bar ─────────────────────────────────────────────────── */
-.role-tab-bar {
-    display: flex; gap: .4rem; flex-wrap: wrap;
-    padding-bottom: .85rem;
-    border-bottom: 1px solid rgba(255,255,255,.07);
-    margin-bottom: 1.25rem;
-}
-.rtab {
-    display: inline-flex; align-items: center; gap: 7px;
-    padding: 8px 16px; border-radius: 8px; cursor: pointer;
-    font-size: .76rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
-    border: 2px solid transparent; opacity: .45; user-select: none;
-    transition: opacity .15s, transform .12s, box-shadow .15s;
-}
-.rtab:hover { opacity: .75; }
-.rtab.active {
-    opacity: 1; border-color: rgba(255,255,255,.4);
-    transform: translateY(-2px); box-shadow: 0 5px 18px rgba(0,0,0,.4);
-}
-.rtab-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
-.rtab-count {
-    background: rgba(0,0,0,.3); border-radius: 10px;
-    padding: 1px 7px; font-size: .7rem; line-height: 1.5;
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+/* ── Page wrapper ─────────────────────────────────────────── */
+.rp-page {
+    font-family: 'Plus Jakarta Sans', sans-serif;
 }
 
-/* ── Toolbar ─────────────────────────────────────────────────── */
-.rp-toolbar { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; margin-bottom: 1.1rem; }
-.rp-search { position: relative; flex: 1; max-width: 300px; }
-.rp-search input {
-    padding-left: 2.2rem; border-radius: 8px;
-    background: rgba(255,255,255,.06); border-color: rgba(255,255,255,.12); color: #fff;
+/* ── Page header ──────────────────────────────────────────── */
+.rp-header {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    padding: 20px 24px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    box-shadow: 0 1px 4px rgba(0,0,0,.05);
 }
-.rp-search input::placeholder { color: #666; }
+.rp-header-title {
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: #111827;
+    letter-spacing: -.02em;
+    margin: 0;
+}
+.rp-header-sub {
+    font-size: .8rem;
+    color: #9ca3af;
+    margin-top: 2px;
+    font-weight: 500;
+}
+.sa-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: linear-gradient(135deg, #fef3c7, #fde68a);
+    color: #92400e;
+    border: 1px solid #fbbf24;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: .75rem;
+    font-weight: 700;
+    letter-spacing: .04em;
+}
+.sa-badge .material-icons-outlined { font-size: .95rem; }
+
+/* ── Toolbar ─────────────────────────────────────────────── */
+.rp-toolbar {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+}
+.rp-search {
+    position: relative;
+    flex: 1;
+    max-width: 320px;
+}
+.rp-search input {
+    padding: 9px 14px 9px 38px;
+    border-radius: 10px;
+    border: 1.5px solid #e5e7eb;
+    background: #fff;
+    color: #111827;
+    font-size: .85rem;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-weight: 500;
+    transition: border-color .15s, box-shadow .15s;
+    width: 100%;
+    outline: none;
+}
+.rp-search input::placeholder { color: #9ca3af; }
 .rp-search input:focus {
-    background: rgba(255,255,255,.09); border-color: rgba(255,255,255,.22);
-    box-shadow: none; color: #fff;
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99,102,241,.1);
 }
 .rp-search .si {
-    position: absolute; left: .65rem; top: 50%; transform: translateY(-50%);
-    font-size: 1rem; color: #555; pointer-events: none;
+    position: absolute;
+    left: .7rem;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 1.05rem;
+    color: #9ca3af;
+    pointer-events: none;
+}
+.rp-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 8px 16px;
+    border-radius: 10px;
+    font-size: .8rem;
+    font-weight: 700;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    cursor: pointer;
+    border: 1.5px solid transparent;
+    transition: all .15s;
+    letter-spacing: .01em;
+}
+.rp-btn .material-icons-outlined { font-size: .95rem; }
+.rp-btn-grant {
+    background: #ecfdf5;
+    color: #059669;
+    border-color: #a7f3d0;
+}
+.rp-btn-grant:hover {
+    background: #d1fae5;
+    border-color: #059669;
+    transform: translateY(-1px);
+    box-shadow: 0 3px 10px rgba(5,150,105,.15);
+}
+.rp-btn-revoke {
+    background: #fef2f2;
+    color: #dc2626;
+    border-color: #fecaca;
+}
+.rp-btn-revoke:hover {
+    background: #fee2e2;
+    border-color: #dc2626;
+    transform: translateY(-1px);
+    box-shadow: 0 3px 10px rgba(220,38,38,.15);
 }
 
-/* ── Role panel ──────────────────────────────────────────────── */
+/* ── Role tab bar ────────────────────────────────────────── */
+.role-tab-bar {
+    display: flex;
+    gap: .5rem;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+    background: #fff;
+    padding: 10px;
+    border-radius: 14px;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 1px 4px rgba(0,0,0,.04);
+}
+.rtab {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 9px 16px;
+    border-radius: 9px;
+    cursor: pointer;
+    font-size: .77rem;
+    font-weight: 700;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    border: 1.5px solid transparent;
+    opacity: .55;
+    user-select: none;
+    transition: all .18s;
+    background: transparent;
+}
+.rtab:hover {
+    opacity: .85;
+    transform: translateY(-1px);
+}
+.rtab.active {
+    opacity: 1;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px rgba(0,0,0,.12);
+}
+.rtab-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+.rtab-count {
+    border-radius: 10px;
+    padding: 1px 8px;
+    font-size: .68rem;
+    font-weight: 700;
+    line-height: 1.6;
+    background: rgba(0,0,0,.1);
+}
+
+/* ── Role panel ──────────────────────────────────────────── */
 .role-panel { display: none; }
 .role-panel.active { display: block; }
 
-/* ── Role summary strip ──────────────────────────────────────── */
+/* ── Role summary strip ──────────────────────────────────── */
 .role-strip {
-    display: flex; align-items: center; gap: 1.25rem; flex-wrap: wrap;
-    padding: 14px 20px; border-radius: 12px; margin-bottom: 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+    padding: 18px 24px;
+    border-radius: 14px;
+    margin-bottom: 20px;
+    border: 1.5px solid;
+    background: #fff;
+    box-shadow: 0 2px 8px rgba(0,0,0,.06);
 }
-.rs-name { font-size: 1rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
-.rs-big { font-size: 2.2rem; font-weight: 900; line-height: 1; }
-.rs-sub { font-size: .7rem; opacity: .7; }
-.rs-progress-wrap { flex: 1; min-width: 150px; }
-.rs-progress-track { height: 7px; border-radius: 4px; background: rgba(0,0,0,.25); overflow: hidden; }
-.rs-progress-fill { height: 100%; border-radius: 4px; transition: width .5s ease; }
+.rs-label {
+    font-size: .67rem;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    opacity: .5;
+    margin-bottom: 2px;
+}
+.rs-name {
+    font-size: 1.1rem;
+    font-weight: 800;
+    letter-spacing: -.01em;
+}
+.rs-big {
+    font-size: 2.4rem;
+    font-weight: 900;
+    line-height: 1;
+    letter-spacing: -.04em;
+}
+.rs-sub {
+    font-size: .72rem;
+    color: #9ca3af;
+    margin-top: 2px;
+    font-weight: 500;
+}
+.rs-divider {
+    width: 1px;
+    height: 48px;
+    background: #e5e7eb;
+    flex-shrink: 0;
+}
+.rs-progress-wrap { flex: 1; min-width: 180px; }
+.rs-progress-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: .72rem;
+    font-weight: 600;
+    color: #6b7280;
+    margin-bottom: 6px;
+}
+.rs-progress-track {
+    height: 8px;
+    border-radius: 4px;
+    background: #f3f4f6;
+    overflow: hidden;
+}
+.rs-progress-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width .5s ease;
+}
 .sa-bypass-badge {
-    display: inline-flex; align-items: center; gap: 5px; font-size: .72rem;
-    color: #f59e0b; padding: 4px 12px; border-radius: 20px;
-    background: rgba(245,158,11,.1); border: 1px solid rgba(245,158,11,.3);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: .76rem;
+    font-weight: 600;
+    color: #92400e;
+    padding: 7px 14px;
+    border-radius: 20px;
+    background: linear-gradient(135deg, #fef3c7, #fde68a);
+    border: 1px solid #fbbf24;
 }
-.sa-bypass-badge .material-icons-outlined { font-size: .9rem; }
+.sa-bypass-badge .material-icons-outlined { font-size: .95rem; }
 
-/* ── Permission card grid ────────────────────────────────────── */
+/* ── Permission card grid ────────────────────────────────── */
 .perm-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(295px, 1fr));
-    gap: 1rem;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 14px;
 }
 
-/* ── Module card ─────────────────────────────────────────────── */
+/* ── Module card ─────────────────────────────────────────── */
 .mod-card {
-    border-radius: 12px; border: 1px solid rgba(255,255,255,.08);
-    background: rgba(255,255,255,.025); overflow: hidden;
+    border-radius: 14px;
+    border: 1.5px solid #e5e7eb;
+    background: #fff;
+    overflow: hidden;
+    box-shadow: 0 1px 4px rgba(0,0,0,.05);
+    transition: box-shadow .2s, transform .15s;
+}
+.mod-card:hover {
+    box-shadow: 0 4px 16px rgba(0,0,0,.09);
+    transform: translateY(-1px);
 }
 .mod-card.hidden-card { display: none; }
 
 .mod-card-head {
-    display: flex; align-items: center; gap: 9px;
-    padding: 11px 14px; border-bottom: 1px solid rgba(255,255,255,.06);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 15px;
+    border-bottom: 1.5px solid #f3f4f6;
+    background: #fafafa;
 }
 .mod-card-icon {
-    width: 32px; height: 32px; border-radius: 7px; flex-shrink: 0;
-    display: flex; align-items: center; justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 9px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
-.mod-card-icon .material-icons-outlined { font-size: 1.05rem; }
+.mod-card-icon .material-icons-outlined { font-size: 1.1rem; }
 .mod-card-name {
-    font-weight: 700; font-size: .78rem; letter-spacing: .05em;
-    text-transform: uppercase; flex: 1;
+    font-weight: 800;
+    font-size: .76rem;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    flex: 1;
+    color: #374151;
 }
 .mod-card-badge {
-    font-size: .64rem; padding: 2px 7px; border-radius: 20px; white-space: nowrap;
+    font-size: .68rem;
+    font-weight: 700;
+    padding: 2px 9px;
+    border-radius: 20px;
+    background: #f3f4f6;
+    color: #6b7280;
+    white-space: nowrap;
+    border: 1px solid #e5e7eb;
 }
 
 /* Toggle-all pill */
 .tog-all {
-    display: inline-flex; align-items: center; gap: 3px; cursor: pointer;
-    font-size: .66rem; padding: 2px 8px; border-radius: 20px;
-    border: 1px solid rgba(255,255,255,.1); color: #888; white-space: nowrap;
-    transition: border-color .15s, color .15s; flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    cursor: pointer;
+    font-size: .68rem;
+    font-weight: 700;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    padding: 3px 9px;
+    border-radius: 20px;
+    border: 1.5px solid #e5e7eb;
+    color: #6b7280;
+    white-space: nowrap;
+    transition: all .15s;
+    background: #fff;
+    flex-shrink: 0;
 }
-.tog-all:hover { border-color: rgba(255,255,255,.28); color: #ccc; }
-.tog-all .material-icons-outlined { font-size: .8rem; }
+.tog-all:hover {
+    border-color: #6366f1;
+    color: #6366f1;
+    background: #eef2ff;
+}
+.tog-all .material-icons-outlined { font-size: .85rem; }
 
-/* ── Permission row ──────────────────────────────────────────── */
+/* ── Permission row ──────────────────────────────────────── */
 .perm-item {
-    display: flex; align-items: center; gap: 10px; padding: 9px 14px;
-    border-bottom: 1px solid rgba(255,255,255,.035);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 15px;
+    border-bottom: 1px solid #f9fafb;
     transition: background .1s;
 }
 .perm-item:last-child { border-bottom: none; }
-.perm-item:hover { background: rgba(255,255,255,.04); }
+.perm-item:hover { background: #fafafa; }
 .perm-item.hidden-perm { display: none; }
-.pi-info { flex: 1; min-width: 0; }
-.pi-name { font-size: .8rem; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.pi-slug { font-size: .65rem; color: #5a5a6e; font-family: monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-/* ── Toggle switch ───────────────────────────────────────────── */
+.pi-info { flex: 1; min-width: 0; }
+.pi-name {
+    font-size: .82rem;
+    font-weight: 600;
+    color: #111827;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.pi-slug {
+    font-size: .67rem;
+    color: #9ca3af;
+    font-family: 'Courier New', monospace;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-top: 1px;
+}
+
+/* ── Toggle switch (light mode) ──────────────────────────── */
 .ts {
-    position: relative; display: inline-block;
-    width: 40px; height: 22px; flex-shrink: 0; cursor: pointer;
+    position: relative;
+    display: inline-block;
+    width: 42px;
+    height: 24px;
+    flex-shrink: 0;
+    cursor: pointer;
 }
 .ts input { position: absolute; opacity: 0; width: 0; height: 0; }
 .ts-track {
-    position: absolute; inset: 0; border-radius: 11px;
-    background: rgba(255,255,255,.1); transition: background .2s;
+    position: absolute;
+    inset: 0;
+    border-radius: 12px;
+    background: #e5e7eb;
+    transition: background .2s;
+    border: 1.5px solid #d1d5db;
 }
 .ts-thumb {
-    position: absolute; width: 16px; height: 16px; border-radius: 50%;
-    top: 3px; left: 3px; background: #888;
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    top: 3px;
+    left: 3px;
+    background: #9ca3af;
     transition: transform .2s, background .2s;
-    box-shadow: 0 1px 4px rgba(0,0,0,.5);
+    box-shadow: 0 1px 4px rgba(0,0,0,.2);
 }
-.ts input:checked ~ .ts-thumb { transform: translateX(18px); background: #fff; }
-.ts.saving .ts-track { background: rgba(255,255,255,.07) !important; }
-.ts.saving .ts-thumb { background: #444; animation: pulse .8s ease infinite; }
+.ts input:checked ~ .ts-track {
+    border-color: transparent;
+}
+.ts input:checked ~ .ts-thumb {
+    transform: translateX(18px);
+    background: #fff;
+    box-shadow: 0 1px 4px rgba(0,0,0,.25);
+}
+.ts.saving .ts-track { background: #f3f4f6 !important; border-color: #e5e7eb !important; }
+.ts.saving .ts-thumb { background: #d1d5db; animation: pulse .8s ease infinite; }
 
-/* Lock badge (super-admin) */
+/* Lock badge */
 .sa-lk {
-    display: inline-flex; align-items: center; gap: 3px; font-size: .64rem;
-    color: #f59e0b; padding: 2px 8px; border-radius: 20px; flex-shrink: 0;
-    background: rgba(245,158,11,.1); border: 1px solid rgba(245,158,11,.22); white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: .66rem;
+    font-weight: 700;
+    color: #92400e;
+    padding: 3px 9px;
+    border-radius: 20px;
+    flex-shrink: 0;
+    background: #fef3c7;
+    border: 1px solid #fde68a;
+    white-space: nowrap;
 }
-.sa-lk .material-icons-outlined { font-size: .75rem; }
+.sa-lk .material-icons-outlined { font-size: .78rem; }
 
-/* ── Toast ───────────────────────────────────────────────────── */
+/* ── Toast ───────────────────────────────────────────────── */
 .rp-toast {
-    position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 9999;
-    min-width: 220px; border-radius: 10px; font-size: .84rem;
-    box-shadow: 0 8px 24px rgba(0,0,0,.4); pointer-events: none;
+    position: fixed;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    z-index: 9999;
+    min-width: 220px;
+    border-radius: 12px;
+    font-size: .84rem;
+    font-weight: 600;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    box-shadow: 0 8px 28px rgba(0,0,0,.15);
+    pointer-events: none;
 }
 
-/* ── No results ──────────────────────────────────────────────── */
-.no-results-box { text-align: center; padding: 3rem 1rem; color: #666; display: none; }
+/* ── No results ──────────────────────────────────────────── */
+.no-results-box {
+    text-align: center;
+    padding: 3.5rem 1rem;
+    color: #9ca3af;
+    display: none;
+}
+.no-results-box .material-icons-outlined {
+    font-size: 3.5rem;
+    color: #d1d5db;
+    display: block;
+    margin-bottom: .75rem;
+}
+.no-results-box p {
+    font-size: .9rem;
+    font-weight: 600;
+    margin: 0;
+}
 
-/* ── Responsive ──────────────────────────────────────────────── */
+/* ── Responsive ──────────────────────────────────────────── */
 @media (max-width: 640px) {
     .perm-grid { grid-template-columns: 1fr; }
-    .rtab { padding: 6px 10px; font-size: .7rem; }
-    .role-strip { gap: .75rem; padding: 12px 14px; }
+    .rtab { padding: 7px 11px; font-size: .72rem; }
+    .role-strip { gap: 1rem; padding: 14px 16px; }
+    .rs-divider { display: none; }
 }
 
 @keyframes pulse {
     0%,100% { opacity: 1; }
-    50%      { opacity: .4; }
+    50%      { opacity: .35; }
 }
 </style>
 @endpush
@@ -305,15 +620,17 @@ foreach ($webRoles as $role) {
 $totalPerms = $permissions->where('guard_name','web')->count();
 @endphp
 
+<div class="rp-page">
+
 {{-- ── Page header ─────────────────────────────────────────────── --}}
-<div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+<div class="rp-header">
     <div>
-        <h5 class="mb-0 fw-bold">Role Permissions</h5>
-        <small class="text-muted">{{ $totalPerms }} permissions &middot; {{ $webRoles->count() }} roles</small>
+        <h5 class="rp-header-title">Role Permissions</h5>
+        <div class="rp-header-sub">{{ $totalPerms }} permissions &middot; {{ $webRoles->count() }} roles</div>
     </div>
     @if($isSuperAdmin)
-    <span class="badge" style="background:#f59e0b;color:#000;font-size:.74rem;padding:6px 14px;border-radius:20px;">
-        <span class="material-icons-outlined" style="font-size:.9rem;vertical-align:-2px;">shield</span>
+    <span class="sa-badge">
+        <span class="material-icons-outlined">shield</span>
         Super Admin
     </span>
     @endif
@@ -323,14 +640,14 @@ $totalPerms = $permissions->where('guard_name','web')->count();
 <div class="rp-toolbar">
     <div class="rp-search">
         <span class="si material-icons-outlined">search</span>
-        <input type="text" id="permSearch" class="form-control form-control-sm" placeholder="Search permissions…">
+        <input type="text" id="permSearch" placeholder="Search permissions…">
     </div>
-    <button class="btn btn-sm btn-outline-success" id="btnGrantAll" title="Grant all to current role">
-        <span class="material-icons-outlined" style="font-size:.9rem;vertical-align:-3px;">done_all</span>
+    <button class="rp-btn rp-btn-grant" id="btnGrantAll" title="Grant all to current role">
+        <span class="material-icons-outlined">done_all</span>
         Grant All
     </button>
-    <button class="btn btn-sm btn-outline-danger" id="btnRevokeAll" title="Revoke all from current role">
-        <span class="material-icons-outlined" style="font-size:.9rem;vertical-align:-3px;">remove_done</span>
+    <button class="rp-btn rp-btn-revoke" id="btnRevokeAll" title="Revoke all from current role">
+        <span class="material-icons-outlined">remove_done</span>
         Revoke All
     </button>
 </div>
@@ -341,14 +658,16 @@ $totalPerms = $permissions->where('guard_name','web')->count();
     @php
         $s   = $roleStyle[$role->name] ?? ['bg'=>'#555','text'=>'#fff'];
         $cnt = $roleCounts[$role->id];
-        $tabTextColor = $s['text'] === '#000' ? $s['bg'] : '#fff';
+        $isDark = $s['text'] === '#fff';
     @endphp
     <div class="rtab {{ $i === 0 ? 'active' : '' }}"
          data-role-tab="{{ $role->id }}"
-         style="background:{{ $s['bg'] }}1f; color:{{ $tabTextColor }}; border-color:{{ $s['bg'] }}55;">
+         style="background:{{ $s['bg'] }}18; color:{{ $s['bg'] }}; border-color:{{ $s['bg'] }}40;
+                {{ $i === 0 ? 'background:'.$s['bg'].'28; border-color:'.$s['bg'].';' : '' }}">
         <span class="rtab-dot" style="background:{{ $s['bg'] }};"></span>
         {{ role_display_name($role->name) }}
-        <span class="rtab-count" id="rtab-count-{{ $role->id }}">
+        <span class="rtab-count" style="background:{{ $s['bg'] }}20; color:{{ $s['bg'] }};"
+              id="rtab-count-{{ $role->id }}">
             {{ $role->name === 'admin' ? '∞' : $cnt }}
         </span>
     </div>
@@ -360,29 +679,29 @@ $totalPerms = $permissions->where('guard_name','web')->count();
 @php
     $s    = $roleStyle[$role->name] ?? ['bg'=>'#555','text'=>'#fff'];
     $cnt  = $roleCounts[$role->id];
-    $isLocked = $isLocked = ($role->name === 'admin');
+    $isLocked = ($role->name === 'admin');
     $pct  = ($totalPerms > 0 && !$isLocked) ? round($cnt / $totalPerms * 100) : 0;
 @endphp
 
 <div class="role-panel {{ $i === 0 ? 'active' : '' }}" id="panel-{{ $role->id }}" data-role="{{ $role->id }}">
 
     {{-- Role summary strip --}}
-    <div class="role-strip" style="background:{{ $s['bg'] }}14; border:1px solid {{ $s['bg'] }}30;">
+    <div class="role-strip" style="border-color:{{ $s['bg'] }}30; background: linear-gradient(135deg, {{ $s['bg'] }}08, #fff);">
         <div>
-            <div class="rs-name" style="color:{{ $s['bg'] }};">
-                {{ role_display_name($role->name) }}
-            </div>
-            <div class="rs-sub" style="color:{{ $s['bg'] }};">role</div>
+            <div class="rs-label" style="color:{{ $s['bg'] }};">Role</div>
+            <div class="rs-name" style="color:{{ $s['bg'] }};">{{ role_display_name($role->name) }}</div>
         </div>
-        <div style="text-align:center; min-width:60px;">
+        <div class="rs-divider"></div>
+        <div style="text-align:center; min-width:64px;">
             <div class="rs-big" style="color:{{ $s['bg'] }};">{{ $isLocked ? '∞' : $cnt }}</div>
             <div class="rs-sub">{{ $isLocked ? 'all perms' : 'of '.$totalPerms }}</div>
         </div>
         @if(!$isLocked)
+        <div class="rs-divider"></div>
         <div class="rs-progress-wrap">
-            <div class="d-flex justify-content-between mb-1" style="font-size:.67rem; color:#888;">
-                <span>Coverage</span>
-                <span id="rs-pct-{{ $role->id }}">{{ $pct }}%</span>
+            <div class="rs-progress-label">
+                <span>Permission Coverage</span>
+                <span id="rs-pct-{{ $role->id }}" style="color:{{ $s['bg'] }}; font-weight:700;">{{ $pct }}%</span>
             </div>
             <div class="rs-progress-track">
                 <div class="rs-progress-fill" id="rs-fill-{{ $role->id }}"
@@ -414,14 +733,14 @@ $totalPerms = $permissions->where('guard_name','web')->count();
         <div class="mod-card" data-mod="{{ $modName }}">
             {{-- Card header --}}
             <div class="mod-card-head">
-                <div class="mod-card-icon" style="background:{{ $s['bg'] }}22;">
+                <div class="mod-card-icon" style="background:{{ $s['bg'] }}18;">
                     <span class="material-icons-outlined" style="color:{{ $s['bg'] }};">
                         {{ $modIcon[$modName] ?? 'circle' }}
                     </span>
                 </div>
                 <span class="mod-card-name">{{ ucfirst(str_replace('-', ' ', $modName)) }}</span>
                 <span class="mod-card-badge" id="badge-{{ $role->id }}-{{ $modName }}"
-                      style="background:rgba(255,255,255,.06); color:#999;">
+                      style="background:{{ $s['bg'] }}12; color:{{ $s['bg'] }}; border-color:{{ $s['bg'] }}25;">
                     {{ $modChecked }}/{{ $modTotal }}
                 </span>
                 @if(!$isLocked)
@@ -469,8 +788,8 @@ $totalPerms = $permissions->where('guard_name','web')->count();
     </div>{{-- /.perm-grid --}}
 
     <div class="no-results-box" id="noResults-{{ $role->id }}">
-        <span class="material-icons-outlined" style="font-size:3rem; color:#555;">search_off</span>
-        <p class="mt-2">No permissions match your search.</p>
+        <span class="material-icons-outlined">search_off</span>
+        <p>No permissions match your search.</p>
     </div>
 
 </div>{{-- /.role-panel --}}
@@ -484,6 +803,7 @@ $totalPerms = $permissions->where('guard_name','web')->count();
     </div>
 </div>
 
+</div>{{-- /.rp-page --}}
 @endsection
 
 @push('script')
@@ -509,7 +829,7 @@ function showToast(msg, ok) {
     toastMsg.textContent = msg;
     toastIco.textContent = ok ? 'check_circle' : 'error';
     toastEl.style.background = ok ? '#10b981' : '#ef4444';
-    toastEl.style.color      = ok ? '#000'     : '#fff';
+    toastEl.style.color      = ok ? '#fff'     : '#fff';
     toastEl.classList.add('show');
     toastTimer = setTimeout(() => toastEl.classList.remove('show'), 2600);
 }
@@ -517,7 +837,8 @@ function showToast(msg, ok) {
 /* ── Toggle track color ─────────────────────────────────────────── */
 function syncColor(input) {
     const track = input.nextElementSibling; // .ts-track
-    track.style.background = input.checked ? input.dataset.color : 'rgba(255,255,255,.1)';
+    track.style.background = input.checked ? input.dataset.color : '';
+    track.style.borderColor = input.checked ? input.dataset.color : '';
 }
 document.querySelectorAll('.perm-toggle').forEach(syncColor);
 
