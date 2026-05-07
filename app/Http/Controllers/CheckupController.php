@@ -43,8 +43,8 @@ class CheckupController extends Controller
                     DB::raw("{$pendingExpression} as pending_amount_resolved")
                 );
 
-            if ($user->hasRole('admin')) {
-                // Admin sees all checkups.
+            if ($user && user_is_admin_like($user)) {
+                // Admin / Super Admin sees all checkups.
             } elseif ($user->hasRole('doctor')) {
                 $query->where('checkups.doctor_id', $user->id);
             } else {
@@ -96,7 +96,7 @@ class CheckupController extends Controller
 
             $doctors = DB::table('doctors')
                 ->select('id', DB::raw("CONCAT(first_name, ' ', last_name) as name"))
-                ->when(!$user->hasRole('admin') && !empty($user->branch_id), function ($doctorQuery) use ($user) {
+                ->when($user && !user_is_admin_like($user) && !empty($user->branch_id), function ($doctorQuery) use ($user) {
                     $doctorQuery->where('branch_id', $user->branch_id);
                 })
                 ->orderBy('first_name')

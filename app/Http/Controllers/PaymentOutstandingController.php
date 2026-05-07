@@ -19,7 +19,8 @@ class PaymentOutstandingController extends Controller
     {
         $user = auth()->user();
 
-        return (bool) ($user && method_exists($user, 'hasRole') && $user->hasRole('admin'));
+        // Treat both admin and super-admin as branch-unrestricted.
+        return user_is_admin_like($user);
     }
 
     private function selectedBranchId(Request $request): ?int

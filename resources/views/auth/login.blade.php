@@ -49,15 +49,7 @@
                         <option value="" disabled selected>Select Role</option>
                         @foreach($roles as $role)
                             <option value="{{ $role->name }}">
-                                @if($role->name === 'admin')
-                                    CEO
-                                @elseif($role->name === 'view-only-admin')
-                                    Branch Admin
-                                @elseif($role->name === 'super-admin')
-                                    Super Admin
-                                @else
-                                    {{ ucfirst($role->name) }}
-                                @endif
+                                {{ role_display_name($role->name) }}
                             </option>
                         @endforeach
                     </select>

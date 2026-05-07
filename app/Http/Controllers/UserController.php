@@ -13,8 +13,9 @@ class UserController extends Controller
     // 🔐 Optional: controller level security
     public function __construct()
     {
-        $this->middleware('auth');
-        $this->middleware('role:admin'); // sirf admin user manage kare
+        // Route-level middleware already enforces authentication + permissions.
+        // Keep controller guard-specific to avoid blocking super-admin (and any role granted users.* permissions).
+        $this->middleware('auth:web');
     }
 
     // =========================

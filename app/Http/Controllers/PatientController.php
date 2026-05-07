@@ -22,8 +22,10 @@ class PatientController extends Controller
         try {
             $query = Patient::with('branch');
 
-            if (auth()->user()->role !== 'admin') {
-                $query->where('branch_id', auth()->user()->branch_id);
+            $user = auth()->user();
+
+            if ($user && !user_is_admin_like($user)) {
+                $query->where('branch_id', $user->branch_id);
             }
 
             if ($request->filled('search_id')) {

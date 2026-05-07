@@ -76,7 +76,7 @@
                         <textarea name="address" class="form-control" rows="2" required>{{ old('address') }}</textarea>
                     </div>
 
-                    @if(auth()->user()->role == 'admin')
+                    @if(user_is_admin_like(auth()->user()))
                         <div class="col-md-6">
                             <label class="form-label">Branch</label>
                             <select name="branch_id" class="form-select" required>

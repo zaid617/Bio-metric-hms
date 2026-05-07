@@ -19,7 +19,7 @@ class DoctorController extends Controller
 
         $query = Doctor::with('branch');
         // Admin → show all doctors
-        if (!$user->hasRole('admin')) {
+        if (!$user || !user_is_admin_like($user)) {
 
             // User has branch → show only that branch doctors
             if (!is_null($user->branch_id)) {

@@ -15,11 +15,6 @@ class CheckUserPermission
             abort(403, 'User not authenticated.');
         }
 
-        // super-admin bypasses all checks
-        if (method_exists($user, 'hasRole') && $user->hasRole('super-admin')) {
-            return $next($request);
-        }
-
         // Explicitly denied permissions block access even if role grants them
         if ($user->deniedPermissions()->where('name', $permission)->exists()) {
             abort(403, 'Access denied.');

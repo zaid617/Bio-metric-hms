@@ -36,8 +36,7 @@ class ExpenseController extends Controller
         $types = DB::table('expense_types')->where('status', 1)->get();
         $user = auth()->user();
 
-        // Safe role checking
-        $isAdmin = $user && $user->roles()->whereIn('name', ['Admin', 'Super Admin'])->exists();
+        $isAdmin = $user && user_is_admin_like($user);
 
         // Admin/Super Admin → all branches
         $branches = $isAdmin ? Branch::all() : [];

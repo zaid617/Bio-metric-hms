@@ -25,12 +25,8 @@ class AppServiceProvider extends ServiceProvider
     {
         Schema::defaultStringLength(191);
 
-        // super-admin bypasses every permission check
-        Gate::before(function ($user, $ability) {
-            if (method_exists($user, 'hasRole') && $user->hasRole('super-admin')) {
-                return true;
-            }
-        });
+        // Note: We intentionally do NOT globally bypass permission checks for any role.
+        // Super-admin permissions are editable and should be respected by both @can and middleware.
 
         // Override the payroll config with values stored in the database so that
         // all config('payroll.*') calls across the app use the admin-managed values.

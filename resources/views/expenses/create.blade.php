@@ -29,7 +29,7 @@
         <!-- Branch -->
         <div class="mb-3">
             <label for="branch_id" class="form-label">Branch</label>
-            @if(auth()->user()->hasRole('admin'))
+            @if(user_is_admin_like(auth()->user()))
                 <select name="branch_id" id="branch_id" class="form-select" required>
                     <option value="">-- Select Branch --</option>
                     @foreach($branches as $branch)

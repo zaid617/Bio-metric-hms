@@ -314,7 +314,7 @@ $totalPerms = $permissions->where('guard_name','web')->count();
     @if($isSuperAdmin)
     <span class="badge" style="background:#f59e0b;color:#000;font-size:.74rem;padding:6px 14px;border-radius:20px;">
         <span class="material-icons-outlined" style="font-size:.9rem;vertical-align:-2px;">shield</span>
-        Super Admin — Full Access
+        Super Admin
     </span>
     @endif
 </div>
@@ -347,12 +347,7 @@ $totalPerms = $permissions->where('guard_name','web')->count();
          data-role-tab="{{ $role->id }}"
          style="background:{{ $s['bg'] }}1f; color:{{ $tabTextColor }}; border-color:{{ $s['bg'] }}55;">
         <span class="rtab-dot" style="background:{{ $s['bg'] }};"></span>
-        {{
-            $role->name === 'admin' ? 'CEO' :
-            ($role->name === 'view-only-admin' ? 'Branch Admin' :
-            ($role->name === 'super-admin' ? 'Super Admin' :
-            ucwords(str_replace('-', ' ', $role->name))))
-        }}
+        {{ role_display_name($role->name) }}
         <span class="rtab-count" id="rtab-count-{{ $role->id }}">
             {{ $role->name === 'admin' ? '∞' : $cnt }}
         </span>
@@ -375,7 +370,7 @@ $totalPerms = $permissions->where('guard_name','web')->count();
     <div class="role-strip" style="background:{{ $s['bg'] }}14; border:1px solid {{ $s['bg'] }}30;">
         <div>
             <div class="rs-name" style="color:{{ $s['bg'] }};">
-                {{ ucwords(str_replace('-', ' ', $role->name)) }}
+                {{ role_display_name($role->name) }}
             </div>
             <div class="rs-sub" style="color:{{ $s['bg'] }};">role</div>
         </div>

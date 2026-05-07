@@ -51,12 +51,7 @@
 
 @foreach($roles as $role)
     <option value="{{ $role->name }}">
-        {{
-            $role->name === 'admin' ? 'CEO' :
-            ($role->name === 'view-only-admin' ? 'Branch Admin' :
-            ($role->name === 'super-admin' ? 'Super Admin' :
-            ucwords(str_replace('-', ' ', $role->name))))
-        }}
+        {{ role_display_name($role->name) }}
     </option>
 @endforeach
     </select>

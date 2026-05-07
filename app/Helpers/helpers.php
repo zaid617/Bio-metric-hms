@@ -7,6 +7,44 @@ use App\Models\Transaction;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
+if (!function_exists('user_is_admin_like')) {
+    function user_is_admin_like($user = null): bool
+    {
+        $user = $user ?: (auth()->check() ? auth()->user() : null);
+
+        if (!$user) {
+            return false;
+        }
+
+        // Prefer Spatie role checks when available
+        if (method_exists($user, 'hasAnyRole')) {
+            return $user->hasAnyRole(['admin', 'super-admin']);
+        }
+
+        if (method_exists($user, 'hasRole')) {
+            return $user->hasRole('admin') || $user->hasRole('super-admin');
+        }
+
+        // Fallback for legacy column-based roles
+        return in_array($user->role ?? null, ['admin', 'super-admin'], true);
+    }
+}
+
+if (!function_exists('role_display_name')) {
+    function role_display_name(?string $roleName): string
+    {
+        $roleName = (string) $roleName;
+
+        return match ($roleName) {
+            'admin' => 'CEO',
+            'view-only-admin' => 'Branch Admin',
+            'super-admin' => 'Super Admin',
+            '' => 'N/A',
+            default => ucwords(str_replace('-', ' ', $roleName)),
+        };
+    }
+}
+
 
 function doctor_get_name($id)
 {
@@ -55,7 +93,7 @@ function format_datetime($date)
 
 function get_doctors()
 {
-    if (auth()->user()->role == 'admin') {
+    if (user_is_admin_like()) {
         return Doctor::where('status', 'Active')->get();
     }
     return Doctor::select('id', 'first_name', 'last_name')->where('status', 'Active')->get();
