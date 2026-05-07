@@ -6,17 +6,15 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
-use Spatie\Permission\Models\Role;
 
 class LoginController extends Controller
 {
     /**
-     * Show login form with dynamic roles from DB
+     * Show login form
      */
     public function showLoginForm()
     {
-        $roles = Role::where('guard_name', 'web')->get();
-        return view('auth.login', compact('roles'));
+        return view('auth.login');
     }
 
     /**
@@ -28,40 +26,27 @@ class LoginController extends Controller
         $request->validate([
             'email' => 'required|email',
             'password' => 'required|string',
-            'role' => 'required|string',
         ]);
 
-        $role = $request->role;
-
-        // Select guard based on role
-        $guard = $role === 'doctor' ? 'doctor' : 'web';
-
         $credentials = $request->only('email', 'password');
+        $remember = $request->boolean('remember');
 
-        // Attempt login
-        if (Auth::guard($guard)->attempt($credentials, $request->filled('remember'))) {
+        // Attempt doctor login first (separate guard/provider)
+        if (Auth::guard('doctor')->attempt($credentials, $remember)) {
+            $request->session()->regenerate();
 
-            $user = Auth::guard($guard)->user();
+            $redirectRoute = 'doctor.dashboard';
+            return Route::has($redirectRoute)
+                ? redirect()->route($redirectRoute)
+                : redirect()->route('home');
+        }
 
-            // Ensure the user has the selected role (Spatie)
-            if (!$user->hasRole($role)) {
-                Auth::guard($guard)->logout();
-                return back()->withErrors([
-                    'role' => 'You are not authorized to login as this role.'
-                ])->withInput($request->only('email','role'));
-            }
+        // Attempt normal (web) login
+        if (Auth::guard('web')->attempt($credentials, $remember)) {
+            $request->session()->regenerate();
 
-            // Role-based redirects
-            $redirectRoute = match ($role) {
-                'doctor' => 'doctor.dashboard',
-                'admin' => 'admin.dashboard',
-                'view-only-admin' => 'view-only-admin.dashboard',
-                'receptionist' => 'receptionist.dashboard',
-                'manager' => 'manager.dashboard',
-                'accountant' => 'accountant.dashboard',
-                'pharmacist' => 'pharmacist.dashboard',
-                default => 'home',
-            };
+            $user = Auth::guard('web')->user();
+            $redirectRoute = $this->resolveWebDashboardRoute($user);
 
             if (!Route::has($redirectRoute)) {
                 $redirectRoute = 'home';
@@ -73,7 +58,28 @@ class LoginController extends Controller
         // Invalid credentials
         return back()->withErrors([
             'email' => 'These credentials do not match our records.',
-        ])->withInput($request->only('email','role'));
+        ])->withInput($request->only('email'));
+    }
+
+    /**
+     * Resolve where a web-guard user should land after login.
+     */
+    private function resolveWebDashboardRoute($user): string
+    {
+        if ($user && ($user->hasRole('admin') || $user->hasRole('super-admin'))) {
+            return 'admin.dashboard';
+        }
+        if ($user && $user->hasRole('view-only-admin')) {
+            return 'view-only-admin.dashboard';
+        }
+        if ($user && $user->hasRole('manager')) {
+            return 'manager.dashboard';
+        }
+        if ($user && $user->hasRole('receptionist')) {
+            return 'receptionist.dashboard';
+        }
+
+        return 'home';
     }
 
     /**
@@ -81,11 +87,9 @@ class LoginController extends Controller
      */
     public function logout(Request $request)
     {
-        // Determine guard based on role if sent, else default to web
-        $role = $request->role ?? 'web';
-        $guard = $role === 'doctor' ? 'doctor' : 'web';
-
-        Auth::guard($guard)->logout();
+        // Logout from both guards to avoid leaving a doctor session active
+        Auth::guard('web')->logout();
+        Auth::guard('doctor')->logout();
 
         $request->session()->invalidate();
         $request->session()->regenerateToken();

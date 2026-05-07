@@ -43,18 +43,6 @@
                     </div>
                 </div>
 
-                <div class="col-12">
-                    <label class="form-label">Login As</label>
-                    <select class="form-select form-select-lg" name="role" required>
-                        <option value="" disabled selected>Select Role</option>
-                        @foreach($roles as $role)
-                            <option value="{{ $role->name }}">
-                                {{ role_display_name($role->name) }}
-                            </option>
-                        @endforeach
-                    </select>
-                </div>
-
                 <div class="col-md-6 form-check form-switch mt-2">
                     <input class="form-check-input" type="checkbox" name="remember">
                     <label class="form-check-label">Remember Me</label>
