@@ -73,16 +73,13 @@
                     {{-- Department --}}
                     <div class="col-md-6">
                         <label for="department" class="form-label fw-semibold">Department</label>
-                        <select class="form-select form-select-lg" id="department" name="department" required>
+                        <select class="form-select form-select-lg" id="department" name="department_id" required>
                             <option value="">Select Department</option>
-                            <option value="Male Physiotherapy Department" {{ old('department') === 'Male Physiotherapy Department' ? 'selected' : '' }}>Male Physiotherapy Department</option>
-                            <option value="Female Physiotherapy Department" {{ old('department') === 'Female Physiotherapy Department' ? 'selected' : '' }}>Female Physiotherapy Department</option>
-                            <option value="Paeds Physiotherapy Department" {{ old('department') === 'Paeds Physiotherapy Department' ? 'selected' : '' }}>Paeds Physiotherapy Department</option>
-                            <option value="Speech Therapy Department" {{ old('department') === 'Speech Therapy Department' ? 'selected' : '' }}>Speech Therapy Department</option>
-                            <option value="Behavior Therapy Department" {{ old('department') === 'Behavior Therapy Department' ? 'selected' : '' }}>Behavior Therapy Department</option>
-                            <option value="Occupational Therapy Department" {{ old('department') === 'Occupational Therapy Department' ? 'selected' : '' }}>Occupational Therapy Department</option>
-                            <option value="Remedial Therapy Department" {{ old('department') === 'Remedial Therapy Department' ? 'selected' : '' }}>Remedial Therapy Department</option>
-                            <option value="Clinical Psychology Department" {{ old('department') === 'Clinical Psychology Department' ? 'selected' : '' }}>Clinical Psychology Department</option>
+                            @foreach ($departments as $department)
+                                <option value="{{ $department->id }}" {{ (string) old('department_id') === (string) $department->id ? 'selected' : '' }}>
+                                    {{ $department->name }}
+                                </option>
+                            @endforeach
                         </select>
                     </div>
 

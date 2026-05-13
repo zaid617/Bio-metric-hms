@@ -103,20 +103,11 @@
                     {{-- Department --}}
                     <div class="col-md-6">
                         <label for="department" class="form-label fw-semibold">Department</label>
-                        <select class="form-select form-select-lg" id="department" name="department" required>
+                        <select class="form-select form-select-lg" id="department" name="department_id" required>
                             <option value="">Select Department</option>
-                            @foreach ([
-                                'Male Physiotherapy Department',
-                                'Female Physiotherapy Department',
-                                'Paeds Physiotherapy Department',
-                                'Speech Therapy Department',
-                                'Behavior Therapy Department',
-                                'Occupational Therapy Department',
-                                'Remedial Therapy Department',
-                                'Clinical Psychology Department'
-                            ] as $dept)
-                                <option value="{{ $dept }}" {{ old('department', $employee->department) == $dept ? 'selected' : '' }}>
-                                    {{ $dept }}
+                            @foreach ($departments as $department)
+                                <option value="{{ $department->id }}" {{ (string) old('department_id', $departmentId) === (string) $department->id ? 'selected' : '' }}>
+                                    {{ $department->name }}
                                 </option>
                             @endforeach
                         </select>

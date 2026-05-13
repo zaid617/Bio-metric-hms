@@ -16,6 +16,7 @@ class Employee extends Model
         'name',
         'designation',
         'branch_id',
+    'department_id',
         'department',
         'basic_salary',
   'incentive_sunday_roster',
@@ -115,6 +116,11 @@ class Employee extends Model
       public function branch(): BelongsTo
       {
         return $this->belongsTo(Branch::class);
+      }
+
+      public function departmentRecord(): BelongsTo
+      {
+        return $this->belongsTo(Department::class, 'department_id');
       }
 
       public function device(): BelongsTo

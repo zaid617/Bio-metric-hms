@@ -18,7 +18,7 @@ class StoreEmployeeRequest extends FormRequest
             'name' => 'required|string|max:255',
             'designation' => 'required|string|max:255',
             'branch_id' => 'required|integer|exists:branches,id',
-            'department' => 'required|string|in:Male Physiotherapy Department,Female Physiotherapy Department,Paeds Physiotherapy Department,Speech Therapy Department,Behavior Therapy Department,Occupational Therapy Department,Remedial Therapy Department,Clinical Psychology Department',
+            'department_id' => 'required|integer|exists:departments,id',
             'shift' => 'required|string|in:Morning,Afternoon,Evening',
             'shift_start_time' => 'required|date_format:H:i',
             'basic_salary' => 'required|numeric|min:0',

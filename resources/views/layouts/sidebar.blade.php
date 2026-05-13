@@ -288,8 +288,18 @@
     </li>
     @endif
 
+    {{-- ── INVENTORY ────────────────────────────────────────────────────── --}}
+    @if(!$isDoctor && $canAny(['inventory.view','inventory.create','inventory.edit','inventory.delete']))
+    <li>
+        <a href="{{ route('inventory.index') }}">
+            <div class="parent-icon"><i class="material-icons-outlined">inventory_2</i></div>
+            <div class="menu-title">Inventory</div>
+        </a>
+    </li>
+    @endif
+
     {{-- ── GENERAL SETTINGS ─────────────────────────────────────────────── --}}
-    @if(!$isDoctor && $canAny(['settings.branches.create','settings.branches.edit','settings.bank.create','settings.bank.edit','settings.branch-fee','settings.payroll']))
+    @if(!$isDoctor && $canAny(['settings.branches.create','settings.branches.edit','settings.departments.create','settings.departments.edit','settings.bank.create','settings.bank.edit','settings.branch-fee','settings.payroll']))
     <li>
         <a class="has-arrow" href="javascript:;">
             <div class="parent-icon"><i class="material-icons-outlined">settings</i></div>
@@ -298,6 +308,9 @@
         <ul>
             @if($canAny(['settings.branches.create','settings.branches.edit']))
             <li><a href="{{ url('/branches') }}"><i class="material-icons-outlined">store</i> Branches</a></li>
+            @endif
+            @if($canAny(['settings.departments.create','settings.departments.edit']))
+            <li><a href="{{ url('/departments') }}"><i class="material-icons-outlined">category</i> Departments</a></li>
             @endif
             @if($canAny(['settings.bank.create','settings.bank.edit']))
             <li><a href="{{ url('/banks') }}"><i class="material-icons-outlined">account_balance_wallet</i> Banks</a></li>

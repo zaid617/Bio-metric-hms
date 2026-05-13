@@ -89,10 +89,19 @@ class RolesAndPermissionsSeeder extends Seeder
             'expenses.create',
             'expenses.view',
 
+            // Inventory
+            'inventory.view',
+            'inventory.create',
+            'inventory.edit',
+            'inventory.delete',
+
             // General Settings
             'settings.branches.create',
             'settings.branches.edit',
             'settings.branches.delete',
+            'settings.departments.create',
+            'settings.departments.edit',
+            'settings.departments.delete',
             'settings.bank.create',
             'settings.bank.edit',
             'settings.bank.delete',
@@ -177,6 +186,7 @@ class RolesAndPermissionsSeeder extends Seeder
                 'employees.view', 'employees.create', 'employees.edit',
                 'attendance.records.view', 'attendance.payroll.view',
                 'expenses.view',
+                'inventory.view',
                 'reports.bank-ledgers', 'reports.branch-ledgers', 'reports.all-transactions',
                 'payment-outstanding.view',
             ]));
@@ -227,6 +237,7 @@ class RolesAndPermissionsSeeder extends Seeder
                 'payments.appointment-invoices', 'payments.receivable', 'payments.return',
                 'expenses.type.create', 'expenses.type.edit', 'expenses.type.delete',
                 'expenses.create', 'expenses.view',
+                'inventory.view',
                 'reports.bank-ledgers', 'reports.branch-ledgers', 'reports.all-transactions',
                 'payment-outstanding.view',
                 'attendance.payroll.view',
@@ -266,6 +277,7 @@ class RolesAndPermissionsSeeder extends Seeder
                 'employees.view',
                 'attendance.records.view', 'attendance.payroll.view',
                 'expenses.view',
+                'inventory.view',
                 'reports.bank-ledgers', 'reports.branch-ledgers', 'reports.all-transactions',
                 'payment-outstanding.view',
             ]));

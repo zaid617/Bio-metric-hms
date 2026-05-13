@@ -19,6 +19,7 @@ use App\Http\Controllers\SessionTimeController;
 use App\Http\Controllers\DoctorAvailabilityController;
 use App\Http\Controllers\Admin\AdminController;
 use App\Http\Controllers\BranchController;
+use App\Http\Controllers\DepartmentController;
 use App\Http\Controllers\BankController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\ReceptionistDashboardController;
@@ -30,6 +31,7 @@ use App\Http\Controllers\FeedbackController;
 use App\Http\Controllers\Manager\ManagerDashboardController;
 use App\Http\Controllers\ExpenseTypeController;
 use App\Http\Controllers\ExpenseController;
+use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\RolePermissionController;
 use App\Http\Controllers\Payroll\PayrollAdjustmentController;
 use App\Http\Controllers\Payroll\PayrollSettingController;
@@ -728,6 +730,33 @@ Route::middleware(['auth:web', 'role:admin|super-admin|manager|receptionist|view
                 ->name('branches.destroy');
         });
 
+        // ── Departments ───────────────────────────────────────────────────
+        Route::prefix('departments')->group(function () {
+            Route::get('/', [DepartmentController::class, 'index'])
+                ->middleware('check_user_permission:settings.departments.create')
+                ->name('departments.index');
+
+            Route::get('/create', [DepartmentController::class, 'create'])
+                ->middleware('check_user_permission:settings.departments.create')
+                ->name('departments.create');
+
+            Route::post('/store', [DepartmentController::class, 'store'])
+                ->middleware('check_user_permission:settings.departments.create')
+                ->name('departments.store');
+
+            Route::get('/edit/{id}', [DepartmentController::class, 'edit'])
+                ->middleware('check_user_permission:settings.departments.edit')
+                ->name('departments.edit');
+
+            Route::put('/update/{id}', [DepartmentController::class, 'update'])
+                ->middleware('check_user_permission:settings.departments.edit')
+                ->name('departments.update');
+
+            Route::delete('/delete/{id}', [DepartmentController::class, 'destroy'])
+                ->middleware('check_user_permission:settings.departments.delete')
+                ->name('departments.destroy');
+        });
+
         // ── Banks ──────────────────────────────────────────────────────────
         Route::prefix('banks')->group(function () {
             Route::get('/', [BankController::class, 'index'])
@@ -818,6 +847,33 @@ Route::middleware(['auth:web', 'role:admin|super-admin|manager|receptionist|view
             Route::post('/store', [ExpenseController::class, 'store'])
                 ->middleware('check_user_permission:expenses.create')
                 ->name('expenses.store');
+        });
+
+        // ── Inventory ──────────────────────────────────────────────────────
+        Route::prefix('inventory')->group(function () {
+            Route::get('/', [InventoryController::class, 'index'])
+                ->middleware('check_user_permission:inventory.view')
+                ->name('inventory.index');
+
+            Route::get('/create', [InventoryController::class, 'create'])
+                ->middleware('check_user_permission:inventory.create')
+                ->name('inventory.create');
+
+            Route::post('/store', [InventoryController::class, 'store'])
+                ->middleware('check_user_permission:inventory.create')
+                ->name('inventory.store');
+
+            Route::get('/edit/{id}', [InventoryController::class, 'edit'])
+                ->middleware('check_user_permission:inventory.edit')
+                ->name('inventory.edit');
+
+            Route::put('/update/{id}', [InventoryController::class, 'update'])
+                ->middleware('check_user_permission:inventory.edit')
+                ->name('inventory.update');
+
+            Route::delete('/delete/{id}', [InventoryController::class, 'destroy'])
+                ->middleware('check_user_permission:inventory.delete')
+                ->name('inventory.destroy');
         });
 
         // ── Role Permissions (admin + super-admin) ────────────────────────

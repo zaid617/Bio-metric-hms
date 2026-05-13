@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Department;
 use App\Models\Employee;
 use App\Http\Requests\Employee\StoreEmployeeRequest;
 use App\Http\Requests\Employee\UpdateEmployeeRequest;
@@ -65,7 +66,8 @@ class EmployeeController extends Controller
     {
         try {
             $branches = DB::table('branches')->get();
-            return view('employees.create', compact('branches'));
+            $departments = Department::orderBy('name')->get();
+            return view('employees.create', compact('branches', 'departments'));
         } catch (\Exception $e) {
             \Log::error('Employee create form error: ' . $e->getMessage());
             return back()->with('error', 'Unable to load employee creation form.');
@@ -84,12 +86,15 @@ class EmployeeController extends Controller
                 : null;
 
             DB::transaction(function () use ($validated, $otherAllowances, $totalOtherAllowance, $otherAllowanceLabel) {
+                $department = Department::findOrFail($validated['department_id']);
+
                 DB::table('employees')->insert([
                     'prefix' => $validated['prefix'],
                     'name' => $validated['name'],
                     'designation' => $validated['designation'],
                     'branch_id' => $validated['branch_id'],
-                    'department' => $validated['department'],
+                    'department_id' => $department->id,
+                    'department' => $department->name,
                     'shift' => $validated['shift'],
                     'shift_start_time' => $validated['shift_start_time'],
                     'basic_salary' => (float) str_replace(',', '', (string) $validated['basic_salary']),
@@ -128,12 +133,15 @@ class EmployeeController extends Controller
         try {
             $employee = DB::table('employees')->where('id', $id)->first();
             $branches = DB::table('branches')->get();
+            $departments = Department::orderBy('name')->get();
 
             if (!$employee) {
                 return redirect('employees')->with('error', 'Employee not found.');
             }
 
-            return view('employees.edit', compact('employee', 'branches'));
+            $departmentId = $employee->department_id ?? Department::where('name', $employee->department)->value('id');
+
+            return view('employees.edit', compact('employee', 'branches', 'departments', 'departmentId'));
         } catch (\Exception $e) {
             \Log::error('Employee edit error: ' . $e->getMessage());
             return back()->with('error', 'Unable to load edit form.');
@@ -152,12 +160,15 @@ class EmployeeController extends Controller
                 : null;
 
             DB::transaction(function () use ($validated, $id, $otherAllowances, $totalOtherAllowance, $otherAllowanceLabel) {
+                $department = Department::findOrFail($validated['department_id']);
+
                 DB::table('employees')->where('id', $id)->update([
                     'prefix' => $validated['prefix'],
                     'name' => $validated['name'],
                     'designation' => $validated['designation'],
                     'branch_id' => $validated['branch_id'],
-                    'department' => $validated['department'],
+                    'department_id' => $department->id,
+                    'department' => $department->name,
                     'shift' => $validated['shift'],
                     'shift_start_time' => $validated['shift_start_time'],
                     'basic_salary' => (float) str_replace(',', '', (string) $validated['basic_salary']),
