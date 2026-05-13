@@ -88,16 +88,21 @@
 
                     {{-- Branch --}}
                     <div class="col-md-6">
-                        <label for="branch_id" class="form-label fw-semibold">Branch</label>
-                        <select class="form-select form-select-lg" id="branch_id" name="branch_id" required>
-                            <option value="">Select Branch</option>
-                            @foreach ($branches as $branch)
-                                <option value="{{ $branch->id }}"
-                                    {{ old('branch_id', $employee->branch_id) == $branch->id ? 'selected' : '' }}>
-                                    {{ $branch->name }}
-                                </option>
-                            @endforeach
-                        </select>
+                        <label class="form-label fw-semibold">Branch</label>
+                        @if(user_can_manage_all_branches(auth()->user()))
+                            <select class="form-select form-select-lg" id="branch_id" name="branch_id" required>
+                                <option value="">Select Branch</option>
+                                @foreach ($branches as $branch)
+                                    <option value="{{ $branch->id }}"
+                                        {{ old('branch_id', $employee->branch_id) == $branch->id ? 'selected' : '' }}>
+                                        {{ $branch->name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        @else
+                            <input type="hidden" name="branch_id" value="{{ auth()->user()->branch_id }}">
+                            <input type="text" class="form-control form-control-lg" value="{{ auth()->user()?->branch?->name ?? 'N/A' }}" readonly>
+                        @endif
                     </div>
 
                     {{-- Department --}}

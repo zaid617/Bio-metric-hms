@@ -29,7 +29,13 @@ class AttendanceDeviceController extends Controller
      */
     public function index()
     {
-        $devices = AttendanceDevice::with('branch')->latest()->paginate(20);
+        $user = auth()->user();
+        $devices = AttendanceDevice::with('branch')
+            ->when(!user_can_manage_all_branches($user), function ($query) use ($user) {
+                $query->where('branch_id', user_branch_id($user));
+            })
+            ->latest()
+            ->paginate(20);
         return view('attendance.devices.index', compact('devices'));
     }
 
@@ -38,7 +44,10 @@ class AttendanceDeviceController extends Controller
      */
     public function create()
     {
-        $branches = Branch::where('status', 'active')->get();
+        $user = auth()->user();
+        $branches = user_can_manage_all_branches($user)
+            ? Branch::where('status', 'active')->get()
+            : Branch::where('status', 'active')->where('id', user_branch_id($user))->get();
         return view('attendance.devices.create', compact('branches'));
     }
 
@@ -48,7 +57,7 @@ class AttendanceDeviceController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'branch_id' => 'required|exists:branches,id',
+            'branch_id' => 'nullable|exists:branches,id',
             'device_name' => 'required|string|max:255',
             'device_serial_number' => 'nullable|string|max:255',
             'ip_address' => 'required|ip',
@@ -57,6 +66,10 @@ class AttendanceDeviceController extends Controller
             'com_key' => 'nullable|string',
             'sync_interval_minutes' => 'required|integer|min:1|max:60',
         ]);
+
+        if (!user_can_manage_all_branches(auth()->user())) {
+            $validated['branch_id'] = user_branch_id();
+        }
 
         $validated['password'] = $validated['password'] ?? '0';
         $validated['com_key'] = $validated['com_key'] ?? '0';
@@ -74,7 +87,10 @@ class AttendanceDeviceController extends Controller
      */
     public function edit(AttendanceDevice $device)
     {
-        $branches = Branch::where('status', 'active')->get();
+        $user = auth()->user();
+        $branches = user_can_manage_all_branches($user)
+            ? Branch::where('status', 'active')->get()
+            : Branch::where('status', 'active')->where('id', user_branch_id($user))->get();
         return view('attendance.devices.edit', compact('device', 'branches'));
     }
 
@@ -84,7 +100,7 @@ class AttendanceDeviceController extends Controller
     public function update(Request $request, AttendanceDevice $device)
     {
         $validated = $request->validate([
-            'branch_id' => 'required|exists:branches,id',
+            'branch_id' => 'nullable|exists:branches,id',
             'device_name' => 'required|string|max:255',
             'device_serial_number' => 'nullable|string|max:255',
             'ip_address' => 'required|ip',
@@ -94,6 +110,10 @@ class AttendanceDeviceController extends Controller
             'sync_interval_minutes' => 'required|integer|min:1|max:60',
             'is_active' => 'boolean',
         ]);
+
+        if (!user_can_manage_all_branches(auth()->user())) {
+            $validated['branch_id'] = user_branch_id();
+        }
 
         $validated['password'] = $validated['password'] ?? '0';
         $validated['com_key'] = $validated['com_key'] ?? '0';

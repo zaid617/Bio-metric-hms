@@ -323,11 +323,15 @@ class PayrollService
             ->get();
     }
 
-    public function getDashboardStats(int $month, int $year): array
+    public function getDashboardStats(int $month, int $year, ?int $branchId = null): array
     {
         $query = AttendancePayroll::query()
             ->where('month', $month)
             ->where('year', $year);
+
+        if ($branchId) {
+            $query->where('branch_id', $branchId);
+        }
 
         return [
             'total'        => (clone $query)->count(),

@@ -138,9 +138,18 @@ class CheckupController extends Controller
     public function create(Request $request)
     {
         try {
-            $patients = DB::table('patients')->select('id', 'name', 'mr', 'phone', 'branch_id')->get();
+            $user = auth()->user();
+
+            $patients = DB::table('patients')->select('id', 'name', 'mr', 'phone', 'branch_id')
+                ->when(!user_can_manage_all_branches($user), function ($query) use ($user) {
+                    $query->where('branch_id', user_branch_id($user));
+                })
+                ->get();
             $doctors = DB::table('doctors')
                 ->select('id', DB::raw("CONCAT(first_name, ' ', last_name) as name"))
+                ->when(!user_can_manage_all_branches($user), function ($query) use ($user) {
+                    $query->where('branch_id', user_branch_id($user));
+                })
                 ->get();
             $banks = DB::table('banks')->get();
 
@@ -207,10 +216,14 @@ class CheckupController extends Controller
 
         $type = $request->input('type');
         $keyword = trim((string) $request->input('q', ''));
+        $user = auth()->user();
 
         if ($type === 'body_expert_doctor') {
             $doctors = DB::table('doctors')
                 ->select('id', 'first_name', 'last_name')
+                ->when(!user_can_manage_all_branches($user), function ($query) use ($user) {
+                    $query->where('branch_id', user_branch_id($user));
+                })
                 ->when($keyword !== '', function ($query) use ($keyword) {
                     $query->where(function ($inner) use ($keyword) {
                         $inner->where('first_name', 'like', "%{$keyword}%")
@@ -236,6 +249,9 @@ class CheckupController extends Controller
 
         $patients = Patient::query()
             ->select('id', 'name', 'mr')
+            ->when(!user_can_manage_all_branches($user), function ($query) use ($user) {
+                $query->where('branch_id', user_branch_id($user));
+            })
             ->when($keyword !== '', function ($query) use ($keyword) {
                 $query->where(function ($inner) use ($keyword) {
                     $inner->where('name', 'like', "%{$keyword}%")

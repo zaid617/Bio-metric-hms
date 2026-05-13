@@ -20,9 +20,13 @@ class ExpenseController extends Controller
     // =======================
     public function index()
     {
+        $user = auth()->user();
         $expenses = DB::table('expenses')
             ->join('expense_types', 'expenses.expense_type_id', '=', 'expense_types.id')
             ->select('expenses.*', 'expense_types.type as expense_type')
+            ->when(!user_can_manage_all_branches($user), function ($query) use ($user) {
+                $query->where('expenses.branch_id', user_branch_id($user));
+            })
             ->get();
 
         return view('expenses.index', compact('expenses'));
@@ -36,10 +40,10 @@ class ExpenseController extends Controller
         $types = DB::table('expense_types')->where('status', 1)->get();
         $user = auth()->user();
 
-        $isAdmin = $user && user_is_admin_like($user);
+        $isAdmin = user_can_manage_all_branches($user);
 
-        // Admin/Super Admin → all branches
-        $branches = $isAdmin ? Branch::all() : [];
+        // Admin/Super Admin → all branches, others stay on their own branch
+        $branches = $isAdmin ? Branch::all() : Branch::where('id', user_branch_id($user))->get();
 
         return view('expenses.create', compact('types', 'branches'));
     }
@@ -54,7 +58,9 @@ class ExpenseController extends Controller
             $user = auth()->user();
 
             // Branch logic (Admin selects manually, User auto)
-            $branch_id = $request->branch_id ?? ($user->branch_id ?? 1);
+            $branch_id = user_can_manage_all_branches($user)
+                ? ($request->branch_id ?? null)
+                : user_branch_id($user);
 
             // Insert into expenses table
             $expenseId = DB::table('expenses')->insertGetId([

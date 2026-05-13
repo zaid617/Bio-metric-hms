@@ -13,9 +13,11 @@ class GeneratePayrollRequest extends FormRequest
 
     public function rules(): array
     {
+        $branchRules = user_can_manage_all_branches() ? ['nullable', 'exists:branches,id'] : ['nullable'];
+
         return [
             'period_start'     => ['required', 'date'],
-            'branch_id'        => ['nullable', 'exists:branches,id'],
+            'branch_id'        => $branchRules,
             'employee_id'      => ['nullable', 'exists:employees,id'],
             'force_regenerate' => ['nullable', 'boolean'],
         ];

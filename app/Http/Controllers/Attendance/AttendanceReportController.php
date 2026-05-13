@@ -17,8 +17,11 @@ class AttendanceReportController extends Controller
      */
     public function daily(Request $request)
     {
+        $user = auth()->user();
         $date = $request->has('date') ? Carbon::parse($request->date) : Carbon::today();
-        $branchId = $request->get('branch_id');
+        $branchId = user_can_manage_all_branches($user)
+            ? $request->get('branch_id')
+            : user_branch_id($user);
         $status = $request->get('status');
 
         $query = AttendanceRecord::with(['employee', 'branch'])
@@ -51,7 +54,9 @@ class AttendanceReportController extends Controller
         // Backward compatibility for views expecting $summary.
         $summary = $stats;
 
-        $branches = Branch::where('status', 'active')->get();
+        $branches = user_can_manage_all_branches($user)
+            ? Branch::where('status', 'active')->get()
+            : Branch::where('status', 'active')->where('id', user_branch_id($user))->get();
 
         return view('attendance.reports.daily', compact('date', 'records', 'stats', 'summary', 'branches'));
     }
@@ -61,8 +66,11 @@ class AttendanceReportController extends Controller
      */
     public function monthly(Request $request)
     {
+        $user = auth()->user();
         $month = $request->has('month') ? Carbon::parse($request->month) : Carbon::now();
-        $branchId = $request->get('branch_id');
+        $branchId = user_can_manage_all_branches($user)
+            ? $request->get('branch_id')
+            : user_branch_id($user);
 
         $query = Employee::with('branch')
             ->select('employees.*')
@@ -92,7 +100,9 @@ class AttendanceReportController extends Controller
             ];
         }
 
-        $branches = Branch::where('status', 'active')->get();
+        $branches = user_can_manage_all_branches($user)
+            ? Branch::where('status', 'active')->get()
+            : Branch::where('status', 'active')->where('id', user_branch_id($user))->get();
 
         return view('attendance.reports.monthly', compact('month', 'employeeSummary', 'branches'));
     }
@@ -160,26 +170,89 @@ class AttendanceReportController extends Controller
      */
     public function branchReport(Request $request)
     {
+        $user = auth()->user();
         $date = $request->has('date') ? Carbon::parse($request->date) : Carbon::today();
+        $branchId = user_can_manage_all_branches($user)
+            ? $request->get('branch_id')
+            : user_branch_id($user);
 
-        $branches = Branch::where('status', 'active')->get();
-        $branchSummary = [];
+        $branch = Branch::where('status', 'active')
+            ->when($branchId, fn ($query) => $query->where('id', $branchId))
+            ->first();
 
-        foreach ($branches as $branch) {
-            $records = AttendanceRecord::where('branch_id', $branch->id)
-                ->where('attendance_date', $date->toDateString())
-                ->get();
-
-            $branchSummary[] = [
-                'branch' => $branch,
-                'total_employees' => Employee::where('branch_id', $branch->id)->count(),
-                'present' => $records->whereIn('status', ['present', 'late'])->count(),
-                'late' => $records->where('status', 'late')->count(),
-                'absent' => $records->where('status', 'absent')->count(),
-            ];
+        if (!$branch) {
+            return back()->with('error', 'No branch found for this report.');
         }
 
-        return view('attendance.reports.branch', compact('date', 'branchSummary'));
+        $startDate = $request->has('start_date')
+            ? Carbon::parse($request->start_date)
+            : $date->copy()->startOfMonth();
+        $endDate = $request->has('end_date')
+            ? Carbon::parse($request->end_date)
+            : $date->copy()->endOfMonth();
+
+        $records = AttendanceRecord::with(['employee', 'branch'])
+            ->where('branch_id', $branch->id)
+            ->whereBetween('attendance_date', [$startDate->toDateString(), $endDate->toDateString()])
+            ->get();
+
+        $dailyStats = $records
+            ->groupBy(fn ($record) => optional($record->attendance_date)->toDateString() ?? (string) $record->attendance_date)
+            ->map(function ($dayRecords, $dateKey) {
+                $present = $dayRecords->whereIn('status', ['present', 'late'])->count();
+                $absent = $dayRecords->where('status', 'absent')->count();
+                $late = $dayRecords->where('status', 'late')->count();
+                $total = max($dayRecords->count(), 1);
+
+                return [
+                    'date' => Carbon::parse($dateKey),
+                    'present' => $present,
+                    'absent' => $absent,
+                    'late' => $late,
+                    'attendance_percentage' => round(($present / $total) * 100, 1),
+                    'working_hours' => round((float) $dayRecords->sum('working_hours'), 1),
+                    'overtime_hours' => round((float) $dayRecords->sum('overtime_hours'), 1),
+                ];
+            })
+            ->sortByDesc('date')
+            ->values();
+
+        $employeePerformance = $records
+            ->groupBy('employee_id')
+            ->map(function ($employeeRecords) {
+                $employee = $employeeRecords->first()->employee;
+                $present = $employeeRecords->whereIn('status', ['present', 'late'])->count();
+                $absent = $employeeRecords->where('status', 'absent')->count();
+                $late = $employeeRecords->where('status', 'late')->count();
+                $total = max($employeeRecords->count(), 1);
+
+                return [
+                    'name' => $employee->name ?? 'N/A',
+                    'designation' => $employee->designation ?? 'N/A',
+                    'branch_name' => $employee->branch->name ?? 'N/A',
+                    'present_days' => $present,
+                    'absent_days' => $absent,
+                    'late_days' => $late,
+                    'total_hours' => round((float) $employeeRecords->sum('working_hours'), 1),
+                    'overtime_hours' => round((float) $employeeRecords->sum('overtime_hours'), 1),
+                    'attendance_percentage' => round(($present / $total) * 100, 1),
+                ];
+            })
+            ->sortByDesc('attendance_percentage')
+            ->values();
+
+        $branchStats = [
+            'total_employees' => Employee::where('branch_id', $branch->id)->count(),
+            'total_present' => $records->whereIn('status', ['present', 'late'])->count(),
+            'total_absent' => $records->where('status', 'absent')->count(),
+            'total_late' => $records->where('status', 'late')->count(),
+            'avg_attendance' => $records->count() > 0
+                ? round(($records->whereIn('status', ['present', 'late'])->count() / $records->count()) * 100, 1)
+                : 0,
+            'total_overtime' => round((float) $records->sum('overtime_hours'), 1),
+        ];
+
+        return view('attendance.reports.branch', compact('branch', 'branchStats', 'dailyStats', 'employeePerformance', 'startDate', 'endDate'));
     }
 
     /**
@@ -187,6 +260,7 @@ class AttendanceReportController extends Controller
      */
     public function lateReport(Request $request)
     {
+        $user = auth()->user();
         $startDate = $request->has('start_date')
             ? Carbon::parse($request->start_date)
             : Carbon::now()->startOfMonth();
@@ -195,7 +269,9 @@ class AttendanceReportController extends Controller
             ? Carbon::parse($request->end_date)
             : Carbon::now()->endOfMonth();
 
-        $branchId = $request->get('branch_id');
+        $branchId = user_can_manage_all_branches($user)
+            ? $request->get('branch_id')
+            : user_branch_id($user);
 
         $query = AttendanceRecord::with(['employee', 'branch'])
             ->where('status', 'late')
@@ -207,7 +283,9 @@ class AttendanceReportController extends Controller
 
         $lateRecords = $query->orderBy('attendance_date', 'desc')->paginate(50);
 
-        $branches = Branch::where('status', 'active')->get();
+        $branches = user_can_manage_all_branches($user)
+            ? Branch::where('status', 'active')->get()
+            : Branch::where('status', 'active')->where('id', user_branch_id($user))->get();
 
         return view('attendance.reports.late', compact('lateRecords', 'branches', 'startDate', 'endDate'));
     }
@@ -217,6 +295,7 @@ class AttendanceReportController extends Controller
      */
     public function overtimeReport(Request $request)
     {
+        $user = auth()->user();
         $startDate = $request->has('start_date')
             ? Carbon::parse($request->start_date)
             : Carbon::now()->startOfMonth();
@@ -225,7 +304,9 @@ class AttendanceReportController extends Controller
             ? Carbon::parse($request->end_date)
             : Carbon::now()->endOfMonth();
 
-        $branchId = $request->get('branch_id');
+        $branchId = user_can_manage_all_branches($user)
+            ? $request->get('branch_id')
+            : user_branch_id($user);
 
         $query = AttendanceRecord::with(['employee', 'branch'])
             ->where('overtime_minutes', '>', 0)
@@ -237,7 +318,9 @@ class AttendanceReportController extends Controller
 
         $overtimeRecords = $query->orderBy('overtime_minutes', 'desc')->paginate(50);
 
-        $branches = Branch::where('status', 'active')->get();
+        $branches = user_can_manage_all_branches($user)
+            ? Branch::where('status', 'active')->get()
+            : Branch::where('status', 'active')->where('id', user_branch_id($user))->get();
 
         return view('attendance.reports.overtime', compact('overtimeRecords', 'branches', 'startDate', 'endDate'));
     }

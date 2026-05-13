@@ -12,7 +12,12 @@ class InventoryController extends Controller
 {
     public function index()
     {
+        $user = auth()->user();
+
         $items = InventoryItem::with(['branch', 'department'])
+            ->when(!user_can_manage_all_branches($user), function ($query) use ($user) {
+                $query->where('branch_id', user_branch_id($user));
+            })
             ->latest()
             ->get();
 
@@ -21,7 +26,10 @@ class InventoryController extends Controller
 
     public function create()
     {
-        $branches = Branch::orderBy('name')->get();
+        $user = auth()->user();
+        $branches = user_can_manage_all_branches($user)
+            ? Branch::orderBy('name')->get()
+            : Branch::where('id', user_branch_id($user))->orderBy('name')->get();
         $departments = Department::orderBy('name')->get();
 
         return view('inventory.create', compact('branches', 'departments'));
@@ -41,6 +49,10 @@ class InventoryController extends Controller
             'notes' => ['nullable', 'string'],
         ]);
 
+        if (!user_can_manage_all_branches(auth()->user())) {
+            $validated['branch_id'] = user_branch_id();
+        }
+
         InventoryItem::create($validated);
 
         return redirect()->route('inventory.index')->with('success', 'Inventory item added successfully.');
@@ -49,7 +61,10 @@ class InventoryController extends Controller
     public function edit($id)
     {
         $item = InventoryItem::findOrFail($id);
-        $branches = Branch::orderBy('name')->get();
+        $user = auth()->user();
+        $branches = user_can_manage_all_branches($user)
+            ? Branch::orderBy('name')->get()
+            : Branch::where('id', user_branch_id($user))->orderBy('name')->get();
         $departments = Department::orderBy('name')->get();
 
         return view('inventory.edit', compact('item', 'branches', 'departments'));
@@ -70,6 +85,10 @@ class InventoryController extends Controller
             'status' => ['required', Rule::in(['active', 'inactive'])],
             'notes' => ['nullable', 'string'],
         ]);
+
+        if (!user_can_manage_all_branches(auth()->user())) {
+            $validated['branch_id'] = user_branch_id();
+        }
 
         $item->update($validated);
 

@@ -23,6 +23,12 @@ class EmployeeController extends Controller
                 ->join('branches', 'employees.branch_id', '=', 'branches.id')
                 ->select('employees.*', 'branches.name as branch_name');
 
+            $user = auth()->user();
+
+            if (!user_can_manage_all_branches($user)) {
+                $query->where('employees.branch_id', user_branch_id($user));
+            }
+
             // Apply Filters
             if (request('branch')) {
                 $query->where('employees.branch_id', request('branch'));
@@ -65,7 +71,10 @@ class EmployeeController extends Controller
     public function create()
     {
         try {
-            $branches = DB::table('branches')->get();
+            $user = auth()->user();
+            $branches = user_can_manage_all_branches($user)
+                ? DB::table('branches')->get()
+                : DB::table('branches')->where('id', user_branch_id($user))->get();
             $departments = Department::orderBy('name')->get();
             return view('employees.create', compact('branches', 'departments'));
         } catch (\Exception $e) {
@@ -79,6 +88,9 @@ class EmployeeController extends Controller
     {
         try {
             $validated = $request->validated();
+            if (!user_can_manage_all_branches(auth()->user())) {
+                $validated['branch_id'] = user_branch_id();
+            }
             $otherAllowances = $this->normalizeOtherAllowances($validated);
             $totalOtherAllowance = round((float) collect($otherAllowances)->sum('amount'), 2);
             $otherAllowanceLabel = count($otherAllowances) === 1
@@ -132,7 +144,10 @@ class EmployeeController extends Controller
     {
         try {
             $employee = DB::table('employees')->where('id', $id)->first();
-            $branches = DB::table('branches')->get();
+            $user = auth()->user();
+            $branches = user_can_manage_all_branches($user)
+                ? DB::table('branches')->get()
+                : DB::table('branches')->where('id', user_branch_id($user))->get();
             $departments = Department::orderBy('name')->get();
 
             if (!$employee) {
@@ -153,6 +168,9 @@ class EmployeeController extends Controller
     {
         try {
             $validated = $request->validated();
+            if (!user_can_manage_all_branches(auth()->user())) {
+                $validated['branch_id'] = user_branch_id();
+            }
             $otherAllowances = $this->normalizeOtherAllowances($validated);
             $totalOtherAllowance = round((float) collect($otherAllowances)->sum('amount'), 2);
             $otherAllowanceLabel = count($otherAllowances) === 1

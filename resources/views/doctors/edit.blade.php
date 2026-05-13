@@ -92,15 +92,20 @@
                     {{-- Branch --}}
                     @php $currentBranch = old('branch_id') ?? $doctor->branch_id; @endphp
                     <div class="col-lg-6">
-                        <label for="branch_id" class="form-label">Branch</label>
-                        <select name="branch_id" id="branch_id" class="form-control" required>
-                            <option value="">Select Branch</option>
-                            @foreach($branches as $branch)
-                                <option value="{{ $branch->id }}" {{ $currentBranch == $branch->id ? 'selected' : '' }}>
-                                    {{ $branch->name }}
-                                </option>
-                            @endforeach
-                        </select>
+                        <label class="form-label">Branch</label>
+                        @if(user_can_manage_all_branches(auth()->user()))
+                            <select name="branch_id" id="branch_id" class="form-control" required>
+                                <option value="">Select Branch</option>
+                                @foreach($branches as $branch)
+                                    <option value="{{ $branch->id }}" {{ $currentBranch == $branch->id ? 'selected' : '' }}>
+                                        {{ $branch->name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        @else
+                            <input type="hidden" name="branch_id" value="{{ auth()->user()->branch_id }}">
+                            <input type="text" class="form-control" value="{{ auth()->user()?->branch?->name ?? 'N/A' }}" readonly>
+                        @endif
                     </div>
 
                     {{-- CNIC --}}

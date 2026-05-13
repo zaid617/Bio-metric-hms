@@ -19,12 +19,13 @@ class DoctorController extends Controller
         $requestedBranchId = (int) request()->query('branch_id', 0);
 
         $query = Doctor::with('branch');
-        // Admin → show all doctors
-        if (!$user || !user_is_admin_like($user)) {
+        // Non-admin roles are always limited to their own branch.
+        if (!$user || !user_can_manage_all_branches($user)) {
 
             // User has branch → show only that branch doctors
-            if (!is_null($user->branch_id)) {
-                $query->where('branch_id', $user->branch_id);
+            $branchId = user_branch_id($user);
+            if (!is_null($branchId)) {
+                $query->where('branch_id', $branchId);
             }
             // User without branch → show nothing
             else {
@@ -61,7 +62,10 @@ class DoctorController extends Controller
     public function create()
     {
         try {
-            $branches = \App\Models\Branch::all();
+            $user = auth()->user();
+            $branches = user_can_manage_all_branches($user)
+                ? \App\Models\Branch::all()
+                : \App\Models\Branch::where('id', user_branch_id($user))->get();
             return view('doctors.create', compact('branches'));
         } catch (\Exception $e) {
             \Log::error('Doctor create form error: ' . $e->getMessage());
@@ -81,7 +85,7 @@ class DoctorController extends Controller
                 'phone'          => 'nullable|string|max:20',
                 'specialization' => 'required|string|max:255',
                 'password'       => 'required|string|min:8',
-                'branch_id'      => 'required|exists:branches,id',
+                'branch_id'      => 'nullable|exists:branches,id',
                 'cnic'           => 'nullable|string|max:20',
                 'dob'            => 'nullable|date',
                 'last_education' => 'nullable|string|max:255',
@@ -92,6 +96,10 @@ class DoctorController extends Controller
 
 
             ]);
+
+            if (!user_can_manage_all_branches(auth()->user())) {
+                $validated['branch_id'] = user_branch_id();
+            }
 
            $validated['shift'] = strtolower($validated['shift']);
 
@@ -146,7 +154,10 @@ class DoctorController extends Controller
     {
         try {
             $doctor = Doctor::findOrFail($id);
-            $branches = \App\Models\Branch::all();
+            $user = auth()->user();
+            $branches = user_can_manage_all_branches($user)
+                ? \App\Models\Branch::all()
+                : \App\Models\Branch::where('id', user_branch_id($user))->get();
             return view('doctors.edit', compact('doctor', 'branches'));
         } catch (\Exception $e) {
             \Log::error('Doctor edit error: ' . $e->getMessage());
@@ -167,7 +178,7 @@ class DoctorController extends Controller
                 'email'          => 'required|email|unique:doctors,email,' . $doctor->id,
                 'phone'          => 'nullable|string|max:20',
                 'specialization' => 'required|string|max:255',
-                'branch_id'      => 'required|exists:branches,id',
+                'branch_id'      => 'nullable|exists:branches,id',
                 'cnic'           => 'nullable|string|max:20',
                 'dob'            => 'nullable|date',
                 'last_education' => 'nullable|string|max:255',
@@ -178,6 +189,10 @@ class DoctorController extends Controller
 
 
             ]);
+
+            if (!user_can_manage_all_branches(auth()->user())) {
+                $validated['branch_id'] = user_branch_id();
+            }
 
             $validated['shift'] = strtolower($validated['shift']);
 

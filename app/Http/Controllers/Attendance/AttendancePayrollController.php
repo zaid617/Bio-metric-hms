@@ -37,16 +37,31 @@ class AttendancePayrollController extends Controller
      */
     public function index(Request $request)
     {
+        $user = auth()->user();
         $perPage = (int) $request->input('per_page', 10);
         $perPage = in_array($perPage, [10, 15, 25, 50, 100]) ? $perPage : 10;
-        $payrolls = $this->modularPayrollService->getPayrollsForIndex($request->all(), $perPage);
+        $filters = $request->all();
 
-        $branches  = Branch::where('status', 'active')->get();
-        $employees = Employee::query()->select('id', 'name')->orderBy('name')->get();
+        if (!user_can_manage_all_branches($user)) {
+            $filters['branch_id'] = user_branch_id($user);
+        }
+
+        $payrolls = $this->modularPayrollService->getPayrollsForIndex($filters, $perPage);
+
+        $branches  = user_can_manage_all_branches($user)
+            ? Branch::where('status', 'active')->get()
+            : Branch::where('status', 'active')->where('id', user_branch_id($user))->get();
+        $employees = Employee::query()
+            ->select('id', 'name')
+            ->when(!user_can_manage_all_branches($user), function ($query) use ($user) {
+                $query->where('branch_id', user_branch_id($user));
+            })
+            ->orderBy('name')
+            ->get();
 
         // Dashboard stats for the selected/current month
         $statMonth = $request->input('period_month') ? Carbon::parse($request->input('period_month')) : now();
-        $stats = $this->modularPayrollService->getDashboardStats((int) $statMonth->month, (int) $statMonth->year);
+        $stats = $this->modularPayrollService->getDashboardStats((int) $statMonth->month, (int) $statMonth->year, user_can_manage_all_branches($user) ? null : user_branch_id($user));
 
         return view('attendance.payroll.index', compact('payrolls', 'branches', 'employees', 'stats', 'statMonth'));
     }
@@ -56,8 +71,16 @@ class AttendancePayrollController extends Controller
      */
     public function create()
     {
-        $branches = Branch::where('status', 'active')->get();
-        $employees = Employee::with('branch')->select('id', 'name', 'designation', 'branch_id')->get();
+        $user = auth()->user();
+        $branches = user_can_manage_all_branches($user)
+            ? Branch::where('status', 'active')->get()
+            : Branch::where('status', 'active')->where('id', user_branch_id($user))->get();
+        $employees = Employee::with('branch')
+            ->select('id', 'name', 'designation', 'branch_id')
+            ->when(!user_can_manage_all_branches($user), function ($query) use ($user) {
+                $query->where('branch_id', user_branch_id($user));
+            })
+            ->get();
 
         return view('attendance.payroll.generate', compact('branches', 'employees'));
     }
@@ -68,6 +91,11 @@ class AttendancePayrollController extends Controller
     public function store(GeneratePayrollRequest $request)
     {
         $validated = $request->validated();
+        $user = Auth::user();
+
+        if (!user_can_manage_all_branches($user)) {
+            $validated['branch_id'] = user_branch_id($user);
+        }
 
         try {
             $periodStart = Carbon::parse($validated['period_start']);
@@ -108,6 +136,7 @@ class AttendancePayrollController extends Controller
      */
     public function edit(AttendancePayroll $payroll)
     {
+        $payroll->load(['employee', 'branch', 'approver', 'adjustments.creator']);
         return view('attendance.payroll.edit', compact('payroll'));
     }
 

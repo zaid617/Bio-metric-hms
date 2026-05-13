@@ -49,7 +49,10 @@ class PatientController extends Controller
     public function create()
     {
         try {
-            $branches = Branch::select('id', 'name')->get();
+            $user = auth()->user();
+            $branches = user_can_manage_all_branches($user)
+                ? Branch::select('id', 'name')->get()
+                : Branch::select('id', 'name')->where('id', user_branch_id($user))->get();
 
             $oldType = session()->getOldInput('referred_by_type');
             $oldId = session()->getOldInput('referred_by_id');
@@ -77,10 +80,14 @@ class PatientController extends Controller
 
         $type = $request->input('type');
         $keyword = trim((string) $request->input('q', ''));
+        $user = auth()->user();
 
         if ($type === 'body_expert_doctor') {
             $doctors = DB::table('doctors')
                 ->select('id', 'first_name', 'last_name')
+                ->when(!user_can_manage_all_branches($user), function ($query) use ($user) {
+                    $query->where('branch_id', user_branch_id($user));
+                })
                 ->when($keyword !== '', function ($query) use ($keyword) {
                     $query->where(function ($inner) use ($keyword) {
                         $inner->where('first_name', 'like', "%{$keyword}%")
@@ -106,6 +113,9 @@ class PatientController extends Controller
 
         $patients = Patient::query()
             ->select('id', 'name', 'mr')
+            ->when(!user_can_manage_all_branches($user), function ($query) use ($user) {
+                $query->where('branch_id', user_branch_id($user));
+            })
             ->when($keyword !== '', function ($query) use ($keyword) {
                 $query->where(function ($inner) use ($keyword) {
                     $inner->where('name', 'like', "%{$keyword}%")
@@ -163,6 +173,11 @@ class PatientController extends Controller
 
             $validatedData = $validator->validate();
             $referredByData = $this->prepareReferredByData($validatedData);
+            $user = auth()->user();
+
+            if (!user_can_manage_all_branches($user)) {
+                $validatedData['branch_id'] = user_branch_id($user);
+            }
 
             $validatedData = array_merge($validatedData, $referredByData);
             $validatedData['type_select'] = $validatedData['type_select'] ?? $this->mapLegacyType($referredByData['referred_by_type']);
@@ -189,7 +204,10 @@ class PatientController extends Controller
     {
         try {
             $patient = Patient::findOrFail($id);
-            $branches = Branch::all();
+            $user = auth()->user();
+            $branches = user_can_manage_all_branches($user)
+                ? Branch::all()
+                : Branch::where('id', user_branch_id($user))->get();
 
             $selectedType = session()->getOldInput('referred_by_type', $patient->referred_by_type);
             $selectedId = session()->hasOldInput('referred_by_id')
@@ -246,6 +264,11 @@ class PatientController extends Controller
 
             $validatedData = $validator->validate();
             $referredByData = $this->prepareReferredByData($validatedData);
+            $user = auth()->user();
+
+            if (!user_can_manage_all_branches($user)) {
+                $validatedData['branch_id'] = user_branch_id($user);
+            }
 
             $validatedData = array_merge($validatedData, $referredByData);
             $validatedData['type_select'] = $validatedData['type_select'] ?? $this->mapLegacyType($referredByData['referred_by_type']);

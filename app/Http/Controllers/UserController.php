@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use App\Models\User;
 use App\Models\Branch;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rule;
 use Spatie\Permission\Models\Role;
 
 class UserController extends Controller
@@ -23,7 +24,13 @@ class UserController extends Controller
     // =========================
     public function index()
     {
-        $users = User::with(['branch', 'roles'])->get();
+        $currentUser = auth()->user();
+
+        $users = User::with(['branch', 'roles'])
+            ->when(!user_can_manage_all_branches($currentUser), function ($query) use ($currentUser) {
+                $query->where('branch_id', user_branch_id($currentUser));
+            })
+            ->get();
         return view('users.index', compact('users'));
     }
 
@@ -39,8 +46,13 @@ public function permissions(User $user)
     // =========================
     public function create()
     {
-        $branches = Branch::all();
-        $roles    = Role::all();
+        $currentUser = auth()->user();
+        $branches = user_can_manage_all_branches($currentUser)
+            ? Branch::all()
+            : Branch::where('id', user_branch_id($currentUser))->get();
+        $roles = user_can_manage_all_branches($currentUser)
+            ? Role::all()
+            : Role::whereNotIn('name', ['admin', 'super-admin', 'view-only-admin'])->get();
 
         return view('users.create', compact('branches', 'roles'));
     }
@@ -62,7 +74,7 @@ public function permissions(User $user)
             'email'     => 'required|email|unique:users',
             'password'  => 'required|min:6',
             'branch_id' => $branchRules,
-            'role'      => 'required|exists:roles,name',
+            'role'      => user_can_manage_all_branches() ? 'required|exists:roles,name' : ['required', Rule::notIn(['admin', 'super-admin', 'view-only-admin']), 'exists:roles,name'],
         ]);
 
         $user = User::create([
@@ -85,8 +97,13 @@ public function permissions(User $user)
     public function edit($id)
     {
         $user     = User::with('roles')->findOrFail($id);
-        $branches = Branch::all();
-        $roles    = Role::all();
+        $currentUser = auth()->user();
+        $branches = user_can_manage_all_branches($currentUser)
+            ? Branch::all()
+            : Branch::where('id', user_branch_id($currentUser))->get();
+        $roles = user_can_manage_all_branches($currentUser)
+            ? Role::all()
+            : Role::whereNotIn('name', ['admin', 'super-admin', 'view-only-admin'])->get();
 
         return view('users.edit', compact('user', 'branches', 'roles'));
     }
@@ -107,7 +124,7 @@ public function permissions(User $user)
             'name'      => 'required|string|max:255',
             'email'     => 'required|email|unique:users,email,' . $user->id,
             'branch_id' => $branchRules,
-            'role'      => 'required|exists:roles,name',
+            'role'      => user_can_manage_all_branches() ? 'required|exists:roles,name' : ['required', Rule::notIn(['admin', 'super-admin', 'view-only-admin']), 'exists:roles,name'],
             'password'  => 'nullable|min:6',
         ]);
 
@@ -137,6 +154,11 @@ public function permissions(User $user)
     public function destroy($id)
     {
         $user = User::findOrFail($id);
+
+        if (!user_can_manage_all_branches() && (int) $user->branch_id !== (int) user_branch_id()) {
+            return back()->with('error', 'You can only delete users from your own branch.');
+        }
+
         $user->delete();
 
         return redirect()->route('users.index')

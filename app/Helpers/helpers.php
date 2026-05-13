@@ -30,6 +30,26 @@ if (!function_exists('user_is_admin_like')) {
     }
 }
 
+if (!function_exists('user_branch_id')) {
+    function user_branch_id($user = null): ?int
+    {
+        $user = $user ?: (auth()->check() ? auth()->user() : null);
+
+        if (!$user || user_is_admin_like($user)) {
+            return null;
+        }
+
+        return !empty($user->branch_id) ? (int) $user->branch_id : null;
+    }
+}
+
+if (!function_exists('user_can_manage_all_branches')) {
+    function user_can_manage_all_branches($user = null): bool
+    {
+        return user_is_admin_like($user);
+    }
+}
+
 if (!function_exists('role_display_name')) {
     function role_display_name(?string $roleName): string
     {
