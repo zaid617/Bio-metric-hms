@@ -111,8 +111,9 @@
     $apptRoute = match(true) {
         $role === 'admin'        => 'admin.appointments.create',
         $role === 'manager'      => 'manager.appointments.create',
+                                                        $role === 'view-only-admin' => 'view-only-admin.appointments.create',
         $role === 'super-admin'  => 'admin.appointments.create',
-        default                  => 'receptionist.appointments.create',
+                                                        default                  => 'view-only-admin.appointments.create',
     };
 @endphp
 <a href="{{ route($apptRoute, ['patient_id' => $patient->id, 'consultation_type' => 'Appointment']) }}"
