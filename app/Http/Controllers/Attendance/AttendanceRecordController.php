@@ -19,10 +19,13 @@ class AttendanceRecordController extends Controller
      */
     public function index(Request $request)
     {
+        $user = auth()->user();
         $query = AttendanceRecord::with(['employee', 'branch', 'device']);
 
-        // Filter by branch
-        if ($request->has('branch_id') && $request->branch_id) {
+        // Branch scoping: non-top roles can only see their own branch.
+        if (!user_can_manage_all_branches($user)) {
+            $query->where('branch_id', user_branch_id($user));
+        } elseif ($request->has('branch_id') && $request->branch_id) {
             $query->where('branch_id', $request->branch_id);
         }
 
@@ -47,8 +50,16 @@ class AttendanceRecordController extends Controller
         $records = $query->latest('attendance_date')->paginate(10);
 
         // Get branches and employees for filters
-        $branches = Branch::where('status', 'active')->get();
-        $employees = Employee::select('id', 'name', 'designation')->orderBy('name')->get();
+        $branches = user_can_manage_all_branches($user)
+            ? Branch::where('status', 'active')->get()
+            : Branch::where('status', 'active')->where('id', user_branch_id($user))->get();
+
+        $employees = Employee::select('id', 'name', 'designation', 'branch_id')
+            ->when(!user_can_manage_all_branches($user), function ($query) use ($user) {
+                $query->where('branch_id', user_branch_id($user));
+            })
+            ->orderBy('name')
+            ->get();
 
         return view('attendance.records.index', compact('records', 'branches', 'employees'));
     }
@@ -58,6 +69,11 @@ class AttendanceRecordController extends Controller
      */
     public function show(Employee $employee, $date)
     {
+        $user = auth()->user();
+        if (!user_can_manage_all_branches($user) && (int) $employee->branch_id !== (int) user_branch_id($user)) {
+            abort(403, 'You can only view attendance records for your own branch.');
+        }
+
         $record = AttendanceRecord::where('employee_id', $employee->id)
             ->where('attendance_date', $date)
             ->with(['device', 'branch'])
@@ -71,6 +87,11 @@ class AttendanceRecordController extends Controller
      */
     public function edit(AttendanceRecord $record)
     {
+        $user = auth()->user();
+        if (!user_can_manage_all_branches($user) && (int) $record->branch_id !== (int) user_branch_id($user)) {
+            abort(403, 'You can only edit attendance records for your own branch.');
+        }
+
         return view('attendance.records.edit', compact('record'));
     }
 
@@ -79,6 +100,11 @@ class AttendanceRecordController extends Controller
      */
     public function update(Request $request, AttendanceRecord $record)
     {
+        $user = auth()->user();
+        if (!user_can_manage_all_branches($user) && (int) $record->branch_id !== (int) user_branch_id($user)) {
+            abort(403, 'You can only update attendance records for your own branch.');
+        }
+
         $validated = $request->validate([
             'check_in' => 'nullable|date_format:H:i',
             'check_out' => 'nullable|date_format:H:i',
@@ -142,6 +168,11 @@ class AttendanceRecordController extends Controller
      */
     public function markMissingCheckout(AttendanceRecord $record)
     {
+        $user = auth()->user();
+        if (!user_can_manage_all_branches($user) && (int) $record->branch_id !== (int) user_branch_id($user)) {
+            abort(403, 'You can only modify attendance records for your own branch.');
+        }
+
         $record->update([
             'is_checkout_missing' => true,
             'check_out' => null,
@@ -160,6 +191,11 @@ class AttendanceRecordController extends Controller
      */
     public function applyManualCheckout(Request $request, AttendanceRecord $record)
     {
+        $user = auth()->user();
+        if (!user_can_manage_all_branches($user) && (int) $record->branch_id !== (int) user_branch_id($user)) {
+            abort(403, 'You can only modify attendance records for your own branch.');
+        }
+
         $request->validate([
             'checkout_time' => 'required|date_format:H:i',
         ]);

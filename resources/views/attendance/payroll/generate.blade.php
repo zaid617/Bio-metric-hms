@@ -53,6 +53,7 @@
                                     All Employees
                                 </label>
                             </div>
+                            @if(user_can_manage_all_branches(auth()->user()))
                             <div class="col-md-4">
                                 <input type="radio" class="btn-check" name="generate_type" id="gen_branch" value="branch" {{ old('generate_type') === 'branch' ? 'checked' : '' }}>
                                 <label class="btn btn-outline-primary w-100" for="gen_branch">
@@ -60,6 +61,7 @@
                                     By Branch
                                 </label>
                             </div>
+                            @endif
                             <div class="col-md-4">
                                 <input type="radio" class="btn-check" name="generate_type" id="gen_emp" value="employee" {{ old('generate_type') === 'employee' ? 'checked' : '' }}>
                                 <label class="btn btn-outline-primary w-100" for="gen_emp">
@@ -70,7 +72,7 @@
                         </div>
                     </div>
 
-                    <div class="mb-3" id="branch_field" style="display:none">
+                    <div class="mb-3" id="branch_field" style="{{ user_can_manage_all_branches(auth()->user()) ? 'display:none' : '' }}">
                         <label class="form-label fw-semibold">Select Branch</label>
                         @if(user_can_manage_all_branches(auth()->user()))
                             <select name="branch_id" id="branch_id" class="form-select @error('branch_id') is-invalid @enderror">

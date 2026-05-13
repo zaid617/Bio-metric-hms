@@ -28,14 +28,19 @@
                         <div class="row">
                             <div class="col-md-3 mb-2">
                                 <label class="form-label">Branch</label>
-                                <select name="branch_id" class="form-select">
-                                    <option value="">All Branches</option>
-                                    @foreach($branches as $branch)
-                                        <option value="{{ $branch->id }}" {{ request('branch_id') == $branch->id ? 'selected' : '' }}>
-                                            {{ $branch->name }}
-                                        </option>
-                                    @endforeach
-                                </select>
+                                @if(user_can_manage_all_branches(auth()->user()))
+                                    <select name="branch_id" class="form-select">
+                                        <option value="">All Branches</option>
+                                        @foreach($branches as $branch)
+                                            <option value="{{ $branch->id }}" {{ request('branch_id') == $branch->id ? 'selected' : '' }}>
+                                                {{ $branch->name }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                @else
+                                    <input type="hidden" name="branch_id" value="{{ auth()->user()->branch_id }}">
+                                    <input type="text" class="form-control" value="{{ auth()->user()?->branch?->name ?? 'N/A' }}" readonly>
+                                @endif
                             </div>
 
                             <div class="col-md-3 mb-2">
