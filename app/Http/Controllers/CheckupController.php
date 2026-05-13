@@ -148,9 +148,40 @@ class CheckupController extends Controller
             $oldId = session()->getOldInput('referred_by_id');
             $oldName = session()->getOldInput('referred_by_name');
 
-            $initialReferrer = $this->resolveReferrerOption($oldType, $oldId);
-            $referredBySource = session()->getOldInput('referred_by_source')
-                ?: $this->resolveReferredBySource($oldType, $oldId, $oldName);
+            // If a patient_id is provided from the patients table action, try to
+            // prefill the referred-by fields from the patient's stored referrer.
+            $requestedPatientId = $request->query('patient_id');
+            if ($requestedPatientId && !$oldType && !$oldId && !$oldName) {
+                $requestedPatientId = (int) $requestedPatientId;
+                $patientRow = DB::table('patients')
+                    ->select('id', 'referred_by_type', 'referred_by_id', 'referred_by_name')
+                    ->where('id', $requestedPatientId)
+                    ->first();
+
+                // Always set the patient_id so the patient dropdown is preselected
+                $flashInput = ['patient_id' => $requestedPatientId];
+
+                if ($patientRow && ($patientRow->referred_by_type || $patientRow->referred_by_id || $patientRow->referred_by_name)) {
+                    $flashInput['referred_by_type'] = $patientRow->referred_by_type;
+                    $flashInput['referred_by_id'] = $patientRow->referred_by_id;
+                    $flashInput['referred_by_name'] = $patientRow->referred_by_name;
+                    $flashInput['referred_by_source'] = $this->resolveReferredBySource($patientRow->referred_by_type, $patientRow->referred_by_id, $patientRow->referred_by_name) ?: ($patientRow->referred_by_id ? 'internal' : 'external');
+
+                    session()->flashInput($flashInput);
+
+                    $initialReferrer = $this->resolveReferrerOption($patientRow->referred_by_type, $patientRow->referred_by_id);
+                    $referredBySource = $flashInput['referred_by_source'];
+                } else {
+                    // No stored referrer on patient — do not prefill referred-by fields.
+                    session()->flashInput($flashInput);
+                    $initialReferrer = null;
+                    $referredBySource = null;
+                }
+            } else {
+                $initialReferrer = $this->resolveReferrerOption($oldType, $oldId);
+                $referredBySource = session()->getOldInput('referred_by_source')
+                    ?: $this->resolveReferredBySource($oldType, $oldId, $oldName);
+            }
 
             return view('consultations.create', compact(
                 'patients',

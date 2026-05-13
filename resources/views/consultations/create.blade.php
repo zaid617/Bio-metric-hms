@@ -14,10 +14,13 @@
     <x-page-title title="Consultations" subtitle="Add New Consultation" />
 
     @php
-        $referredByType = old('referred_by_type');
+        // Support prefill from query params (patient_id) as a fallback when old() is not present.
+        $queryPatientId = request()->query('patient_id');
+
+        $referredByType = old('referred_by_type', request()->query('referred_by_type', $queryPatientId ? 'body_expert_patient' : null));
         $referredByName = old('referred_by_name');
-        $referredById = old('referred_by_id');
-        $referredBySourceValue = old('referred_by_source', $referredBySource ?? null);
+        $referredById = old('referred_by_id', request()->query('referred_by_id', $queryPatientId ? $queryPatientId : null));
+        $referredBySourceValue = old('referred_by_source', $referredBySource ?? request()->query('referred_by_source', $queryPatientId ? 'internal' : null));
         $requestedConsultationType = request('consultation_type');
         $availableConsultationTypes = $consultationTypes ?? ['Appointment', 'Enrollment'];
 
