@@ -50,11 +50,18 @@ public function permissions(User $user)
     // =========================
     public function store(Request $request)
     {
+        $role = $request->input('role');
+
+        // Branch is optional for site-wide roles
+        $branchRules = in_array($role, ['admin', 'super-admin'], true)
+            ? 'nullable|exists:branches,id'
+            : 'required|exists:branches,id';
+
         $request->validate([
             'name'      => 'required|string|max:255',
             'email'     => 'required|email|unique:users',
             'password'  => 'required|min:6',
-            'branch_id' => 'required|exists:branches,id',
+            'branch_id' => $branchRules,
             'role'      => 'required|exists:roles,name',
         ]);
 
@@ -62,7 +69,7 @@ public function permissions(User $user)
             'name'      => $request->name,
             'email'     => $request->email,
             'password'  => Hash::make($request->password),
-            'branch_id' => $request->branch_id,
+            'branch_id' => in_array($role, ['admin', 'super-admin'], true) ? null : $request->branch_id,
         ]);
 
         // ✅ Spatie role assign
@@ -90,11 +97,16 @@ public function permissions(User $user)
     public function update(Request $request, $id)
     {
         $user = User::findOrFail($id);
+        $role = $request->input('role');
+
+        $branchRules = in_array($role, ['admin', 'super-admin'], true)
+            ? 'nullable|exists:branches,id'
+            : 'required|exists:branches,id';
 
         $request->validate([
             'name'      => 'required|string|max:255',
             'email'     => 'required|email|unique:users,email,' . $user->id,
-            'branch_id' => 'required|exists:branches,id',
+            'branch_id' => $branchRules,
             'role'      => 'required|exists:roles,name',
             'password'  => 'nullable|min:6',
         ]);
@@ -102,7 +114,7 @@ public function permissions(User $user)
         $user->update([
             'name'      => $request->name,
             'email'     => $request->email,
-            'branch_id' => $request->branch_id,
+            'branch_id' => in_array($role, ['admin', 'super-admin'], true) ? null : $request->branch_id,
         ]);
 
         // 🔐 Password update (optional)

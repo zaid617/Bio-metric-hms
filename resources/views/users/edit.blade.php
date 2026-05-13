@@ -50,7 +50,7 @@
                 </div>
 
                 {{-- Branch --}}
-                <div class="col-lg-6">
+                <div class="col-lg-6" id="branch-field">
                     <label for="branch_id" class="form-label">Branch</label>
                     <select name="branch_id" id="branch_id" class="form-control" required>
                         <option value="">Select Branch</option>
@@ -67,13 +67,41 @@
                     <label for="role" class="form-label">Role</label>
                     <select name="role" id="role" class="form-control" required>
                         <option value="">Select Role</option>
+                            @php $selectedRole = old('role', optional($user->roles->first())->name); @endphp
                             @foreach($roles as $role)
-                                <option value="{{ $role->name }}">
+                                <option value="{{ $role->name }}" {{ $selectedRole === $role->name ? 'selected' : '' }}>
                                     {{ role_display_name($role->name) }}
                                 </option>
                             @endforeach
                     </select>
                 </div>
+
+                @push('script')
+                <script>
+                    (function () {
+                        const roleSelect = document.getElementById('role');
+                        const branchField = document.getElementById('branch-field');
+                        const branchSelect = document.getElementById('branch_id');
+                        const hideForRoles = ['admin', 'super-admin'];
+
+                        const toggleBranch = () => {
+                            const role = roleSelect.value;
+                            if (hideForRoles.includes(role)) {
+                                branchField.style.display = 'none';
+                                branchSelect.removeAttribute('required');
+                                branchSelect.value = '';
+                            } else {
+                                branchField.style.display = '';
+                                branchSelect.setAttribute('required', 'required');
+                            }
+                        };
+
+                        roleSelect.addEventListener('change', toggleBranch);
+                        // Initial toggle
+                        document.addEventListener('DOMContentLoaded', toggleBranch);
+                    })();
+                </script>
+                @endpush
 
                 {{-- Submit Buttons --}}
                 <div class="mt-4 d-flex gap-2">
