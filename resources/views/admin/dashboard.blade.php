@@ -33,6 +33,7 @@
                     <div class="row">
                         <!-- Doctors -->
                         <div class="col-6 mb-2">
+                            <a href="{{ route('doctors.index', ['branch_id' => $branch['branch_id'] ?? null]) }}" class="text-decoration-none text-reset d-block">
                             <div class="d-flex align-items-center p-3 stat-card-custom border border-primary">
                                 <i class="fas fa-user-md fa-2x text-primary me-3"></i>
                                 <div>
@@ -40,9 +41,11 @@
                                     <small>Doctors</small>
                                 </div>
                             </div>
+                            </a>
                         </div>
                         <!-- Patients -->
                         <div class="col-6 mb-2">
+                            <a href="{{ route('patients.index', ['branch_id' => $branch['branch_id'] ?? null]) }}" class="text-decoration-none text-reset d-block">
                             <div class="d-flex align-items-center p-3 stat-card-custom border border-success">
                                 <i class="fas fa-users fa-2x text-success me-3"></i>
                                 <div>
@@ -50,9 +53,14 @@
                                     <small>Patients</small>
                                 </div>
                             </div>
+                            </a>
                         </div>
                         <!-- Today Consultations -->
                         <div class="col-6 mb-2" id="consultations-{{ $branch['branch_id'] }}">
+                            <a id="consultations-link-{{ $branch['branch_id'] }}"
+                               data-branch-id="{{ $branch['branch_id'] }}"
+                               href="{{ route('consultations.index', ['branch_id' => $branch['branch_id'] ?? null, 'date_from' => now()->toDateString(), 'date_to' => now()->toDateString()]) }}"
+                               class="text-decoration-none text-reset d-block">
                             <div class="d-flex align-items-center p-3 stat-card-custom border border-info">
                                 <i class="fas fa-handshake fa-2x text-info me-3"></i>
                                 <div>
@@ -60,9 +68,14 @@
                                     <small>Consultations</small>
                                 </div>
                             </div>
+                            </a>
                         </div>
                         <!-- Sessions -->
                         <div class="col-6 mb-2" id="sessions-{{ $branch['branch_id'] }}">
+                            <a id="sessions-link-{{ $branch['branch_id'] }}"
+                               data-branch-id="{{ $branch['branch_id'] }}"
+                               href="{{ route('sessions.index', ['branch_id' => $branch['branch_id'] ?? null, 'date_from' => now()->toDateString(), 'date_to' => now()->toDateString()]) }}"
+                               class="text-decoration-none text-reset d-block">
                             <div class="d-flex align-items-center p-3 stat-card-custom border border-warning">
                                 <i class="fas fa-calendar-check fa-2x text-warning me-3"></i>
                                 <div>
@@ -70,10 +83,14 @@
                                     <small>Sessions</small>
                                 </div>
                             </div>
+                            </a>
                         </div>
                         <!-- Total Payments -->
                         <div class="col-6" id="today-payments-{{ $branch['branch_id'] }}">
-                            <a href="{{ route('payments.appointment-invoices', ['branch_id' => $branch['branch_id'] ?? null, 'date_from' => now()->toDateString(), 'date_to' => now()->toDateString()]) }}" class="text-decoration-none text-reset d-block">
+                            <a id="today-payments-link-{{ $branch['branch_id'] }}"
+                               data-branch-id="{{ $branch['branch_id'] }}"
+                               href="{{ route('payments.appointment-invoices', ['branch_id' => $branch['branch_id'] ?? null, 'date_from' => now()->toDateString(), 'date_to' => now()->toDateString()]) }}"
+                               class="text-decoration-none text-reset d-block">
                             <div class="d-flex align-items-center p-3 stat-card-custom border border-danger">
                                 <i class="fas fa-coins fa-2x text-danger me-3"></i>
                                 <div>
@@ -87,7 +104,10 @@
                         </div>
                         <!-- Total Payments -->
                         <div class="col-6" id="total-payments-{{ $branch['branch_id'] }}">
-                            <a href="{{ route('payments.appointment-invoices', ['branch_id' => $branch['branch_id'] ?? null]) }}" class="text-decoration-none text-reset d-block">
+                            <a id="month-payments-link-{{ $branch['branch_id'] }}"
+                               data-branch-id="{{ $branch['branch_id'] }}"
+                               href="{{ route('payments.appointment-invoices', ['branch_id' => $branch['branch_id'] ?? null, 'date_from' => now()->startOfMonth()->toDateString(), 'date_to' => now()->endOfMonth()->toDateString()]) }}"
+                               class="text-decoration-none text-reset d-block">
                             <div class="d-flex align-items-center p-3 stat-card-custom border border-danger">
                                 <i class="fas fa-coins fa-2x text-danger me-3"></i>
                                 <div>
@@ -100,6 +120,7 @@
                             </a>
                         </div>
                         <div class="col-6" id="consultation-pending-{{ $branch['branch_id'] }}">
+                            <a href="{{ route('payments.appointment-invoices', ['branch_id' => $branch['branch_id'] ?? null, 'status' => 'outstanding']) }}" class="text-decoration-none text-reset d-block">
                             <div class="d-flex align-items-center p-3 stat-card-custom border border-warning">
                                 <i class="fas fa-file-invoice-dollar fa-2x text-warning me-3"></i>
                                 <div>
@@ -109,6 +130,7 @@
                                     <small>Consultation Pending</small>
                                 </div>
                             </div>
+                            </a>
                         </div>
                     </div>
                 </div>
@@ -212,6 +234,20 @@
 
     <script>
         $(document).ready(function() {
+            const consultationsBaseUrl = @json(route('consultations.index'));
+            const sessionsBaseUrl = @json(route('sessions.index'));
+            const appointmentInvoicesBaseUrl = @json(route('payments.appointment-invoices'));
+
+            const buildUrl = (baseUrl, params) => {
+                const url = new URL(baseUrl, window.location.origin);
+                Object.entries(params).forEach(([key, value]) => {
+                    if (value !== null && value !== undefined && value !== '') {
+                        url.searchParams.set(key, value);
+                    }
+                });
+                return url.toString();
+            };
+
             const toNumber = (value) => {
                 const num = Number(value);
                 return Number.isFinite(num) ? num : 0;
@@ -260,6 +296,35 @@
                         $(`#today-payments-${branchId} h6`).text(formatInt(totalPaymentsToday));
                         $(`#total-payments-${branchId} h6`).text(formatInt(totalPaymentsAll));
                         $(`#consultation-pending-${branchId} h6`).text(formatInt(consultationPendingTotal));
+
+                        const monthStart = selectedDate.slice(0, 8) + '01';
+                        const selectedDateObj = new Date(selectedDate + 'T00:00:00');
+                        const monthEndObj = new Date(selectedDateObj.getFullYear(), selectedDateObj.getMonth() + 1, 0);
+                        const monthEnd = `${monthEndObj.getFullYear()}-${String(monthEndObj.getMonth() + 1).padStart(2, '0')}-${String(monthEndObj.getDate()).padStart(2, '0')}`;
+
+                        $(`#consultations-link-${branchId}`).attr('href', buildUrl(consultationsBaseUrl, {
+                            branch_id: branchId,
+                            date_from: selectedDate,
+                            date_to: selectedDate,
+                        }));
+
+                        $(`#sessions-link-${branchId}`).attr('href', buildUrl(sessionsBaseUrl, {
+                            branch_id: branchId,
+                            date_from: selectedDate,
+                            date_to: selectedDate,
+                        }));
+
+                        $(`#today-payments-link-${branchId}`).attr('href', buildUrl(appointmentInvoicesBaseUrl, {
+                            branch_id: branchId,
+                            date_from: selectedDate,
+                            date_to: selectedDate,
+                        }));
+
+                        $(`#month-payments-link-${branchId}`).attr('href', buildUrl(appointmentInvoicesBaseUrl, {
+                            branch_id: branchId,
+                            date_from: monthStart,
+                            date_to: monthEnd,
+                        }));
                     },
                     error: function() {
                         alert('Failed to fetch data. Please try again.');

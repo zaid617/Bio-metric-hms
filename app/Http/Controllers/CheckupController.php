@@ -19,6 +19,7 @@ class CheckupController extends Controller
     {
         try {
             $user = auth()->user();
+            $requestedBranchId = (int) $request->query('branch_id', 0);
             $pendingExpression = $this->pendingAmountExpression();
 
             $query = DB::table('checkups')
@@ -44,7 +45,10 @@ class CheckupController extends Controller
                 );
 
             if ($user && user_is_admin_like($user)) {
-                // Admin / Super Admin sees all checkups.
+                // Admin / Super Admin sees all checkups unless a branch filter is requested.
+                if ($requestedBranchId > 0) {
+                    $query->where('checkups.branch_id', $requestedBranchId);
+                }
             } elseif ($user->hasRole('doctor')) {
                 $query->where('checkups.doctor_id', $user->id);
             } else {
@@ -114,6 +118,7 @@ class CheckupController extends Controller
                     'unpaid' => 'Unpaid',
                 ],
                 'filters' => [
+                    'branch_id' => $request->input('branch_id', ''),
                     'consultation_type' => $request->input('consultation_type', ''),
                     'date_from' => $request->input('date_from', ''),
                     'date_to' => $request->input('date_to', ''),

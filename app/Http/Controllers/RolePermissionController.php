@@ -16,18 +16,18 @@ class RolePermissionController extends Controller
     {
         $roles       = Role::with('permissions')->get();
         $permissions = Permission::where('name', 'like', '%.%')->orderBy('name')->get();
-        $isSuperAdmin = auth()->user()?->hasRole('super-admin') ?? false;
+        $canManageTopRole = auth()->user()?->hasAnyRole(['admin', 'super-admin']) ?? false;
 
-        return view('role_permissions.roles', compact('roles', 'permissions', 'isSuperAdmin'));
+        return view('role_permissions.roles', compact('roles', 'permissions', 'canManageTopRole'));
     }
 
     public function updateRolePermission(Request $request)
     {
         $role = Role::findOrFail($request->role_id);
 
-        // Only super-admin may modify the super-admin role's permissions
-        if ($role->name === 'super-admin' && !auth()->user()?->hasRole('super-admin')) {
-            return response()->json(['status' => 'error', 'message' => 'Only super-admin can modify super-admin permissions.'], 403);
+        // Only CEO(admin) or super-admin may modify the super-admin role's permissions
+        if ($role->name === 'super-admin' && !auth()->user()?->hasAnyRole(['admin', 'super-admin'])) {
+            return response()->json(['status' => 'error', 'message' => 'Only CEO or super-admin can modify super-admin permissions.'], 403);
         }
 
         $permission = Permission::where('name', $request->permission_name)

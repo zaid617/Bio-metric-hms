@@ -636,7 +636,7 @@ $totalPerms = $permissions->where('guard_name','web')->count();
         <h5 class="rp-header-title">Role Permissions</h5>
         <div class="rp-header-sub">{{ $totalPerms }} permissions &middot; {{ $webRoles->count() }} roles</div>
     </div>
-    @if($isSuperAdmin)
+    @if(($canManageTopRole ?? ($isSuperAdmin ?? false)))
     <span class="sa-badge">
         <span class="material-icons-outlined">shield</span>
         Super Admin

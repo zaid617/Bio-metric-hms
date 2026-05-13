@@ -16,6 +16,7 @@ class DoctorController extends Controller
 {
     try {
         $user = auth()->user();
+        $requestedBranchId = (int) request()->query('branch_id', 0);
 
         $query = Doctor::with('branch');
         // Admin → show all doctors
@@ -29,6 +30,8 @@ class DoctorController extends Controller
             else {
                 $query->whereRaw('1 = 0');
             }
+        } elseif ($requestedBranchId > 0) {
+            $query->where('branch_id', $requestedBranchId);
         }
 
         $doctors = $query->get();
