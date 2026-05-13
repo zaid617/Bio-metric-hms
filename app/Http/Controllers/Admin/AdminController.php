@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Branch;
 use App\Models\Checkup;
 use App\Models\Doctor;
+use App\Models\Employee;
 use App\Models\Patient;
 use App\Models\Transaction;
 use Carbon\Carbon;
@@ -15,13 +16,23 @@ class AdminController extends Controller
 {
     public function dashboard()
     {
-        $branches = Branch::all();
+        $user = auth()->user();
+
+        // If the user is not an admin-like user and has a branch assigned,
+        // only show that single branch on the dashboard (branch-admin view).
+        if ($user && !user_is_admin_like($user) && !empty($user->branch_id)) {
+            $branches = Branch::where('id', $user->branch_id)->get();
+        } else {
+            $branches = Branch::all();
+        }
 
         $branchStats = $branches->map(function ($branch) {
 
             // ────────────── Basic Counts ──────────────
             $totalDoctors  = Doctor::where('branch_id', $branch->id)->count();
             $totalPatients = Patient::where('branch_id', $branch->id)->count();
+            $totalEmployees = Employee::where('branch_id', $branch->id)->count();
+            $totalAppointments = Checkup::where('branch_id', $branch->id)->count();
 
             // ────────────── Transactions Today ──────────────
             $transactionsToday = Transaction::where('branch_id', $branch->id)
@@ -62,6 +73,8 @@ class AdminController extends Controller
                 'branch_name'             => $branch->name,
                 'totalDoctors'            => $totalDoctors,
                 'totalPatients'           => $totalPatients,
+                'totalEmployees'          => $totalEmployees,
+                'totalAppointments'       => $totalAppointments,
                 'totalConsultationsToday' => $totalConsultationsToday,
                 'totalSessionsToday'      => $totalSessionsToday,
                 'checkupPaymentsToday'    => $checkupPaymentsToday,
@@ -72,7 +85,9 @@ class AdminController extends Controller
             ];
         });
 
-        return view('admin.dashboard', compact('branchStats'));
+        $overallTitle = ($branches->count() === 1) ? ($branches->first()->name ?? 'Branch') : 'Overall Branches';
+
+        return view('admin.dashboard', compact('branchStats', 'overallTitle'));
     }
 
     public function branchStatsByDate(Request $request)

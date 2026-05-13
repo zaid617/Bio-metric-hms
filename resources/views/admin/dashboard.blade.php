@@ -12,6 +12,10 @@
 
 @section('content')
 
+    @php
+        $hideFinancialCards = auth()->user()?->hasRole('super-admin') ?? false;
+    @endphp
+
     <!-- Page Heading -->
     <div class="dashboard-title">
         <p class="text-muted">Welcome to the Clinic Dashboard</p>
@@ -55,6 +59,28 @@
                             </div>
                             </a>
                         </div>
+                        <!-- Employees -->
+                        <div class="col-6 mb-2">
+                            <div class="d-flex align-items-center p-3 stat-card-custom border border-secondary">
+                                <i class="fas fa-id-badge fa-2x text-secondary me-3"></i>
+                                <div>
+                                    <h6 class="mb-0">{{ $branch['totalEmployees'] ?? 0 }}</h6>
+                                    <small>Employees</small>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Appointments -->
+                        <div class="col-6 mb-2">
+                            <a href="{{ route('consultations.index', ['branch_id' => $branch['branch_id'] ?? null]) }}" class="text-decoration-none text-reset d-block">
+                            <div class="d-flex align-items-center p-3 stat-card-custom border border-info">
+                                <i class="fas fa-stethoscope fa-2x text-info me-3"></i>
+                                <div>
+                                    <h6 class="mb-0">{{ $branch['totalAppointments'] ?? 0 }}</h6>
+                                    <small>Appointments</small>
+                                </div>
+                            </div>
+                            </a>
+                        </div>
                         <!-- Today Consultations -->
                         <div class="col-6 mb-2" id="consultations-{{ $branch['branch_id'] }}">
                             <a id="consultations-link-{{ $branch['branch_id'] }}"
@@ -86,6 +112,7 @@
                             </a>
                         </div>
                         <!-- Total Payments -->
+                        @if(!$hideFinancialCards)
                         <div class="col-6" id="today-payments-{{ $branch['branch_id'] }}">
                             <a id="today-payments-link-{{ $branch['branch_id'] }}"
                                data-branch-id="{{ $branch['branch_id'] }}"
@@ -132,6 +159,7 @@
                             </div>
                             </a>
                         </div>
+                        @endif
                     </div>
                 </div>
             </div>
@@ -146,7 +174,8 @@
     @php
         $overallDoctors = collect($branchStats)->sum('totalDoctors');
         $overallPatients = collect($branchStats)->sum('totalPatients');
-        $overallCheckups = collect($branchStats)->sum('totalCheckups');
+        $overallEmployees = collect($branchStats)->sum('totalEmployees');
+        $overallAppointments = collect($branchStats)->sum('totalAppointments');
         $overallSessions = collect($branchStats)->sum('totalSessionsToday');
         $overallPayments = collect($branchStats)->sum(fn($b) => ($b['checkupPaymentsToday'] ?? 0) + ($b['sessionPaymentsToday'] ?? 0));
         $overallConsultationPending = collect($branchStats)->sum('consultationPendingTotal');
@@ -154,9 +183,9 @@
 
     <!-- Overall Heading -->
 
-   <div class="card shadow border-0 mb-4">
+    <div class="card shadow border-0 mb-4">
     <div class="card-header bg-danger text-white d-flex justify-content-between align-items-center">
-        <h5 class="mb-0 text-white">Overall Branches</h5>
+        <h5 class="mb-0 text-white">{{ $overallTitle ?? 'Overall Branches' }}</h5>
         <small>{{ \Carbon\Carbon::now()->format('d M Y') }}</small>
     </div>
     <div class="card-body">
@@ -184,24 +213,25 @@
             <!-- Checkups -->
             <div class="col-4 col-md-2 mb-3">
                 <div class="d-flex align-items-center p-3 bg-light rounded shadow-sm">
-                    <i class="fas fa-stethoscope fa-2x text-info me-3"></i>
+                    <i class="fas fa-id-badge fa-2x text-secondary me-3"></i>
                     <div>
-                        <h6 class="mb-0">{{ $overallCheckups }}</h6>
-                        <small>Checkups</small>
+                        <h6 class="mb-0">{{ $overallEmployees }}</h6>
+                        <small>Employees</small>
                     </div>
                 </div>
             </div>
             <!-- Sessions -->
             <div class="col-4 col-md-2 mb-3">
                 <div class="d-flex align-items-center p-3 bg-light rounded shadow-sm">
-                    <i class="fas fa-calendar-check fa-2x text-warning me-3"></i>
+                    <i class="fas fa-stethoscope fa-2x text-info me-3"></i>
                     <div>
-                        <h6 class="mb-0">{{ $overallSessions }}</h6>
-                        <small>Sessions</small>
+                        <h6 class="mb-0">{{ $overallAppointments }}</h6>
+                        <small>Appointments</small>
                     </div>
                 </div>
             </div>
             <!-- Total Payments -->
+            @if(!$hideFinancialCards)
             <div class="col-4 col-md-2 mb-3">
                 <div class="d-flex align-items-center p-3 bg-light rounded shadow-sm">
                     <i class="fas fa-coins fa-2x text-dark me-3"></i>
@@ -220,6 +250,7 @@
                     </div>
                 </div>
             </div>
+            @endif
         </div>
     </div>
 </div>
