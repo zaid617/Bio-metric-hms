@@ -38,6 +38,7 @@ class Employee extends Model
         'shift_start_time',
         'phone',
         'joining_date',
+        'appointment_letter',
         'device_id',
         'user_id_on_device',
     ];

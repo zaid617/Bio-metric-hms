@@ -19,7 +19,7 @@
                     </div>
                 @endif
 
-                <form action="{{ url('/employees/'.$employee->id) }}" method="POST" class="row g-4">
+                <form action="{{ url('/employees/'.$employee->id) }}" method="POST" class="row g-4" enctype="multipart/form-data">
                     @csrf
                     @method('PUT')
                     @php
@@ -320,6 +320,16 @@
                         <label for="joining_date" class="form-label fw-semibold">Joining Date</label>
                         <input type="date" class="form-control form-control-lg" id="joining_date" name="joining_date"
                                value="{{ old('joining_date', \Carbon\Carbon::parse($employee->joining_date)->format('Y-m-d')) }}" required>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label for="appointment_letter" class="form-label fw-semibold">Appointment Letter</label>
+                        <input type="file" class="form-control form-control-lg" id="appointment_letter" name="appointment_letter" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx">
+                        <small class="text-muted d-block">Upload a new file to replace the existing letter.</small>
+                        @if(!empty($employee->appointment_letter))
+                            <a href="{{ asset($employee->appointment_letter) }}" target="_blank" class="small d-inline-block mt-1">Current file</a>
+                        @endif
+                        @error('appointment_letter')<small class="text-danger d-block">{{ $message }}</small>@enderror
                     </div>
 
                     {{-- Buttons --}}

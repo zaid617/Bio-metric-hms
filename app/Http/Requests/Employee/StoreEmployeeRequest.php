@@ -25,6 +25,7 @@ class StoreEmployeeRequest extends FormRequest
             'working_hours' => 'required|numeric|min:1|max:24',
             'phone' => 'required|string|max:20',
             'joining_date' => 'required|date',
+            'appointment_letter' => 'nullable|file|mimes:pdf,jpg,jpeg,png,doc,docx|max:5120',
 
             'allowance_allied_health_council' => 'nullable|numeric|min:0',
             'allowance_house_job' => 'nullable|numeric|min:0',

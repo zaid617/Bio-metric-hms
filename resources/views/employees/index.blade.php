@@ -109,6 +109,7 @@
                         <th style="min-width: 180px;" class="text-end">Salary Components</th>
                         <th style="min-width: 120px;">Phone</th>
                         <th style="min-width: 120px;">Joining Date</th>
+                        <th style="min-width: 140px;">Letter</th>
                         <th class="text-nowrap" style="width: 130px;">Actions</th>
                     </tr>
                 </thead>
@@ -197,8 +198,24 @@
                             {{ \Carbon\Carbon::parse($employee->joining_date)->format('d M Y') }}
                         </td>
 
+                        <td class="text-center">
+                            @if(!empty($employee->appointment_letter))
+                                <a href="{{ asset($employee->appointment_letter) }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                    View Letter
+                                </a>
+                            @else
+                                <span class="text-muted">N/A</span>
+                            @endif
+                        </td>
+
                         {{-- Actions --}}
                         <td class="text-center text-nowrap">
+                            @can('employees.view')
+                            <a href="{{ route('employees.show', $employee->id) }}" class="btn btn-sm btn-secondary text-white me-1">
+                                <i class="bi bi-eye"></i>
+                            </a>
+                            @endcan
+
                             @can('employees.edit')
                             <a href="{{ url('/employees/'.$employee->id.'/edit') }}" class="btn btn-sm btn-info text-white me-1">
                                 <i class="bi bi-pencil-square"></i>

@@ -7,7 +7,10 @@ use App\Models\Employee;
 use App\Http\Requests\Employee\StoreEmployeeRequest;
 use App\Http\Requests\Employee\UpdateEmployeeRequest;
 use App\Services\Attendance\AttendanceSyncService;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Str;
 
 class EmployeeController extends Controller
 {
@@ -88,6 +91,8 @@ class EmployeeController extends Controller
     {
         try {
             $validated = $request->validated();
+            $appointmentLetterPath = $this->storeAppointmentLetter($request->file('appointment_letter'));
+
             if (!user_can_manage_all_branches(auth()->user())) {
                 $validated['branch_id'] = user_branch_id();
             }
@@ -97,7 +102,7 @@ class EmployeeController extends Controller
                 ? ($otherAllowances[0]['label'] ?? 'Other Allowance')
                 : null;
 
-            DB::transaction(function () use ($validated, $otherAllowances, $totalOtherAllowance, $otherAllowanceLabel) {
+            DB::transaction(function () use ($validated, $otherAllowances, $totalOtherAllowance, $otherAllowanceLabel, $appointmentLetterPath) {
                 $department = Department::findOrFail($validated['department_id']);
 
                 DB::table('employees')->insert([
@@ -127,6 +132,7 @@ class EmployeeController extends Controller
                     'working_hours' => $validated['working_hours'],
                     'phone' => $validated['phone'],
                     'joining_date' => $validated['joining_date'],
+                    'appointment_letter' => $appointmentLetterPath,
                     'created_at' => now(),
                     'updated_at' => now(),
                 ]);
@@ -168,6 +174,17 @@ class EmployeeController extends Controller
     {
         try {
             $validated = $request->validated();
+            $employee = Employee::find($id);
+            if (!$employee) {
+                return redirect('employees')->with('error', 'Employee not found.');
+            }
+
+            $appointmentLetterPath = $employee->appointment_letter;
+            if ($request->hasFile('appointment_letter')) {
+                $this->deleteAppointmentLetter($employee->appointment_letter);
+                $appointmentLetterPath = $this->storeAppointmentLetter($request->file('appointment_letter'));
+            }
+
             if (!user_can_manage_all_branches(auth()->user())) {
                 $validated['branch_id'] = user_branch_id();
             }
@@ -177,7 +194,7 @@ class EmployeeController extends Controller
                 ? ($otherAllowances[0]['label'] ?? 'Other Allowance')
                 : null;
 
-            DB::transaction(function () use ($validated, $id, $otherAllowances, $totalOtherAllowance, $otherAllowanceLabel) {
+            DB::transaction(function () use ($validated, $id, $otherAllowances, $totalOtherAllowance, $otherAllowanceLabel, $appointmentLetterPath) {
                 $department = Department::findOrFail($validated['department_id']);
 
                 DB::table('employees')->where('id', $id)->update([
@@ -207,11 +224,11 @@ class EmployeeController extends Controller
                     'working_hours' => $validated['working_hours'],
                     'phone' => $validated['phone'],
                     'joining_date' => $validated['joining_date'],
+                    'appointment_letter' => $appointmentLetterPath,
                     'updated_at' => now(),
                 ]);
             });
 
-            $employee = Employee::find($id);
             if ($employee) {
                 $this->attendanceSyncService->recalculateEmployeeAttendanceRecords($employee);
             }
@@ -227,11 +244,31 @@ class EmployeeController extends Controller
     public function destroy($id)
     {
         try {
-            DB::table('employees')->where('id', $id)->delete();
+            $employee = Employee::find($id);
+            if ($employee) {
+                $this->deleteAppointmentLetter($employee->appointment_letter);
+                DB::table('employees')->where('id', $id)->delete();
+            }
             return redirect('employees')->with('success', 'Employee deleted successfully!');
         } catch (\Exception $e) {
             \Log::error('Employee delete error: ' . $e->getMessage());
             return back()->with('error', 'Unable to delete employee.');
+        }
+    }
+
+    public function show($id)
+    {
+        try {
+            $employee = Employee::with('branch', 'departmentRecord')->find($id);
+
+            if (!$employee) {
+                return redirect('employees')->with('error', 'Employee not found.');
+            }
+
+            return view('employees.show', compact('employee'));
+        } catch (\Exception $e) {
+            \Log::error('Employee show error: ' . $e->getMessage());
+            return back()->with('error', 'Unable to load employee details.');
         }
     }
 
@@ -270,5 +307,34 @@ class EmployeeController extends Controller
         }
 
         return $rows;
+    }
+
+    private function storeAppointmentLetter(?UploadedFile $file): ?string
+    {
+        if (!$file) {
+            return null;
+        }
+
+        $directory = public_path('upload/appointment_letters');
+        if (!File::exists($directory)) {
+            File::makeDirectory($directory, 0755, true);
+        }
+
+        $filename = now()->format('YmdHis') . '_' . Str::uuid()->toString() . '.' . $file->getClientOriginalExtension();
+        $file->move($directory, $filename);
+
+        return 'upload/appointment_letters/' . $filename;
+    }
+
+    private function deleteAppointmentLetter(?string $path): void
+    {
+        if (!$path) {
+            return;
+        }
+
+        $fullPath = public_path($path);
+        if (File::exists($fullPath)) {
+            File::delete($fullPath);
+        }
     }
 }

@@ -28,7 +28,7 @@
                     </div>
                 @endif
 
-                <form action="{{ url('/employees') }}" method="POST" class="row g-4">
+                <form action="{{ url('/employees') }}" method="POST" class="row g-4" enctype="multipart/form-data">
                     @csrf
 
 
@@ -253,6 +253,13 @@
                     <div class="col-md-6">
                         <label for="joining_date" class="form-label fw-semibold">Joining Date</label>
                         <input type="date" class="form-control form-control-lg" id="joining_date" name="joining_date" value="{{ old('joining_date') }}" required>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label for="appointment_letter" class="form-label fw-semibold">Appointment Letter</label>
+                        <input type="file" class="form-control form-control-lg" id="appointment_letter" name="appointment_letter" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx">
+                        <small class="text-muted">Allowed: PDF, JPG, PNG, DOC, DOCX</small>
+                        @error('appointment_letter')<small class="text-danger d-block">{{ $message }}</small>@enderror
                     </div>
 
                     {{-- Buttons --}}

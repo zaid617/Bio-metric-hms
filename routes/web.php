@@ -601,6 +601,10 @@ Route::middleware(['auth:web', 'role:admin|super-admin|manager|receptionist|view
                 ->middleware('check_user_permission:employees.view')
                 ->name('employees.index');
 
+            Route::get('/{id}', [EmployeeController::class, 'show'])
+                ->middleware('check_user_permission:employees.view')
+                ->name('employees.show');
+
             Route::get('/create', [EmployeeController::class, 'create'])
                 ->middleware('check_user_permission:employees.create')
                 ->name('employees.create');
