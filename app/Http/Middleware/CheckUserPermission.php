@@ -15,6 +15,11 @@ class CheckUserPermission
             abort(403, 'User not authenticated.');
         }
 
+        // CEO (admin) has all permissions — skip further checks
+        if (user_is_admin_like($user)) {
+            return $next($request);
+        }
+
         // Explicitly denied permissions block access even if role grants them
         if ($user->deniedPermissions()->where('name', $permission)->exists()) {
             abort(403, 'Access denied.');

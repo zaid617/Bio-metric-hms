@@ -265,7 +265,17 @@ class EmployeeController extends Controller
                 return redirect('employees')->with('error', 'Employee not found.');
             }
 
-            return view('employees.show', compact('employee'));
+            $salaryIncrements = $employee->salaryIncrements()
+                ->with('creator')
+                ->paginate(10, ['*'], 'increment_page');
+
+            $user = auth()->user();
+            $canManageSalary = $user && (
+                user_is_admin_like($user) ||
+                $user->hasPermissionTo('employees.salary.manage')
+            );
+
+            return view('employees.show', compact('employee', 'salaryIncrements', 'canManageSalary'));
         } catch (\Exception $e) {
             \Log::error('Employee show error: ' . $e->getMessage());
             return back()->with('error', 'Unable to load employee details.');

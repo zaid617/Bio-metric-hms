@@ -109,6 +109,14 @@ class PayrollService
             $periodEnd
         );
 
+        // Apply the salary components that were effective at the start of this pay period.
+        // This ensures regenerated payslips remain historically accurate when salary has
+        // since changed. applySnapshot() mutates in-memory only — the employee row is not saved.
+        $historicalSnapshot = $employee->salaryAsOf($periodStart);
+        if ($historicalSnapshot !== null) {
+            $employee->applySnapshot($historicalSnapshot);
+        }
+
         $result = $this->calculator->calculate(
             $employee,
             $periodStart,

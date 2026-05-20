@@ -33,6 +33,7 @@ use App\Http\Controllers\ExpenseTypeController;
 use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\RolePermissionController;
+use App\Http\Controllers\Employee\SalaryIncrementController;
 use App\Http\Controllers\Payroll\PayrollAdjustmentController;
 use App\Http\Controllers\Payroll\PayrollSettingController;
 
@@ -625,6 +626,20 @@ Route::middleware(['auth:web', 'role:admin|super-admin|manager|receptionist|view
                 ->middleware('check_user_permission:employees.delete')
                 ->name('employees.destroy');
         });
+
+        // ── Salary Increments (nested under employees) ─────────────────────
+        Route::prefix('employees/{employee}/salary-increments')
+            ->middleware('check_user_permission:employees.salary.manage')
+            ->group(function () {
+                Route::post('/', [SalaryIncrementController::class, 'store'])
+                    ->name('employees.salary-increments.store');
+
+                Route::put('/{increment}', [SalaryIncrementController::class, 'update'])
+                    ->name('employees.salary-increments.update');
+
+                Route::delete('/{increment}', [SalaryIncrementController::class, 'destroy'])
+                    ->name('employees.salary-increments.destroy');
+            });
 
         // ── Salaries ───────────────────────────────────────────────────────
         Route::prefix('salaries')->group(function () {

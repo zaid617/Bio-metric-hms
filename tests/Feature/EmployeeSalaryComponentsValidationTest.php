@@ -3,14 +3,14 @@
 namespace Tests\Feature;
 
 use App\Http\Requests\Employee\StoreEmployeeRequest;
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Tests\TestCase;
 
 class EmployeeSalaryComponentsValidationTest extends TestCase
 {
-    use RefreshDatabase;
+    use DatabaseTransactions;
 
     private function basePayload(array $overrides = []): array
     {
