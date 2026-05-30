@@ -23,6 +23,18 @@
             background-color: #6c757d;
             color: white;
         }
+        .protocol-badge {
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            vertical-align: middle;
+            margin-left: 4px;
+        }
+        .protocol-tcp  { background-color: #0d6efd; color: white; }
+        .protocol-udp  { background-color: #6610f2; color: white; }
+        .protocol-auto { background-color: #adb5bd; color: white; }
     </style>
 @endpush
 
@@ -95,6 +107,11 @@
                                         <td>
                                             <span class="status-badge status-{{ $device->connection_status }}">
                                                 {{ ucfirst($device->connection_status) }}
+                                            </span>
+                                            @php $proto = $device->protocol ? strtoupper($device->protocol) : 'AUTO'; @endphp
+                                            <span class="protocol-badge protocol-{{ strtolower($proto) }}"
+                                                  title="{{ $device->protocol ? 'Pinned to ' . strtoupper($device->protocol) : 'Auto-detect (TCP → UDP fallback)' }}">
+                                                {{ $proto }}
                                             </span>
                                         </td>
                                         <td data-last-synced-for="{{ $device->id }}">
@@ -269,7 +286,22 @@
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
-                        alert('✓ Connection Successful!\n\nDevice Info:\n' + JSON.stringify(data.device_info, null, 2));
+                        const info = data.device_info || {};
+                        const proto = (info.protocol_used || '').toUpperCase();
+                        const connLine = proto ? `Connected via ${proto}` : 'Connection Successful';
+
+                        const diag = data.diagnostics || {};
+                        const tcpTest = diag.tcp_port_test || {};
+                        const udpTest = diag.udp_port_test || {};
+                        const tcpLine = `TCP port: ${tcpTest.success ? '✓' : '✗'} ${tcpTest.message || ''}`;
+                        const udpLine = `UDP port: ${udpTest.success ? '✓' : '✗'} ${udpTest.message || ''}`;
+
+                        const infoLines = Object.entries(info)
+                            .filter(([k]) => k !== 'protocol_used')
+                            .map(([k, v]) => `  ${k}: ${v}`)
+                            .join('\n');
+
+                        alert(`✓ ${connLine}!\n\nDiagnostics:\n  ${tcpLine}\n  ${udpLine}\n\nDevice Info:\n${infoLines}`);
                     } else {
                         alert('✗ Connection Failed!\n\n' + data.message);
                     }

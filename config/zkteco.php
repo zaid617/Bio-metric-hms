@@ -14,6 +14,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Protocol Configuration
+    |--------------------------------------------------------------------------
+    | default_protocol: 'tcp' or 'udp' — used when a device has no per-device override.
+    | auto_protocol_fallback: when true, a failed TCP attempt retries with UDP (and vice-versa).
+    | default_password: CommKey integer used when a device has no per-device password set.
+    */
+
+    'default_protocol' => env('ZKTECO_DEFAULT_PROTOCOL', 'tcp'),
+    'auto_protocol_fallback' => (bool) env('ZKTECO_AUTO_PROTOCOL_FALLBACK', true),
+    'default_password' => (int) env('ZKTECO_DEFAULT_PASSWORD', 0),
+
+    /*
+    |--------------------------------------------------------------------------
     | Attendance Configuration
     |--------------------------------------------------------------------------
     */

@@ -6,11 +6,11 @@
     "license": "MIT",
     "require": {
         "php": "^8.2",
+        "0mithun/php-zkteco": "*",
         "barryvdh/laravel-dompdf": "^3.1",
         "laravel/framework": "^11.9",
         "laravel/tinker": "^2.9",
         "laravel/ui": "^4.5",
-        "rats/zkteco": "^002.0",
         "simplesoftwareio/simple-qrcode": "^4.2",
         "spatie/laravel-permission": "^6.21"
     },

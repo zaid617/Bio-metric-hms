@@ -62,7 +62,8 @@ class AttendanceDeviceController extends Controller
             'device_serial_number' => 'nullable|string|max:255',
             'ip_address' => 'required|ip',
             'port' => 'required|integer|min:1|max:65535',
-            'password' => 'nullable|string',
+            'protocol' => ['nullable', 'string', 'in:tcp,udp'],
+            'password' => ['nullable', 'integer', 'min:0', 'max:999999'],
             'com_key' => 'nullable|string',
             'sync_interval_minutes' => 'required|integer|min:1|max:60',
         ]);
@@ -71,7 +72,7 @@ class AttendanceDeviceController extends Controller
             $validated['branch_id'] = user_branch_id();
         }
 
-        $validated['password'] = $validated['password'] ?? '0';
+        $validated['password'] = $validated['password'] ?? 0;
         $validated['com_key'] = $validated['com_key'] ?? '0';
         $validated['is_active'] = true;
         $validated['connection_status'] = 'unknown';
@@ -105,7 +106,8 @@ class AttendanceDeviceController extends Controller
             'device_serial_number' => 'nullable|string|max:255',
             'ip_address' => 'required|ip',
             'port' => 'required|integer|min:1|max:65535',
-            'password' => 'nullable|string',
+            'protocol' => ['nullable', 'string', 'in:tcp,udp'],
+            'password' => ['nullable', 'integer', 'min:0', 'max:999999'],
             'com_key' => 'nullable|string',
             'sync_interval_minutes' => 'required|integer|min:1|max:60',
             'is_active' => 'boolean',
@@ -115,7 +117,7 @@ class AttendanceDeviceController extends Controller
             $validated['branch_id'] = user_branch_id();
         }
 
-        $validated['password'] = $validated['password'] ?? '0';
+        $validated['password'] = $validated['password'] ?? 0;
         $validated['com_key'] = $validated['com_key'] ?? '0';
 
         $device->update($validated);

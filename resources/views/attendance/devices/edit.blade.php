@@ -78,12 +78,34 @@
                             </div>
                         </div>
 
+                        <div class="mb-3">
+                            <label for="protocol" class="form-label">Connection Protocol</label>
+                            <select name="protocol" id="protocol"
+                                    class="form-select @error('protocol') is-invalid @enderror">
+                                @php $selectedProtocol = old('protocol', $device->protocol) @endphp
+                                <option value="" {{ $selectedProtocol === null || $selectedProtocol === '' ? 'selected' : '' }}>
+                                    Auto-detect (recommended)
+                                </option>
+                                <option value="tcp" {{ $selectedProtocol === 'tcp' ? 'selected' : '' }}>
+                                    TCP (newer devices, 2024+)
+                                </option>
+                                <option value="udp" {{ $selectedProtocol === 'udp' ? 'selected' : '' }}>
+                                    UDP (older devices)
+                                </option>
+                            </select>
+                            <small class="text-muted">Auto-detect tries TCP first, then falls back to UDP. Pin to one protocol only if you know which the device uses, to skip the fallback attempt.</small>
+                            @error('protocol')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                            @enderror
+                        </div>
+
                         <div class="row">
                             <div class="col-md-6 mb-3">
-                                <label for="password" class="form-label">Device Password</label>
-                                <input type="text" name="password" id="password"
+                                <label for="password" class="form-label">CommKey / Device Password</label>
+                                <input type="number" name="password" id="password"
                                        class="form-control @error('password') is-invalid @enderror"
-                                       value="{{ old('password', $device->password) }}">
+                                       value="{{ old('password', $device->password ?? 0) }}" min="0" max="999999" placeholder="0">
+                                <small class="text-muted">Found on the device under Menu &rarr; Comm &rarr; Security &rarr; Comm Key. Leave as 0 if the device has no CommKey set. Required for most 2024+ ZKTeco firmware.</small>
                                 @error('password')
                                     <div class="invalid-feedback">{{ $message }}</div>
                                 @enderror

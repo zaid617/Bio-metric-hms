@@ -3,7 +3,7 @@
 namespace App\Services\Attendance;
 
 use App\Models\Attendance\AttendanceDevice;
-use Rats\Zkteco\Lib\ZKTeco;
+use Mithun\PhpZkteco\Libs\ZKTeco as ZKTecoLib;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
@@ -11,8 +11,9 @@ use Exception;
 
 class ZKTecoService
 {
-    protected $zk;
-    protected $timeout = 30;
+    protected ?ZKTecoLib $zk = null;
+    protected int $timeout = 30;
+    protected string $protocolUsed = 'udp';
 
     public function __construct()
     {
@@ -20,9 +21,6 @@ class ZKTecoService
         $this->configureVendorLogger();
     }
 
-    /**
-     * Configure a writable log file for the vendor package.
-     */
     protected function configureVendorLogger(): void
     {
         if (defined('ZK_LIB_LOG')) {
@@ -48,9 +46,6 @@ class ZKTecoService
         define('ZK_LIB_LOG', $logPath);
     }
 
-    /**
-     * Normalize device user IDs from device payloads for stable matching.
-     */
     protected function normalizeDeviceUserId($value): string
     {
         if ($value === null) {
@@ -61,7 +56,29 @@ class ZKTecoService
     }
 
     /**
-     * Connect to ZKTeco device
+     * Resolve the integer CommKey for a device (falls back to config default).
+     */
+    protected function resolvePassword(AttendanceDevice $device): int
+    {
+        $pw = $device->password;
+
+        if ($pw === null) {
+            return (int) config('zkteco.default_password', 0);
+        }
+
+        return (int) $pw;
+    }
+
+    /**
+     * Create a ZKTecoLib instance for the given protocol, throwing on TCP failure.
+     */
+    protected function makeClient(string $ip, int $port, string $protocol, int $password): ZKTecoLib
+    {
+        return new ZKTecoLib($ip, $port, false, $this->timeout, $password, $protocol);
+    }
+
+    /**
+     * Connect to ZKTeco device, honouring per-device protocol override or auto-falling back TCP→UDP.
      */
     public function connect(AttendanceDevice $device): bool
     {
@@ -70,48 +87,65 @@ class ZKTecoService
                 throw new \RuntimeException('PHP sockets extension is not enabled. Enable php-sockets on the server.');
             }
 
-            $this->zk = new ZKTeco($device->ip_address, $device->port);
+            $ip       = $device->ip_address;
+            $port     = (int) $device->port;
+            $password = $this->resolvePassword($device);
+            $override = $device->protocol ? strtolower($device->protocol) : null;
 
-            // Override package default socket timeout so environment config is honored.
-            if (isset($this->zk->_zkclient)) {
-                $socketTimeout = ['sec' => $this->timeout, 'usec' => 0];
-                @socket_set_option($this->zk->_zkclient, SOL_SOCKET, SO_RCVTIMEO, $socketTimeout);
-                @socket_set_option($this->zk->_zkclient, SOL_SOCKET, SO_SNDTIMEO, $socketTimeout);
+            Log::info("Attempting to connect to device: {$device->device_name} ({$ip}:{$port})");
+
+            if ($override !== null) {
+                // Device has a pinned protocol — use it directly.
+                $this->zk            = $this->makeClient($ip, $port, $override, $password);
+                $this->protocolUsed  = $override;
+            } else {
+                // Auto-detect: try TCP first, fall back to UDP.
+                $defaultProtocol = strtolower((string) config('zkteco.default_protocol', 'tcp'));
+                $fallback        = ($defaultProtocol === 'tcp') ? 'udp' : 'tcp';
+                $autoFallback    = (bool) config('zkteco.auto_protocol_fallback', true);
+
+                try {
+                    $this->zk           = $this->makeClient($ip, $port, $defaultProtocol, $password);
+                    $this->protocolUsed = $defaultProtocol;
+                } catch (Exception $e) {
+                    if (!$autoFallback) {
+                        throw $e;
+                    }
+
+                    Log::info("TCP connection failed for {$device->device_name}, falling back to {$fallback}: " . $e->getMessage());
+                    $this->zk           = $this->makeClient($ip, $port, $fallback, $password);
+                    $this->protocolUsed = $fallback;
+                }
             }
-
-            Log::info("Attempting to connect to device: {$device->device_name} ({$device->ip_address}:{$device->port})");
 
             $connected = $this->zk->connect();
 
             if ($connected) {
-                Log::info("Successfully connected to device: {$device->device_name}");
+                Log::info("Successfully connected to device: {$device->device_name} (protocol: {$this->protocolUsed})");
 
-                // Update device connection status
-                $device->update([
-                    'connection_status' => 'online',
-                ]);
+                $device->update(['connection_status' => 'online']);
 
                 return true;
             }
 
             Log::warning("Failed to connect to device: {$device->device_name}");
             $device->update(['connection_status' => 'offline']);
+            $this->zk = null;
 
             return false;
         } catch (Exception $e) {
             Log::error("Connection error to device {$device->device_name}: " . $e->getMessage());
             $device->update(['connection_status' => 'offline']);
+            $this->zk = null;
             return false;
         } catch (\Throwable $e) {
             Log::error("Connection error to device {$device->device_name}: " . $e->getMessage());
             $device->update(['connection_status' => 'offline']);
+            $this->zk = null;
             return false;
         }
     }
 
-    /**
-     * Disconnect from device
-     */
     public function disconnect(): void
     {
         if ($this->zk) {
@@ -121,11 +155,19 @@ class ZKTecoService
             } catch (Exception $e) {
                 Log::error("Error disconnecting from device: " . $e->getMessage());
             }
+
+            $this->zk = null;
         }
     }
 
     /**
-     * Test connection to device with detailed diagnostics
+     * Test connection to device with detailed diagnostics.
+     *
+     * Response shape (backward-compat):
+     *   device_info.protocol_used       — "tcp" or "udp"
+     *   diagnostics.tcp_port_test       — TCP-specific port test
+     *   diagnostics.udp_port_test       — UDP-specific port test
+     *   diagnostics.port_test           — preserved alias (whichever succeeded, or last failed)
      */
     public function testConnection(AttendanceDevice $device): array
     {
@@ -134,8 +176,8 @@ class ZKTecoService
         try {
             if (!function_exists('socket_create')) {
                 return [
-                    'success' => false,
-                    'message' => 'PHP sockets extension is not enabled on this server. Install/enable php-sockets first.',
+                    'success'     => false,
+                    'message'     => 'PHP sockets extension is not enabled on this server. Install/enable php-sockets first.',
                     'device_info' => null,
                     'diagnostics' => [
                         'runtime' => [
@@ -147,43 +189,51 @@ class ZKTecoService
                 ];
             }
 
-            // Test 1: Check if IP is reachable (ping)
             Log::info("Testing network connectivity to {$device->ip_address}");
             $diagnostics['ping_test'] = $this->testPing($device->ip_address);
 
-            // Test 2: Check if UDP port is accessible
-            Log::info("Testing UDP port {$device->port} accessibility");
-            $diagnostics['port_test'] = $this->testUdpPort($device->ip_address, $device->port);
+            Log::info("Testing TCP port {$device->port} accessibility");
+            $diagnostics['tcp_port_test'] = $this->testTcpPort($device->ip_address, $device->port);
 
-            // Test 3: Attempt device connection
+            Log::info("Testing UDP port {$device->port} accessibility");
+            $diagnostics['udp_port_test'] = $this->testUdpPort($device->ip_address, $device->port);
+
+            // Backward-compat alias — whichever port test succeeded, else the UDP result.
+            $diagnostics['port_test'] = $diagnostics['tcp_port_test']['success']
+                ? $diagnostics['tcp_port_test']
+                : $diagnostics['udp_port_test'];
+
             Log::info("Attempting device connection");
             $connected = $this->connect($device);
 
             if (!$connected) {
-                $errorMessage = 'Failed to connect to device. ';
+                $tcpBlocked = !$diagnostics['tcp_port_test']['success'];
+                $udpBlocked = !$diagnostics['udp_port_test']['success'];
 
                 if (!$diagnostics['ping_test']['success']) {
-                    $errorMessage .= 'Device is not reachable on the network. Check network routing and VPN connection. ';
-                } else if (!$diagnostics['port_test']['success']) {
-                    $errorMessage .= 'UDP port 4370 appears to be blocked. Check firewall settings. ';
+                    $errorMessage = 'Failed to connect to device. Device is not reachable on the network. Check network routing and VPN connection.';
+                } elseif ($tcpBlocked && $udpBlocked) {
+                    $errorMessage = "Failed to connect to device. Both TCP and UDP on port {$device->port} appear to be blocked. Check firewall settings.";
                 } else {
-                    $errorMessage .= 'Device is reachable but not responding. Check device power and configuration. ';
+                    $errorMessage = 'Failed to connect to device. Device is reachable but not responding. Check device power and configuration.';
                 }
 
                 return [
-                    'success' => false,
-                    'message' => $errorMessage,
+                    'success'     => false,
+                    'message'     => $errorMessage,
                     'device_info' => null,
                     'diagnostics' => $diagnostics,
                 ];
             }
 
-            $deviceInfo = $this->getDeviceInfo($device);
+            $deviceInfo                  = $this->getDeviceInfo($device);
+            $deviceInfo['protocol_used'] = $this->protocolUsed;
+
             $this->disconnect();
 
             return [
-                'success' => true,
-                'message' => 'Successfully connected to device!',
+                'success'     => true,
+                'message'     => 'Successfully connected to device!',
                 'device_info' => $deviceInfo,
                 'diagnostics' => $diagnostics,
             ];
@@ -191,21 +241,18 @@ class ZKTecoService
             Log::error("Test connection failed for device {$device->device_name}: " . $e->getMessage());
 
             return [
-                'success' => false,
-                'message' => 'Connection test failed: ' . $e->getMessage(),
+                'success'     => false,
+                'message'     => 'Connection test failed: ' . $e->getMessage(),
                 'device_info' => null,
                 'diagnostics' => $diagnostics,
             ];
         }
     }
 
-    /**
-     * Test if IP is reachable (ping test)
-     */
     private function testPing(string $ip): array
     {
         try {
-            $output = [];
+            $output    = [];
             $returnVar = 0;
 
             exec($this->buildPingCommand($ip) . ' 2>&1', $output, $returnVar);
@@ -229,14 +276,61 @@ class ZKTecoService
             return [
                 'success' => false,
                 'message' => 'Ping test failed: ' . $e->getMessage(),
-                'details' => ''
+                'details' => '',
             ];
         }
     }
 
-    /**
-     * Test if UDP port is accessible
-     */
+    private function testTcpPort(string $ip, int $port): array
+    {
+        try {
+            if (!function_exists('socket_create')) {
+                return [
+                    'success' => false,
+                    'message' => 'PHP sockets extension is not enabled',
+                    'details' => 'socket_create() is unavailable on this server.',
+                ];
+            }
+
+            $timeout = min($this->timeout, 10);
+            $socket  = @socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
+
+            if (!$socket) {
+                return [
+                    'success' => false,
+                    'message' => 'Failed to create TCP socket',
+                    'details' => socket_strerror(socket_last_error()),
+                ];
+            }
+
+            socket_set_option($socket, SOL_SOCKET, SO_RCVTIMEO, ['sec' => $timeout, 'usec' => 0]);
+            socket_set_option($socket, SOL_SOCKET, SO_SNDTIMEO, ['sec' => $timeout, 'usec' => 0]);
+
+            $connected = @socket_connect($socket, $ip, $port);
+            socket_close($socket);
+
+            if ($connected) {
+                return [
+                    'success' => true,
+                    'message' => 'TCP port is accessible',
+                    'details' => "Connected to {$ip}:{$port} via TCP",
+                ];
+            }
+
+            return [
+                'success' => false,
+                'message' => 'TCP port is not accessible (may be blocked by firewall)',
+                'details' => socket_strerror(socket_last_error()),
+            ];
+        } catch (Exception $e) {
+            return [
+                'success' => false,
+                'message' => 'TCP port test failed: ' . $e->getMessage(),
+                'details' => '',
+            ];
+        }
+    }
+
     private function testUdpPort(string $ip, int $port): array
     {
         try {
@@ -244,32 +338,29 @@ class ZKTecoService
                 return [
                     'success' => false,
                     'message' => 'PHP sockets extension is not enabled',
-                    'details' => 'socket_create() is unavailable on this server.'
+                    'details' => 'socket_create() is unavailable on this server.',
                 ];
             }
 
-            // Create a UDP socket connection test
             $socket = @socket_create(AF_INET, SOCK_DGRAM, SOL_UDP);
 
             if (!$socket) {
                 return [
                     'success' => false,
                     'message' => 'Failed to create UDP socket',
-                    'details' => socket_strerror(socket_last_error())
+                    'details' => socket_strerror(socket_last_error()),
                 ];
             }
 
-            // Set timeout for socket operations
             $timeout = ['sec' => min($this->timeout, 10), 'usec' => 0];
             socket_set_option($socket, SOL_SOCKET, SO_RCVTIMEO, $timeout);
             socket_set_option($socket, SOL_SOCKET, SO_SNDTIMEO, $timeout);
 
-            // Try to send a test packet
-            $testData = "TEST";
-            $sent = @socket_sendto($socket, $testData, strlen($testData), 0, $ip, $port);
+            $testData = 'TEST';
+            $sent     = @socket_sendto($socket, $testData, strlen($testData), 0, $ip, $port);
 
             if ($sent === false) {
-                $errorCode = socket_last_error($socket);
+                $errorCode    = socket_last_error($socket);
                 $errorMessage = socket_strerror($errorCode);
                 socket_close($socket);
 
@@ -285,21 +376,17 @@ class ZKTecoService
             return [
                 'success' => true,
                 'message' => 'UDP port is accessible (packet sent successfully)',
-                'details' => "Sent {$sent} bytes to {$ip}:{$port}"
+                'details' => "Sent {$sent} bytes to {$ip}:{$port}",
             ];
-
         } catch (Exception $e) {
             return [
                 'success' => false,
                 'message' => 'UDP port test failed: ' . $e->getMessage(),
-                'details' => ''
+                'details' => '',
             ];
         }
     }
 
-    /**
-     * Build OS-appropriate ping command.
-     */
     private function buildPingCommand(string $ip): string
     {
         $escapedIp = escapeshellarg($ip);
@@ -311,9 +398,6 @@ class ZKTecoService
         return "ping -c 1 -W 3 {$escapedIp}";
     }
 
-    /**
-     * Get all users from device
-     */
     public function getUsers(AttendanceDevice $device): Collection
     {
         try {
@@ -321,7 +405,7 @@ class ZKTecoService
                 return collect([]);
             }
 
-            $users = $this->zk->getUser();
+            $users = $this->zk->getUsers();
             $this->disconnect();
 
             $collection = $this->mapDeviceUsers($users);
@@ -336,21 +420,23 @@ class ZKTecoService
         }
     }
 
-    /**
-     * Get users and attendance logs from device in a single connection.
-     */
     public function getUsersAndAttendance(AttendanceDevice $device, ?Carbon $from = null, bool $clearAfterFetch = false): array
     {
         try {
             if (!$this->connect($device)) {
                 return [
                     'users' => collect([]),
-                    'logs' => collect([]),
+                    'logs'  => collect([]),
                 ];
             }
 
-            $users = $this->zk->getUser();
-            $logs = $this->zk->getAttendance();
+            $users = $this->zk->getUsers();
+            $logs  = $this->zk->getAttendances();
+
+            // getAttendances() returns false on unrecoverable corruption — treat as empty.
+            if ($logs === false) {
+                $logs = [];
+            }
 
             if ($clearAfterFetch && !empty($logs)) {
                 try {
@@ -369,14 +455,14 @@ class ZKTecoService
             $this->disconnect();
 
             $userCollection = $this->mapDeviceUsers($users);
-            $logCollection = $this->mapAttendanceLogs($logs, $from);
+            $logCollection  = $this->mapAttendanceLogs($logs, $from);
 
             Log::info("Fetched " . $userCollection->count() . " users from device: {$device->device_name}");
             Log::info("Fetched " . $logCollection->count() . " attendance logs from device: {$device->device_name}");
 
             return [
                 'users' => $userCollection,
-                'logs' => $logCollection,
+                'logs'  => $logCollection,
             ];
         } catch (Exception $e) {
             Log::error("Error fetching users and attendance from device {$device->device_name}: " . $e->getMessage());
@@ -384,40 +470,32 @@ class ZKTecoService
 
             return [
                 'users' => collect([]),
-                'logs' => collect([]),
+                'logs'  => collect([]),
             ];
         }
     }
 
-    /**
-     * Map raw device users into normalized collection entries.
-     */
     protected function mapDeviceUsers($users): Collection
     {
         if (!$users) {
             return collect([]);
         }
 
-        // Convert array to collection and format data
         return collect($users)->map(function ($user) {
-            // Normalize user ID - ensure it's trimmed and consistent
-            $userId = $this->normalizeDeviceUserId($user['userid'] ?? $user['uid'] ?? '');
+            $userId = $this->normalizeDeviceUserId($user['user_id'] ?? $user['uid'] ?? '');
 
             return [
-                'uid' => $user['uid'] ?? null,
+                'uid'              => $user['uid'] ?? null,
                 'user_id_on_device' => $userId,
-                'name' => $user['name'] ?? 'Unknown',
-                'privilege' => $user['role'] ?? 0,
-                'password' => $user['password'] ?? null,
-                'card_number' => $user['cardno'] ?? null,
-                'raw_data' => $user,
+                'name'             => $user['name'] ?? 'Unknown',
+                'privilege'        => $user['role'] ?? 0,
+                'password'         => $user['password'] ?? null,
+                'card_number'      => $user['card_no'] ?? null,
+                'raw_data'         => $user,
             ];
         });
     }
 
-    /**
-     * Get attendance logs from device
-     */
     public function getAttendanceLogs(AttendanceDevice $device, ?Carbon $from = null): Collection
     {
         try {
@@ -425,8 +503,12 @@ class ZKTecoService
                 return collect([]);
             }
 
-            $logs = $this->zk->getAttendance();
+            $logs = $this->zk->getAttendances();
             $this->disconnect();
+
+            if ($logs === false) {
+                $logs = [];
+            }
 
             $collection = $this->mapAttendanceLogs($logs, $from);
 
@@ -440,51 +522,47 @@ class ZKTecoService
         }
     }
 
-    /**
-     * Map raw device attendance logs into normalized collection entries.
-     */
     protected function mapAttendanceLogs($logs, ?Carbon $from = null): Collection
     {
         if (!$logs) {
             return collect([]);
         }
 
-        // Convert to collection and filter by date if provided
         $collection = collect($logs)->map(function ($log) {
-            // Parse timestamp - can be string date or unix timestamp
             $punchTime = null;
-            if (isset($log['timestamp'])) {
+
+            // New library field: 'record_time' (formatted string "Y-m-d H:i:s")
+            $rawTime = $log['record_time'] ?? $log['timestamp'] ?? null;
+
+            if ($rawTime !== null) {
                 try {
-                    if (is_numeric($log['timestamp'])) {
-                        // Unix timestamp
-                        $punchTime = Carbon::createFromTimestamp($log['timestamp']);
+                    if (is_numeric($rawTime)) {
+                        $punchTime = Carbon::createFromTimestamp($rawTime);
                     } else {
-                        // String date
-                        $punchTime = Carbon::parse($log['timestamp']);
+                        $punchTime = Carbon::parse($rawTime);
                     }
                 } catch (Exception $e) {
-                    Log::warning("Failed to parse timestamp: " . $log['timestamp']);
+                    Log::warning("Failed to parse timestamp: " . $rawTime);
                     $punchTime = Carbon::now();
                 }
             } else {
                 $punchTime = Carbon::now();
             }
 
-            // Clean and normalize user ID
-            $userId = $this->normalizeDeviceUserId($log['id'] ?? $log['uid'] ?? '');
+            // New library field: 'user_id' (integer); old was 'id' (string)
+            $userId = $this->normalizeDeviceUserId($log['user_id'] ?? $log['id'] ?? $log['uid'] ?? '');
 
             return [
-                'uid' => $log['uid'] ?? null,
+                'uid'              => $log['uid'] ?? null,
                 'user_id_on_device' => $userId,
-                'punch_time' => $punchTime,
-                'punch_type' => $log['type'] ?? 0,
-                'verify_type' => $log['state'] ?? 0,
-                'work_code' => 0,
-                'raw_data' => $log,
+                'punch_time'       => $punchTime,
+                'punch_type'       => $log['type'] ?? 0,
+                'verify_type'      => $log['state'] ?? 0,
+                'work_code'        => 0,
+                'raw_data'         => $log,
             ];
         });
 
-        // Filter by date if provided
         if ($from) {
             $collection = $collection->filter(function ($log) use ($from) {
                 return $log['punch_time']->greaterThanOrEqualTo($from);
@@ -494,9 +572,6 @@ class ZKTecoService
         return $collection;
     }
 
-    /**
-     * Clear attendance logs from device (use with caution)
-     */
     public function clearAttendanceLogs(AttendanceDevice $device): bool
     {
         try {
@@ -519,9 +594,6 @@ class ZKTecoService
         }
     }
 
-    /**
-     * Get device information
-     */
     public function getDeviceInfo(AttendanceDevice $device): array
     {
         try {
@@ -532,18 +604,18 @@ class ZKTecoService
             }
 
             $serialNumber = $this->zk->serialNumber();
-            $platform = $this->zk->platform();
-            $fmVersion = $this->zk->fmVersion();
-            $version = $this->zk->version();
-            $osVersion = $this->zk->osVersion();
+            $platform     = $this->zk->platform();
+            $fmVersion    = $this->zk->fmVersion();
+            $version      = $this->zk->version();
+            $osVersion    = $this->zk->osVersion();
 
             return [
-                'serial_number' => $serialNumber,
-                'platform' => $platform,
+                'serial_number'    => $serialNumber,
+                'platform'         => $platform,
                 'firmware_version' => $fmVersion,
-                'version' => $version,
-                'os_version' => $osVersion,
-                'device_name' => $this->zk->deviceName() ?? $device->device_name,
+                'version'          => $version,
+                'os_version'       => $osVersion,
+                'device_name'      => $this->zk->deviceName() ?? $device->device_name,
             ];
         } catch (Exception $e) {
             Log::error("Error getting device info from device {$device->device_name}: " . $e->getMessage());
@@ -551,9 +623,6 @@ class ZKTecoService
         }
     }
 
-    /**
-     * Set/Add user to device
-     */
     public function setUser(AttendanceDevice $device, array $userData): bool
     {
         try {
@@ -561,11 +630,11 @@ class ZKTecoService
                 return false;
             }
 
-            $uid = $userData['uid'] ?? null;
-            $userId = $userData['user_id'] ?? $uid;
-            $name = $userData['name'] ?? 'User';
-            $password = $userData['password'] ?? '';
-            $privilege = $userData['privilege'] ?? 0;
+            $uid        = $userData['uid'] ?? null;
+            $userId     = $userData['user_id'] ?? $uid;
+            $name       = $userData['name'] ?? 'User';
+            $password   = $userData['password'] ?? '';
+            $privilege  = $userData['privilege'] ?? 0;
             $cardNumber = $userData['card_number'] ?? 0;
 
             $result = $this->zk->setUser(
@@ -591,9 +660,6 @@ class ZKTecoService
         }
     }
 
-    /**
-     * Enable device
-     */
     public function enableDevice(AttendanceDevice $device): bool
     {
         try {
@@ -612,9 +678,6 @@ class ZKTecoService
         }
     }
 
-    /**
-     * Disable device
-     */
     public function disableDevice(AttendanceDevice $device): bool
     {
         try {

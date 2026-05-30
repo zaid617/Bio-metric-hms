@@ -8,6 +8,10 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+/**
+ * @property string|null $protocol   Per-device protocol override: 'tcp', 'udp', or null (auto-detect).
+ * @property int|null    $password   CommKey / device password (0–999999). Null means use config default.
+ */
 class AttendanceDevice extends Model
 {
     use SoftDeletes;
@@ -18,6 +22,7 @@ class AttendanceDevice extends Model
         'device_serial_number',
         'ip_address',
         'port',
+        'protocol',
         'password',
         'com_key',
         'is_active',
@@ -30,6 +35,7 @@ class AttendanceDevice extends Model
         'is_active' => 'boolean',
         'last_synced_at' => 'datetime',
         'port' => 'integer',
+        'password' => 'integer',
         'sync_interval_minutes' => 'integer',
     ];
 
