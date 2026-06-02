@@ -86,13 +86,14 @@ class AttendanceSyncService
                             $userData['name'] ?? null
                         );
 
-                        if ($matched) {
-                            if (!$this->canLinkEmployeeToDeviceUser($matched, $device, $deviceUserId)) {
-                                $recordsSkipped++;
-                                Log::warning("Skipped conflicting mapping for employee {$matched->id} and device user {$deviceUserId} on device {$device->device_name}");
-                                continue;
-                            }
+                        if ($matched && !$this->canLinkEmployeeToDeviceUser($matched, $device, $deviceUserId)) {
+                            // Cannot re-link this employee (already assigned to another device
+                            // in this branch). Fall through to create a new employee instead.
+                            Log::info("Cannot re-link employee {$matched->id} to device user {$deviceUserId} on device {$device->device_name}; creating new employee.");
+                            $matched = null;
+                        }
 
+                        if ($matched) {
                             // Link existing employee to this device
                             $matched->update([
                                 'device_id' => $device->id,
@@ -687,27 +688,59 @@ class AttendanceSyncService
     }
 
     /**
+     * Return the IDs of all devices belonging to a given branch (cached per request).
+     */
+    protected function deviceIdsForBranch(int $branchId): \Illuminate\Support\Collection
+    {
+        static $cache = [];
+
+        if (!isset($cache[$branchId])) {
+            $cache[$branchId] = AttendanceDevice::where('branch_id', $branchId)->pluck('id');
+        }
+
+        return $cache[$branchId];
+    }
+
+    /**
      * Find a safe match for a device user from existing employees.
+     *
+     * Strategy 1 — employee_id: match by primary key, same branch only.
+     *   Prevents cross-branch linking when two devices happen to share the same numeric user ID.
+     *
+     * Strategy 2 — name_exact: exact name in same branch.
+     *   Also matches employees whose current device belongs to a DIFFERENT branch
+     *   (handles employees who transferred branches — their device_id still points to old branch's device).
      */
     protected function findSafeEmployeeMatchForDeviceUser(AttendanceDevice $device, string $deviceUserId, ?string $deviceUserName = null): ?Employee
     {
         $strategies = (array) config('zkteco.mapping_strategies', ['employee_id']);
 
         // Strategy 1: Match by employee primary key if device user ID is numeric.
+        // Must be in the same branch — different branches run independent device user numbering.
         if (in_array('employee_id', $strategies, true) && is_numeric($deviceUserId)) {
-            $employee = Employee::find((int) $deviceUserId);
+            $employee = Employee::where('id', (int) $deviceUserId)
+                ->where('branch_id', $device->branch_id)
+                ->first();
             if ($employee) {
                 return $employee;
             }
         }
 
-        // Strategy 2: Strict exact name match in same branch, only for currently unlinked employees.
+        // Strategy 2: Strict exact name match in same branch.
+        // Matches employees who are:
+        //   (a) completely unlinked, OR
+        //   (b) linked to a device from a different branch (branch transfer — their old link is stale).
+        // Employees correctly linked to another device in the SAME branch are excluded.
         if (in_array('name_exact', $strategies, true) && !empty($deviceUserName)) {
+            $sameBranchDeviceIds = $this->deviceIdsForBranch((int) $device->branch_id);
+
             $candidates = Employee::query()
                 ->where('name', trim($deviceUserName))
                 ->where('branch_id', $device->branch_id)
-                ->whereNull('device_id')
-                ->whereNull('user_id_on_device')
+                ->where(function ($q) use ($sameBranchDeviceIds) {
+                    $q->whereNull('device_id')
+                      ->orWhereNotIn('device_id', $sameBranchDeviceIds);
+                })
                 ->get();
 
             if ($candidates->count() === 1) {
@@ -723,25 +756,43 @@ class AttendanceSyncService
     }
 
     /**
-     * Ensure we don't overwrite an existing device-user mapping.
+     * Ensure we don't overwrite a valid same-branch device-user mapping.
+     *
+     * Re-linking is allowed when the employee's current device belongs to a different branch
+     * (branch-transfer scenario: they moved branches, old device link is now stale).
      */
     protected function canLinkEmployeeToDeviceUser(Employee $employee, AttendanceDevice $device, string $deviceUserId): bool
     {
-        if (
-            $employee->device_id !== null &&
-            $employee->user_id_on_device !== null &&
-            (
-                (int) $employee->device_id !== (int) $device->id ||
-                $this->normalizeDeviceUserId($employee->user_id_on_device) !== $deviceUserId
-            )
-        ) {
-            return false;
-        }
-
-        return !Employee::where('device_id', $device->id)
+        // Another employee on this device already owns this userId — always block.
+        $slotTaken = Employee::where('device_id', $device->id)
             ->where('user_id_on_device', $deviceUserId)
             ->where('id', '!=', $employee->id)
             ->exists();
+
+        if ($slotTaken) {
+            return false;
+        }
+
+        // No existing link — safe to link.
+        if ($employee->device_id === null || $employee->user_id_on_device === null) {
+            return true;
+        }
+
+        // Already linked to this exact device+userId — nothing changes.
+        if ((int) $employee->device_id === (int) $device->id &&
+            $this->normalizeDeviceUserId($employee->user_id_on_device) === $deviceUserId) {
+            return true;
+        }
+
+        // Employee is linked to a device in a DIFFERENT branch — stale link from branch transfer.
+        // Allow re-linking to the current device.
+        $sameBranchDeviceIds = $this->deviceIdsForBranch((int) $device->branch_id);
+        if (!$sameBranchDeviceIds->contains($employee->device_id)) {
+            return true;
+        }
+
+        // Employee is linked to a different device in the SAME branch — do not overwrite.
+        return false;
     }
 
     /**
