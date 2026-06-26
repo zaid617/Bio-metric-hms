@@ -40,7 +40,8 @@
                                class="form-control @error('period_start') is-invalid @enderror"
                                value="{{ old('period_start') ? \Carbon\Carbon::parse(old('period_start'))->format('Y-m') : now()->format('Y-m') }}">
                         @error('period_start')<div class="invalid-feedback">{{ $message }}</div>@enderror
-                        <small class="text-muted">Select the year and month to generate payroll for.</small>
+                        <small class="text-muted">Payroll cycle runs from the <strong>25th</strong> of the selected month to the <strong>24th</strong> of the following month.</small>
+                        <div id="period-preview" class="mt-1 text-primary fw-semibold small"></div>
                     </div>
 
                     <div class="mb-4">
@@ -133,6 +134,28 @@
 
 @push('scripts')
 <script>
+    var MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+    function updatePeriodPreview() {
+        var input = document.getElementById('period_start');
+        var preview = document.getElementById('period-preview');
+        if (!input || !preview || !input.value || input.value.length < 7) {
+            if (preview) preview.textContent = '';
+            return;
+        }
+        var parts = input.value.split('-');
+        var year = parseInt(parts[0], 10);
+        var month = parseInt(parts[1], 10);
+        // JS Date: month is 0-indexed, so (month-1) = selected month, (month) = next month
+        var startDate = new Date(year, month - 1, 25);
+        var endDate   = new Date(year, month,     24);
+        preview.textContent = 'Period: 25 ' + MONTHS[startDate.getMonth()] + ' ' + startDate.getFullYear()
+            + ' – 24 ' + MONTHS[endDate.getMonth()] + ' ' + endDate.getFullYear();
+    }
+
+    document.getElementById('period_start').addEventListener('change', updatePeriodPreview);
+    updatePeriodPreview();
+
     // Convert YYYY-MM (month input) to YYYY-MM-01 before submitting so Laravel's
     // 'date' validation rule accepts it.
     document.querySelector('form').addEventListener('submit', function () {

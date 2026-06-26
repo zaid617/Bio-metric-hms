@@ -163,7 +163,11 @@
                                 </td>
                                 <td class="small">{{ $payroll->branch->name ?? '-' }}</td>
                                 <td class="small">
-                                    {{ str_pad($payroll->month, 2, '0', STR_PAD_LEFT) }}/{{ $payroll->year }}
+                                    @if($payroll->payroll_period_start && $payroll->payroll_period_end)
+                                        {{ $payroll->payroll_period_start->format('d M') }} – {{ $payroll->payroll_period_end->format('d M Y') }}
+                                    @else
+                                        {{ str_pad($payroll->month, 2, '0', STR_PAD_LEFT) }}/{{ $payroll->year }}
+                                    @endif
                                 </td>
                                 <td>PKR {{ number_format((float) ($payroll->basic_salary ?? $payroll->base_salary), 2) }}</td>
                                 <td class="text-success">

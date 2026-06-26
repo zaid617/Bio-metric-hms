@@ -22,8 +22,8 @@ class PayrollService
 
     public function generateMonthlyPayroll(int $month, int $year, ?int $branchId = null, ?int $employeeId = null, bool $force = false, ?User $generatedBy = null): array
     {
-        $periodStart = Carbon::create($year, $month, 1)->startOfMonth();
-        $periodEnd = Carbon::create($year, $month, 1)->endOfMonth();
+        $periodStart = Carbon::create($year, $month, 25);
+        $periodEnd = Carbon::create($year, $month, 25)->addMonth()->subDay();
 
         $employees = $this->repository->getEmployeesForMonth($periodStart, $periodEnd);
 
@@ -74,8 +74,8 @@ class PayrollService
 
     public function regeneratePayroll(AttendancePayroll $payroll, ?User $generatedBy = null): AttendancePayroll
     {
-        $periodStart = Carbon::create($payroll->year, $payroll->month, 1)->startOfMonth();
-        $periodEnd = Carbon::create($payroll->year, $payroll->month, 1)->endOfMonth();
+        $periodStart = Carbon::create($payroll->year, $payroll->month, 25);
+        $periodEnd = Carbon::create($payroll->year, $payroll->month, 25)->addMonth()->subDay();
 
         return DB::transaction(function () use ($payroll, $periodStart, $periodEnd, $generatedBy) {
             return $this->calculateAndPersistPayroll($payroll->employee, $periodStart, $periodEnd, $generatedBy, $payroll);
